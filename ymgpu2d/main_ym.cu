@@ -41,14 +41,14 @@ int main(int argc, char* argv[]) {
               << "  freeze_az1_override=" << freeze_override << "\n"
               << "================================================================\n";
 
-    // Periodic box: Lx=6π, Lz=2π, NX=3*NZ, dx=dz=2π/NZ, dt=0.001*dx
+    // Periodic box: Lx=6π, Lz=2π, NX=3*NZ, dx=dz=2π/NZ, dt=0.01*dx
     const int NZ = 256;
     const int NX = 3 * NZ;
     const fct_real_t LX = (fct_real_t)(6.0 * M_PI);
     const fct_real_t LZ = (fct_real_t)(2.0 * M_PI);
     const fct_real_t DX = LX / NX;           // = 2π/NZ
     const fct_real_t DZ = LZ / NZ;           // = 2π/NZ
-    const fct_real_t DT = 0.001 * DX;
+    const fct_real_t DT = 0.01 * DX;
     const fct_real_t V0 = V0_arg;
     const fct_real_t EPS = LX / (fct_real_t)6.0;  // = π; scale for tanh modes on new grid
 
@@ -148,8 +148,8 @@ int main(int argc, char* argv[]) {
     kernel_ym_precession<<<blocks2d, threads2d>>>(d_sQ1B, d_sQ2B, d_sQ3B, d_fields, d_flB, aYM, NX, NZ);
     cudaDeviceSynchronize();
 
-    // Step mode: DT=0.001*DX≈2.45e-5, so 1 TU≈40816 steps.
-    // 2M steps ≈ 49 TU; snapshot every 20k steps ≈ every 0.49 TU → 100 snapshots.
+    // Step mode: DT=0.01*DX≈2.45e-4, so 1 TU≈4082 steps.
+    // 2M steps ≈ 490 TU; snapshot every 20k steps ≈ every 4.9 TU → 100 snapshots.
     const int total_steps   = 2000000;
     const int export_stride = 20000;
     const int energy_stride = 10000;
