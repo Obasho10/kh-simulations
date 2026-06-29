@@ -19,7 +19,20 @@ def load_col(fname, col):
     with open(fname) as f:
         hdr = f.readline().strip().split(',')
         idx = hdr.index(col)
-    d = np.loadtxt(fname, delimiter=',', skiprows=1)
+    try:
+        d = np.loadtxt(fname, delimiter=',', skiprows=1)
+    except ValueError:
+        # Truncated file (NaN/Inf abort mid-write): read only complete rows
+        rows = []
+        with open(fname) as f:
+            f.readline()  # skip header
+            for line in f:
+                parts = line.strip().split(',')
+                if len(parts) == len(hdr):
+                    rows.append([float(p) for p in parts])
+        if len(rows) < NZ * NX // 2:
+            raise ValueError(f"Too few rows in {fname}: {len(rows)}")
+        d = np.array(rows[:NZ * NX])
     return d[:, idx].reshape(NZ, NX)
 
 
