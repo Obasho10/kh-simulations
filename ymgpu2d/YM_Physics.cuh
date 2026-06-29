@@ -38,6 +38,7 @@ struct YMParams {
     fct_real_t xi_sponge;    // |ξ| at which sponge begins (0 = disabled)
     fct_real_t sigma_sponge; // sponge damping rate (TU⁻¹ per unit ξ beyond xi_sponge)
     int suppress_kz0;        // subtract z-mean of color-2/3 fields each step to kill kz=0 Weibel mode
+    fct_real_t hyp_diff_coeff; // 4th-order z-hyperdiffusion coefficient (0=off); use ~5e-5 to kill kz>=74
 };
 
 // =====================================================================
@@ -65,6 +66,11 @@ __global__ void kernel_ym_sponge(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB
 // Kills the kz=0 Weibel-like eigenmode so kz>=1 KH modes can grow freely.
 __global__ void kernel_ym_subtract_zmean(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
                                           int nx, int nz);
+
+// 4th-order z-hyperdiffusion: kills near-Nyquist (kz≈110) numerical instability.
+// Launch: standard blocks2d/threads2d.  mu = hyp_diff_coeff (dimensionless per step).
+__global__ void kernel_ym_hyperdiffuse_z(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
+                                          int nx, int nz, fct_real_t mu);
 
 // =====================================================================
 // INLINE SU(2) CROSS-PRODUCT HELPERS  (ε^{abc}: 123=231=312=+1, rest=-1)
