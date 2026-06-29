@@ -182,6 +182,65 @@ __global__ void kernel_ym_sponge(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB
 }
 
 // =====================================================================
+// KERNEL: kz=0 suppression — subtract z-mean of color-2/3 fields
+//
+// For each x-column, computes the z-average of all 12 color-2/3 fields
+// and subtracts it, zeroing the kz=0 Fourier component.  This prevents
+// the uniform-in-z Weibel-like eigenmode from dominating the run and
+// allows the kz>=1 KH modes to evolve long enough to measure.
+//
+// Launch: kernel<<<NX, NZ, 12*NZ*sizeof(fct_real_t)>>>
+// NZ must be a power of 2 for the tree reduction.
+// =====================================================================
+__global__ void kernel_ym_subtract_zmean(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
+                                          int nx, int nz) {
+    extern __shared__ fct_real_t smem[];
+    int x = blockIdx.x;
+    int z = threadIdx.x;
+    if (x >= nx || z >= nz) return;
+    int idx = IDX(x, z, nx);
+
+    // Load all 12 color-2/3 fields into shared memory slices
+    smem[ 0*nz+z] = f.By2[idx];
+    smem[ 1*nz+z] = f.By3[idx];
+    smem[ 2*nz+z] = f.Ex2[idx];
+    smem[ 3*nz+z] = f.Ex3[idx];
+    smem[ 4*nz+z] = f.Ez2[idx];
+    smem[ 5*nz+z] = f.Ez3[idx];
+    smem[ 6*nz+z] = f.Az2[idx];
+    smem[ 7*nz+z] = f.Az3[idx];
+    smem[ 8*nz+z] = flA.Q2[idx];
+    smem[ 9*nz+z] = flA.Q3[idx];
+    smem[10*nz+z] = flB.Q2[idx];
+    smem[11*nz+z] = flB.Q3[idx];
+    __syncthreads();
+
+    // Parallel tree reduction along z to get the sum for each field
+    for (int stride = nz >> 1; stride > 0; stride >>= 1) {
+        if (z < stride) {
+            #pragma unroll
+            for (int fi = 0; fi < 12; fi++) smem[fi*nz+z] += smem[fi*nz+z+stride];
+        }
+        __syncthreads();
+    }
+    // smem[fi*nz+0] now holds sum over z for field fi at this x-column
+
+    fct_real_t inv_nz = 1.0f / (fct_real_t)nz;
+    f.By2[idx]  -= smem[ 0*nz] * inv_nz;
+    f.By3[idx]  -= smem[ 1*nz] * inv_nz;
+    f.Ex2[idx]  -= smem[ 2*nz] * inv_nz;
+    f.Ex3[idx]  -= smem[ 3*nz] * inv_nz;
+    f.Ez2[idx]  -= smem[ 4*nz] * inv_nz;
+    f.Ez3[idx]  -= smem[ 5*nz] * inv_nz;
+    f.Az2[idx]  -= smem[ 6*nz] * inv_nz;
+    f.Az3[idx]  -= smem[ 7*nz] * inv_nz;
+    flA.Q2[idx] -= smem[ 8*nz] * inv_nz;
+    flA.Q3[idx] -= smem[ 9*nz] * inv_nz;
+    flB.Q2[idx] -= smem[10*nz] * inv_nz;
+    flB.Q3[idx] -= smem[11*nz] * inv_nz;
+}
+
+// =====================================================================
 // KERNEL: Vector potential update  ∂Az^a/∂t = -Ez^a
 // =====================================================================
 __global__ void kernel_ym_potential(YMFieldPtrs f, YMParams p, int nx, int nz) {

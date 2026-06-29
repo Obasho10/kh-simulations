@@ -26,6 +26,8 @@ int main(int argc, char* argv[]) {
     fct_real_t sigma_sponge = (argc > 7) ? std::atof(argv[7]) : 5.0;
     // freeze_az1 override: -1=use run_mode default, 0=off, 1=on
     int freeze_override     = (argc > 8) ? std::atoi(argv[8]) : -1;
+    // suppress_kz0: subtract z-mean of color-2/3 fields each step (1=on, 0=off)
+    int suppress_kz0        = (argc > 9) ? std::atoi(argv[9]) : 0;
     const char* mode_names[] = {"NAB_LINEAR", "NAB_CIRC", "EMHD_KH", "NAB_DTANH", "NAB_STEP"};
     const char* mode_tag     = (run_mode == 1) ? "_circ"
                              : (run_mode == 2) ? "_emhd"
@@ -38,7 +40,8 @@ int main(int argc, char* argv[]) {
               << "  perturb_amp=" << p_amp << "  V0=" << V0_arg
               << "  mode=" << mode_names[run_mode < 5 ? run_mode : 0] << "\n"
               << " xi_sponge=" << xi_sponge << "  sigma_sponge=" << sigma_sponge
-              << "  freeze_az1_override=" << freeze_override << "\n"
+              << "  freeze_az1_override=" << freeze_override
+              << "  suppress_kz0=" << suppress_kz0 << "\n"
               << "================================================================\n";
 
     // Periodic box: Lx=6π, Lz=2π, NX=3*NZ, dx=dz=2π/NZ, dt=0.01*dx
@@ -68,6 +71,7 @@ int main(int argc, char* argv[]) {
     params.periodic_x = (run_mode >= 1) ? 1 : 0;
     params.xi_sponge    = xi_sponge;
     params.sigma_sponge = sigma_sponge;
+    params.suppress_kz0 = suppress_kz0;
 
     // ── Allocate device memory ──
     YMFieldPtrs d_fields;
@@ -123,6 +127,8 @@ int main(int argc, char* argv[]) {
         dir_ss << "_sp" << std::setprecision(1) << xi_sponge;
     if (params.freeze_az1 && run_mode == 0)
         dir_ss << "_frz";  // only tag when freeze is non-default for this run_mode
+    if (suppress_kz0)
+        dir_ss << "_nkz0";
     std::string out_dir = dir_ss.str();
     fs::create_directories(out_dir);
     for (auto& e : fs::directory_iterator(out_dir)) {
@@ -254,6 +260,13 @@ int main(int argc, char* argv[]) {
         //     This prevents the outer non-Abelian coupling from masking the inner WKB mode.
         if (params.xi_sponge > 0.0)
             kernel_ym_sponge<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB, NX, NZ, params);
+
+        // 6c. kz=0 suppression: subtract z-mean of color-2/3 fields to kill uniform Weibel mode.
+        //     Sources are recomputed in step 7 from the cleaned state.
+        if (params.suppress_kz0) {
+            size_t smem_sz = 12 * NZ * sizeof(fct_real_t);
+            kernel_ym_subtract_zmean<<<NX, NZ, smem_sz>>>(d_fields, d_flA, d_flB, NX, NZ);
+        }
 
         // 7. Update sources for next FCT step
         kernel_ym_lorentz<<<blocks2d, threads2d>>>(d_srcA, d_fields, d_flA, NX, NZ, params.periodic_x);

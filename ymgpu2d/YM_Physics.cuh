@@ -37,6 +37,7 @@ struct YMParams {
     int periodic_x;          // use periodic wrapping in x (instead of wall) for EM kernels
     fct_real_t xi_sponge;    // |ξ| at which sponge begins (0 = disabled)
     fct_real_t sigma_sponge; // sponge damping rate (TU⁻¹ per unit ξ beyond xi_sponge)
+    int suppress_kz0;        // subtract z-mean of color-2/3 fields each step to kill kz=0 Weibel mode
 };
 
 // =====================================================================
@@ -58,6 +59,12 @@ __global__ void kernel_ym_potential(YMFieldPtrs f, YMParams p, int nx, int nz);
 // the inner WKB mode.  Does NOT touch color-1 (equilibrium sector).
 __global__ void kernel_ym_sponge(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
                                   int nx, int nz, YMParams p);
+
+// kz=0 suppression: subtract z-mean of all color-2/3 fields each step.
+// Launch: <<<NX, NZ, 12*NZ*sizeof(fct_real_t)>>>  (one block per x-column)
+// Kills the kz=0 Weibel-like eigenmode so kz>=1 KH modes can grow freely.
+__global__ void kernel_ym_subtract_zmean(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
+                                          int nx, int nz);
 
 // =====================================================================
 // INLINE SU(2) CROSS-PRODUCT HELPERS  (ε^{abc}: 123=231=312=+1, rest=-1)
