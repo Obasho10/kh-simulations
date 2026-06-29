@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
     fct_real_t aYM    = (argc > 2) ? std::atof(argv[2]) : 0.1;
     fct_real_t p_amp  = (argc > 3) ? std::atof(argv[3]) : 0.05;
     // run_mode: 0=NAB_LINEAR, 1=NAB_CIRC, 2=EMHD_KH, 3=NAB_DTANH, 4=NAB_STEP
-    int run_mode      = (argc > 4) ? std::atoi(argv[4]) : 4;
+    int run_mode      = (argc > 4) ? std::atoi(argv[4]) : 3;
     // V0: shear velocity
     fct_real_t V0_arg = (argc > 5) ? std::atof(argv[5]) : 0.1;
     // xi_sponge: |ξ| at which absorbing sponge begins on color-2/3 fields (0=disabled)
