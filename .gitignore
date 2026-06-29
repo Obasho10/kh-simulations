@@ -1,0 +1,30 @@
+# Project-local files not for version control
+CLAUDE.md
+4518_1_online.pdf
+emhd_original_fortran/
+
+# Compiled binaries
+ym_coupled
+emhd_coupled
+*.o
+*.a
+
+# Simulation output directories and data
+ym_k*/
+emhd_k*/
+*.csv
+
+# macOS metadata
+.DS_Store
+._*
+**/.DS_Store
+**/._*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor backups
+*~
+\#*\#
