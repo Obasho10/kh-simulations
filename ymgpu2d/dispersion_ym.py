@@ -24,14 +24,14 @@ import argparse
 from scipy.optimize import brentq
 
 # ── Simulation parameters (must match main_ym.cu) ────────────────────
-# Periodic box: Lx=6π, Lz=2π, NX=3*NZ, dx=dz=2π/NZ, dt=0.001*dx
+# Periodic box: Lx=6π, Lz=2π, NX=3*NZ, dx=dz=2π/NZ, dt=0.01*dx
 NZ = 256
 NX = 3 * NZ                       # 768
 LZ = 2.0 * np.pi
 LX = 6.0 * np.pi
 DZ = LZ / NZ                      # = 2π/NZ
 DX = LX / NX                      # = 2π/NZ  (same as DZ)
-DT = 0.001 * DX
+DT = 0.01 * DX                    # 1 TU = 4082 steps; code: DT=0.01*DX
 EXPORT_DT = 20000 * DT            # snapshot every 20000 steps
 V0        = 0.1
 EPSILON   = LX / 6.0              # = π, scale for tanh modes

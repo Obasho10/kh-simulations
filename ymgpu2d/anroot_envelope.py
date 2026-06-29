@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Physical parameters
-alpha = 5.0
-v = 0.1
+alpha = 2.0
+v = 0.01
 
 # kz_cutoff: WKB modes only exist below this (n_max >= 0 condition)
 #   n_max = 0.5 * (sqrt(2)*alpha^2.5 / (v^2 * kz^3) - 1) >= 0
@@ -11,7 +11,7 @@ kz_cutoff = (np.sqrt(2) * alpha**2.5 / v**2) ** (1.0/3.0)
 print(f"alpha={alpha}, v={v}")
 print(f"WKB valid region: kz < kz_cutoff = {kz_cutoff:.3f}")
 
-kz_vals = np.linspace(0.05, min(8, kz_cutoff * 1.05), 2000)
+kz_vals = np.linspace(0.5, min(8, kz_cutoff * 1.05), 2000)
 
 # Max n we'll evaluate numerically; beyond this the polynomial is dominated
 # by the -C*omega term and the cubic root omega ~ C^(1/3)*exp(i*pi/3) suffices.

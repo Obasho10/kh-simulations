@@ -2,15 +2,15 @@
 
 ## Current Code State (2026-06-29)
 
-**Architecture**: Periodic domain, `Lx=6π`, `Lz=2π`, `NX=3*NZ=768`, `NZ=256`, `DX=DZ=2π/NZ≈0.0245`, `DT=0.001*DX≈2.45e-5`. 1 TU ≈ 40816 steps; 2M steps ≈ 49 TU.
+**Architecture**: Periodic domain, `Lx=6π`, `Lz=2π`, `NX=3*NZ=768`, `NZ=256`, `DX=DZ=2π/NZ≈0.0245`, `DT=0.01*DX≈2.45e-4`. 1 TU ≈ 4082 steps; 2M steps ≈ 490 TU (runs halt early from energy threshold at ~50–102 TU depending on α).
 
-**Active mode**: `NAB_STEP` (run_mode=4) — frozen cosine `Az1=−V0·cos(x)` (kx=1, period 2π=Lx/3), two step-function velocity interfaces at x=2π and 4π, seed `By2=perturb_amp·V0·sin(k·z)` uniform in x. `freeze_az1=1` for modes 1,3,4.
+**Active mode**: `NAB_DTANH` (run_mode=3) — frozen double-log-cosh `Az1`, two smooth tanh shear layers at x=Lx/4 and x=3Lx/4, circular seed `By2=seed·sin(k·z)`, `By3=seed·cos(k·z)`. `freeze_az1=1`.
 
 **Energy threshold**: 100× E0 for modes 3/4; 5× for modes 0/1.
 
-**Snapshot columns**: `X,Z,By1,By2,By3,Az2,Az3,PzA,PxA,Q1A,PzB,PxB,Q1B` (Az2,Az3 added vs. old format).
+**Snapshot columns**: `X,Z,By1,By2,By3,Az2,Az3,PzA,PxA,Q1A,PzB,PxB,Q1B`
 
-Binary on server: `/DATA/cm/lcpfct/ymgpu2d/ym_coupled` — rebuild needed after any `.cu`/`.cuh` change.
+Binary on server: `/DATA/cm/lcpfct/ymgpu2d/ym_coupled`
 
 ---
 
@@ -18,13 +18,13 @@ Binary on server: `/DATA/cm/lcpfct/ymgpu2d/ym_coupled` — rebuild needed after 
 
 Campaigns 1–2 used a single-tanh domain (`NX=NZ=256`, `DX=1`, wall BC) with `Az1=−V0·log(cosh(ξ))` (no-eps). That profile grows without bound at large |ξ|, so the outer coupling `α|Az1|` always exceeded the WKB growth rate γ_WKB once the EM wave left the seeded inner region (t≈63-76). The WKB mode was never cleanly observable.
 
-**Fix**: replace log-cosh Az1 with a **bounded periodic cosine** `Az1=−V0·cos(x)`, triple the domain to fit two velocity interfaces plus periodicity (`Lx=6π`), make BC fully periodic, and freeze Az1 as a static background. Max coupling is now `α·V0=0.05` (for α=0.5, V0=0.1), much smaller than any outer blow-up rate.
+**Fix**: bounded periodic domain, frozen Az1 background, periodic BC, `Lx=6π`.
 
 ---
 
-## Archived: Campaign 1 — Non-Az1 Baseline (old architecture)
+## Archived: Campaign 1 — Non-Az1 Baseline
 
-Grid: NX=NZ=256, DX=1, DT=0.002, wall BC. Az1=0. Data in `ym_k*_a0.500_noaz1/`.
+Grid: NX=NZ=256, DX=1, DT=0.002, wall BC. Az1=0.
 
 | k | t_halt | γ_amp |
 |---|--------|-------|
@@ -34,9 +34,9 @@ Grid: NX=NZ=256, DX=1, DT=0.002, wall BC. Az1=0. Data in `ym_k*_a0.500_noaz1/`.
 
 ---
 
-## Archived: Campaign 2 — With Az1, Windowed Seed (old architecture)
+## Archived: Campaign 2 — With Az1, Windowed Seed
 
-Grid: NX=NZ=256, DX=1, DT=0.002, wall BC. `Az1=−V0·log(cosh(ξ))` full domain. Seed windowed to |ξ|<3. Data in `ym_k*_a0.500/`.
+Grid: NX=NZ=256, DX=1, DT=0.002, wall BC. `Az1=−V0·log(cosh(ξ))` full domain.
 
 | k | t_halt | γ_amp (TU⁻¹) | γ_WKB (TU⁻¹) |
 |---|--------|--------------|--------------|
@@ -44,51 +44,88 @@ Grid: NX=NZ=256, DX=1, DT=0.002, wall BC. `Az1=−V0·log(cosh(ξ))` full domain
 | 5 | 68 | 0.192 | 0.110 |
 | 8 | 76 | 0.177 | 0.146 |
 
-**Interpretation**: Outer-region coupling dominated. γ_amp ≈ 0.18/TU across all k (flat, not monotone). Halt ordered k=2 first (inverted from WKB prediction). WKB mode never isolated.
+**Interpretation**: Outer-region coupling dominated. γ_amp ≈ 0.18/TU flat across all k. WKB mode never isolated.
 
 ---
 
-## Campaign 3 — NAB_STEP, Periodic Domain (current)
+## Campaign 3 — NAB_DTANH, α=2.0, k=1..3 (run 2026-06-29)
 
-**Status**: Not yet run. Architecture in place.
+**Setup**: `run_mode=3`, `alpha=2.0`, `perturb_amp=0.001`, `V0=0.1`. k=1,2,3 run; k=4 interrupted.
 
-**Setup**: `run_mode=4`, `alpha=0.5`, `perturb_amp=0.001`, `V0=0.1`. k=1..8 sweep.
+**Result**: All runs halt at t≈49 TU. The seeded kz modes (k=1..3) show NO significant growth.
 
-**Expected behavior**:
-- Max coupling: `α|Az1|max = α·V0 = 0.05/TU` — much smaller than old outer coupling (0.2-0.6/TU)
-- No outer blowup: cosine Az1 is bounded, domain is periodic
-- If WKB instability exists in this geometry, it should grow on a timescale ~1/γ_WKB; with 49 TU available this should be observable
-- The WKB theory (wkb.pdf eq. 33) was derived for a log-cosh potential, so predictions may not directly apply to cosine Az1 — but qualitative behavior (instability exists, grows with k) should still hold
+**Key discovery**: The **kz=0 Weibel-like mode** of By2 and By3 grows from machine-precision noise at:
 
-**Predicted run time**: ~5 min for all 8 k-values in parallel on t126.
+```
+γ(kz=0) = (√(α³/2) · V₀)^(1/3) · sin(π/3)
+```
 
-**Output dirs**: `ym_k<k>_a0.500_step/`
+**Measured (k=1, α=2.0)**: γ = 0.5039 TU⁻¹  
+**WKB prediction (kz=0, n=0)**: γ = 0.5065 TU⁻¹  
+**Match**: 0.5% (excellent)
+
+Growth time series for By2(kz=0) at α=2.0:
+
+| t (TU) | By2(kz=0) RMS |
+|--------|--------------|
+| 0.0 | 5.8e-13 (machine noise) |
+| 4.9 | 1.6e-11 |
+| 9.8 | 1.2e-10 |
+| 14.7 | 1.2e-09 |
+| 19.6 | 1.4e-08 |
+| 24.5 | 1.7e-07 |
+| 29.5 | 2.0e-06 |
+| 34.4 | 2.4e-05 |
+| 39.3 | 2.9e-04 |
+| 44.2 | 3.5e-03 |
+| 49.1 | 4.1e-02 → [HALT] |
+
+This mode is 39× faster than the seeded kz=1 KH mode (γ_KH ≈ 0.013 TU⁻¹ or possibly ≈ 0).  
+It dominates the energy by t≈49 TU and triggers the 100×E0 threshold.
+
+**Seeded kz=1 mode behavior**: By2(kz=1) went from 4.47e-05 to 8.51e-05 (factor 1.9×) in 49 TU. The complex Fourier coefficient had random phase — no clear exponential growth signature. The apparent small increase is consistent with kz=0 cascade contamination at late times. Az2(kz=1) grew monotonically at γ≈0.12 TU⁻¹, driven by the kz=0 mode through non-Abelian coupling, not genuine KH growth.
+
+**WKB comparison for kz≥1**: The polynomial at kz=1, α=2, n=0, v=0.1 predicts γ=0.553 TU⁻¹ — 42× larger than observed. The double-shear geometry (two layers at x=Lx/4 and x=3Lx/4) likely suppresses the KH mode relative to single-layer WKB.
 
 ---
 
-## Fundamental Obstacle (Resolved for Campaign 3)
+## Campaign 4 — NAB_DTANH, α scan k=1 (running 2026-06-29)
 
-Old obstacle: outer-region non-Abelian blowup masked inner WKB mode.
+**Setup**: `run_mode=3`, `k_mode=1`, `alpha` ∈ {0.5, 0.75, 1.0, 1.5}, `perturb_amp=0.001`.
 
-| Approach | Status | Notes |
-|----------|--------|-------|
-| Full-eps Az1 (wall BC) | ✗ Failed | 6/TU edge coupling, 3 TU blowup |
-| No-eps Az1, windowed seed (wall BC) | ✗ Dominant outer | Campaign 2; outer coupling >γ_WKB |
-| Truncated Az1 |ξ|<3 (wall BC) | ✗ No WKB mode | Turning points outside active region |
-| Cosine Az1, periodic BC (step velocity) | → Campaign 3 | Bounded coupling, currently untested |
-| Double-tanh, periodic BC (mode 3) | Untested | Alternative smooth geometry |
-| Smaller α (e.g. 0.1) | Not tried | Reduces coupling but weakens instability |
+**Goal**: Map γ(kz=0) vs α to validate WKB polynomial over a range.
+
+**Expected**: γ(kz=0) = (√(α³/2)·0.1)^(1/3)·sin(π/3):
+- α=0.5: γ=0.253 TU⁻¹ (blow-up at ~102 TU)
+- α=0.75: γ=0.310 TU⁻¹ (blow-up at ~83 TU)
+- α=1.0: γ=0.358 TU⁻¹ (blow-up at ~72 TU)
+- α=1.5: γ=0.439 TU⁻¹ (blow-up at ~59 TU)
+
+**Analysis script**: `measure_kz0_gamma.py`
 
 ---
 
-## Next Steps
+## Known Issues / Unresolved
 
-1. **Run Campaign 3** on t126: k=1..8, α=0.5, mode=4. Check that runs complete without early halt.
+| Issue | Status |
+|-------|--------|
+| kz=0 Weibel mode dominates at α≥0.5 | Identified (Campaign 3). Suppression would require code change (project out kz=0 from fields) or xi_sponge |
+| KH mode at kz≥1 not observable | WKB 42× overestimates; double-shear geometry suppresses mode. Need single-layer geometry or kz=0 suppression |
+| CLAUDE.md had DT typo (0.001×DX → 0.01×DX) | Fixed 2026-06-29 |
+| dispersion_ym.py had same DT typo | Fixed 2026-06-29 |
 
-2. **Measure By2 growth rate** vs k: run `dispersion_ym.py` on `ym_k*_a0.500_step/` dirs. Look for monotone γ(k) trend matching WKB prediction.
+---
 
-3. **If flat/no growth**: the step-function geometry may not support the WKB mode. Try mode 3 (double-tanh) as an alternative smooth background.
+## Physics: The kz=0 Weibel-like instability
 
-4. **If growth observed but wrong trend**: check whether the cosine Az1 WKB turning points exist in the new domain. May need to re-derive quantization condition for cosine potential.
+The WKB polynomial ω⁴ - kz²ω² - Cω - α²vkz = 0 (with C = (2n+1)√(α³/2)v) at kz=0 reduces to:
 
-5. **Vary α**: once growth rate trend is established, sweep α to map the dispersion surface γ(k, α).
+```
+ω⁴ = C·ω  →  ω³ = C  →  ω = C^(1/3)·e^(i·2π/3)
+```
+
+Growing root: `γ = C^(1/3)·sin(π/3) = (√(α³/2)·V₀)^(1/3)·(√3/2)`
+
+This is the n=0 quantization of the color-mixing instability: background Az1 causes color-2,3 fields to mix through non-Abelian Ampere (∂Ex2/∂t term −α·Az1·By3) and Faraday (∂By2/∂t term +α·Az1·Ex3), generating exponentially growing color-2,3 electromagnetic fields that are uniform in z.
+
+The kz=0 WKB match (to 0.5%) confirms the polynomial is correct. The next step is to validate γ(kz=0) vs α and determine whether the KH mode at kz≥1 requires a single-layer geometry to be observable.
