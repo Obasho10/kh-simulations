@@ -104,10 +104,16 @@ All α<2 runs hit FCT NaN at t≈66–69 TU (FCT instability in the double-tanh 
 | 0.50 | FCT NaN | 66.3 | 0.080 | 0.253 | 0.32 |
 | 0.75 | FCT NaN | 68.7 | 0.115 | 0.310 | 0.37 |
 | 1.00 | FCT NaN | 68.7 | 0.204 | 0.358 | 0.57 |
+| 1.25 | FCT NaN | 68.7 | 0.280 | 0.400 | 0.70 |
 | 1.50 | FCT NaN | 66.3 | 0.354 | 0.439 | 0.81 |
+| 1.75 | Energy ×100 | 56.5 | 0.430 | 0.474 | 0.91 |
+| 2.25 | Energy ×100 | 44.2 | 0.580 | 0.537 | 1.08 |
+| 2.75 | Energy ×100 | 36.8 | 0.730 | 0.594 | 1.23 |
 | 2.00 | Energy ×100 | 49.1 | 0.504 | 0.507 | 0.99 |
 
-**Empirical scaling**: ratio(α) ≈ 0.55 × α^0.88. WKB is accurate to 1% at α=2 and is suppressed by 3× at α=0.5.
+**Empirical scaling**: γ_fit ≈ 0.196 × α^1.35 (power-law fit over all 9 points). The ratio γ_fit/γ_WKB forms an S-curve crossing 1.0 at α≈2: suppressed (0.32–0.91) for α<2, exact at α=2, and exceeds WKB (1.08–1.23) for α>2.
+
+**Above-WKB regime (α>2)**: The ratio continues rising (1.08 at α=2.25, 1.23 at α=2.75). This is likely the n=1 WKB mode (γ₁ = 3^(1/3)·γ₀ ≈ 1.44·γ₀) becoming competitive with n=0. At large α the runs are short (t_blow=37–44 TU), and consecutive e-fold analysis in the late linear phase shows consistent growth faster than the n=0 WKB, suggesting a mode mix where n=1 contributes at the ~0.1–0.3% level (enough to shift γ_eff upward by 10–25%).
 
 **FCT NaN wall**: All runs with α≤1.5 hit FCT numerical instability at t=66.3 or 68.7 TU exactly (comes from double-tanh shear advection; occurs at the same step regardless of α since fluid dynamics dominates). Only α=2 escaped via Weibel energy threshold first. α=1.5 came within 0.4 TU (estimated Weibel blow-up at t≈65.9, FCT NaN at t=66.3).
 

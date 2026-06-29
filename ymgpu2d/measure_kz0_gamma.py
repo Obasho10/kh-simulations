@@ -59,13 +59,17 @@ def wkb_gamma_kz0(alpha, v=V0):
 
 
 # ---------------------------------------------------------------------------
-alphas_to_try = [0.5, 0.75, 1.0, 1.5, 2.0]
+alphas_to_try = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.75]
 dir_patterns = {
     0.5:  'ym_k1_a0.500_dtanh',
     0.75: 'ym_k1_a0.750_dtanh',
     1.0:  'ym_k1_a1.000_dtanh',
+    1.25: 'ym_k1_a1.250_dtanh',
     1.5:  'ym_k1_a1.500_dtanh',
+    1.75: 'ym_k1_a1.750_dtanh',
     2.0:  'ym_k1_a2.000_dtanh',
+    2.25: 'ym_k1_a2.250_dtanh',
+    2.75: 'ym_k1_a2.750_dtanh',
 }
 
 results = {}
@@ -123,22 +127,35 @@ if results:
 
     # Right: measured vs WKB gamma
     ax2 = axes[1]
-    alpha_wkb = np.linspace(0.2, 2.5, 200)
+    alpha_wkb = np.linspace(0.2, 3.0, 200)
     g_wkb_curve = [wkb_gamma_kz0(a) for a in alpha_wkb]
     ax2.plot(alpha_wkb, g_wkb_curve, 'k-', lw=1.5, label='WKB: γ=(√(α³/2)·V₀)^(1/3)·sin(π/3)')
 
-    for alpha, (gamma, g_wkb, _, _) in results.items():
-        if not np.isnan(gamma):
-            ax2.plot(alpha, gamma, 'ro', ms=8)
-            ax2.annotate(f'α={alpha}', (alpha, gamma), textcoords='offset points',
-                         xytext=(5, 3), fontsize=8)
+    meas_alphas = [a for a, (g, gw, _, _) in results.items() if not np.isnan(g)]
+    meas_gammas = [g for a, (g, gw, _, _) in results.items() if not np.isnan(g)]
+    ax2.plot(meas_alphas, meas_gammas, 'ro', ms=8, label='Simulation')
+
+    # Power-law fit: gamma_fit = A * alpha^n
+    if len(meas_alphas) >= 3:
+        log_a = np.log(meas_alphas)
+        log_g = np.log(meas_gammas)
+        c = np.polyfit(log_a, log_g, 1)
+        n_exp, log_A = c
+        a_fit_range = np.linspace(min(meas_alphas)*0.9, max(meas_alphas)*1.1, 100)
+        ax2.plot(a_fit_range, np.exp(log_A) * a_fit_range**n_exp, 'r--', lw=1,
+                 label=f'fit: γ∝α^{n_exp:.2f}', alpha=0.7)
+        print(f'\nPower-law fit: gamma_fit ~ {np.exp(log_A):.3f} * alpha^{n_exp:.3f}')
+
+    for alpha, gamma in zip(meas_alphas, meas_gammas):
+        ax2.annotate(f'α={alpha}', (alpha, gamma), textcoords='offset points',
+                     xytext=(5, 3), fontsize=7)
 
     ax2.set_xlabel('α')
     ax2.set_ylabel('γ (TU⁻¹)')
     ax2.set_title('kz=0 growth rate vs α\n(WKB validation)')
-    ax2.legend()
+    ax2.legend(fontsize=8)
     ax2.grid(True, ls=':', alpha=0.4)
-    ax2.set_xlim(0, 2.5)
+    ax2.set_xlim(0, max(meas_alphas)*1.15 if meas_alphas else 3.0)
     ax2.set_ylim(bottom=0)
 
     plt.tight_layout()
