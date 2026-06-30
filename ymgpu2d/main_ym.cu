@@ -31,6 +31,9 @@ int main(int argc, char* argv[]) {
     // hyp_diff_coeff: 4th-order z-hyperdiffusion coefficient — kills kz>=74 numerical instability
     // Use ~5e-5 to suppress kz≈110 while leaving kz=1..8 intact (<0.6% total attenuation)
     fct_real_t hyp_diff     = (argc > 10) ? std::atof(argv[10]) : 0.0;
+    // kz_suppress_max: subtract DFT modes kz=1..N from color-2/3 fields each step (0=off)
+    // Use k_mode-1 to suppress all modes below the target, isolating mid-kz growth.
+    int kz_suppress_max     = (argc > 11) ? std::atoi(argv[11]) : 0;
     const char* mode_names[] = {"NAB_LINEAR", "NAB_CIRC", "EMHD_KH", "NAB_DTANH", "NAB_STEP"};
     const char* mode_tag     = (run_mode == 1) ? "_circ"
                              : (run_mode == 2) ? "_emhd"
@@ -45,7 +48,8 @@ int main(int argc, char* argv[]) {
               << " xi_sponge=" << xi_sponge << "  sigma_sponge=" << sigma_sponge
               << "  freeze_az1_override=" << freeze_override
               << "  suppress_kz0=" << suppress_kz0
-              << "  hyp_diff=" << hyp_diff << "\n"
+              << "  hyp_diff=" << hyp_diff
+              << "  kz_suppress_max=" << kz_suppress_max << "\n"
               << "================================================================\n";
 
     // Periodic box: Lx=6π, Lz=2π, NX=3*NZ, dx=dz=2π/NZ, dt=0.01*dx
@@ -77,6 +81,7 @@ int main(int argc, char* argv[]) {
     params.sigma_sponge = sigma_sponge;
     params.suppress_kz0    = suppress_kz0;
     params.hyp_diff_coeff  = hyp_diff;
+    params.kz_suppress_max = kz_suppress_max;
 
     // ── Allocate device memory ──
     YMFieldPtrs d_fields;
@@ -134,6 +139,8 @@ int main(int argc, char* argv[]) {
         dir_ss << "_frz";  // only tag when freeze is non-default for this run_mode
     if (suppress_kz0)
         dir_ss << "_nkz0";
+    if (kz_suppress_max >= 1)
+        dir_ss << "_nkz1to" << kz_suppress_max;
     if (hyp_diff > 0.0)
         dir_ss << "_hd" << std::scientific << std::setprecision(0) << hyp_diff;
     std::string out_dir = dir_ss.str();
@@ -273,6 +280,14 @@ int main(int argc, char* argv[]) {
         if (params.suppress_kz0) {
             size_t smem_sz = 12 * NZ * sizeof(fct_real_t);
             kernel_ym_subtract_zmean<<<NX, NZ, smem_sz>>>(d_fields, d_flA, d_flB, NX, NZ);
+        }
+
+        // 6c2. Low-kz suppression: subtract DFT modes kz=1..kz_suppress_max to remove
+        //      faster-growing low-kz modes that would mask the target mid-kz KH mode.
+        if (params.kz_suppress_max >= 1) {
+            size_t smem_sz2 = 2 * 12 * NZ * sizeof(fct_real_t);
+            kernel_ym_subtract_lowkz<<<NX, NZ, smem_sz2>>>(d_fields, d_flA, d_flB,
+                                                             NX, NZ, params.kz_suppress_max);
         }
 
         // 6d. z-hyperdiffusion: 4th-order dissipation kills near-Nyquist (kz≈110) numerical

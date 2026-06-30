@@ -290,6 +290,78 @@ __global__ void kernel_ym_subtract_zmean(YMFieldPtrs f, YMFluidPtrs flA, YMFluid
 }
 
 // =====================================================================
+// KERNEL: low-kz suppression — subtract DFT modes kz=1..kz_max from color-2/3 fields
+//
+// For each x-column (one block per x, NZ threads), iterates over each mode m=1..kz_max.
+// Per mode: loads cosine- and sine-weighted field values into shared memory, tree-reduces
+// to get the DFT coefficients, then subtracts the reconstruction from each cell.
+// Since orthogonal modes are processed sequentially on already-modified fields, the result
+// is identical to projecting all modes out simultaneously from the original field.
+//
+// Shared memory layout: [12*NZ cosine-sums | 12*NZ sine-sums]
+// Launch: kernel<<<NX, NZ, 2*12*NZ*sizeof(fct_real_t)>>>
+// =====================================================================
+__global__ void kernel_ym_subtract_lowkz(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
+                                           int nx, int nz, int kz_max) {
+    extern __shared__ fct_real_t smem[];
+    fct_real_t* sc = smem;           // cosine-weighted sums [12*nz]
+    fct_real_t* ss = smem + 12*nz;  // sine-weighted sums   [12*nz]
+
+    int x = blockIdx.x;
+    int z = threadIdx.x;
+    if (x >= nx || z >= nz) return;
+    int idx = IDX(x, z, nx);
+
+    for (int m = 1; m <= kz_max; m++) {
+        float phase = 2.0f * (float)M_PI * m * z / (float)nz;
+        float cz = cosf(phase);
+        float sz = sinf(phase);
+
+        sc[ 0*nz+z] = f.By2[idx]  * cz;  ss[ 0*nz+z] = f.By2[idx]  * sz;
+        sc[ 1*nz+z] = f.By3[idx]  * cz;  ss[ 1*nz+z] = f.By3[idx]  * sz;
+        sc[ 2*nz+z] = f.Ex2[idx]  * cz;  ss[ 2*nz+z] = f.Ex2[idx]  * sz;
+        sc[ 3*nz+z] = f.Ex3[idx]  * cz;  ss[ 3*nz+z] = f.Ex3[idx]  * sz;
+        sc[ 4*nz+z] = f.Ez2[idx]  * cz;  ss[ 4*nz+z] = f.Ez2[idx]  * sz;
+        sc[ 5*nz+z] = f.Ez3[idx]  * cz;  ss[ 5*nz+z] = f.Ez3[idx]  * sz;
+        sc[ 6*nz+z] = f.Az2[idx]  * cz;  ss[ 6*nz+z] = f.Az2[idx]  * sz;
+        sc[ 7*nz+z] = f.Az3[idx]  * cz;  ss[ 7*nz+z] = f.Az3[idx]  * sz;
+        sc[ 8*nz+z] = flA.Q2[idx] * cz;  ss[ 8*nz+z] = flA.Q2[idx] * sz;
+        sc[ 9*nz+z] = flA.Q3[idx] * cz;  ss[ 9*nz+z] = flA.Q3[idx] * sz;
+        sc[10*nz+z] = flB.Q2[idx] * cz;  ss[10*nz+z] = flB.Q2[idx] * sz;
+        sc[11*nz+z] = flB.Q3[idx] * cz;  ss[11*nz+z] = flB.Q3[idx] * sz;
+        __syncthreads();
+
+        for (int stride = nz >> 1; stride > 0; stride >>= 1) {
+            if (z < stride) {
+                #pragma unroll
+                for (int fi = 0; fi < 12; fi++) {
+                    sc[fi*nz+z] += sc[fi*nz+z+stride];
+                    ss[fi*nz+z] += ss[fi*nz+z+stride];
+                }
+            }
+            __syncthreads();
+        }
+
+        // DFT normalisation: 2/NZ for all non-zero modes
+        float inv2 = 2.0f / (float)nz;
+
+        f.By2[idx]  -= (sc[ 0*nz]*cz + ss[ 0*nz]*sz) * inv2;
+        f.By3[idx]  -= (sc[ 1*nz]*cz + ss[ 1*nz]*sz) * inv2;
+        f.Ex2[idx]  -= (sc[ 2*nz]*cz + ss[ 2*nz]*sz) * inv2;
+        f.Ex3[idx]  -= (sc[ 3*nz]*cz + ss[ 3*nz]*sz) * inv2;
+        f.Ez2[idx]  -= (sc[ 4*nz]*cz + ss[ 4*nz]*sz) * inv2;
+        f.Ez3[idx]  -= (sc[ 5*nz]*cz + ss[ 5*nz]*sz) * inv2;
+        f.Az2[idx]  -= (sc[ 6*nz]*cz + ss[ 6*nz]*sz) * inv2;
+        f.Az3[idx]  -= (sc[ 7*nz]*cz + ss[ 7*nz]*sz) * inv2;
+        flA.Q2[idx] -= (sc[ 8*nz]*cz + ss[ 8*nz]*sz) * inv2;
+        flA.Q3[idx] -= (sc[ 9*nz]*cz + ss[ 9*nz]*sz) * inv2;
+        flB.Q2[idx] -= (sc[10*nz]*cz + ss[10*nz]*sz) * inv2;
+        flB.Q3[idx] -= (sc[11*nz]*cz + ss[11*nz]*sz) * inv2;
+        __syncthreads();
+    }
+}
+
+// =====================================================================
 // KERNEL: Vector potential update  ∂Az^a/∂t = -Ez^a
 // =====================================================================
 __global__ void kernel_ym_potential(YMFieldPtrs f, YMParams p, int nx, int nz) {
