@@ -301,8 +301,10 @@ int main(int argc, char* argv[]) {
         // 6c2. Bandpass filter: keep only kz=k_mode in color-2/3 fields.
         //   Low side:  suppress kz=1..kz_suppress_max (below target, slow KH harmonics)
         //   High side: suppress kz=k_mode+1..kz_suppress_hi (kills two-stream at kz~10-14)
+        // Smem: (2*nwarps+2)*NFIELDS*sizeof(float) = (16+2)*12*4 = 864 bytes for NZ=256
         {
-            size_t smem_bp = 2 * 12 * NZ * sizeof(fct_real_t);
+            int nwarps_bp = NZ / 32;
+            size_t smem_bp = (2 * nwarps_bp + 2) * 12 * sizeof(fct_real_t);
             if (params.kz_suppress_max >= 1)
                 kernel_ym_subtract_kz_range<<<NX, NZ, smem_bp>>>(d_fields, d_flA, d_flB,
                                                                     NX, NZ, 1, params.kz_suppress_max);
@@ -310,6 +312,22 @@ int main(int argc, char* argv[]) {
                 kernel_ym_subtract_kz_range<<<NX, NZ, smem_bp>>>(d_fields, d_flA, d_flB,
                                                                     NX, NZ, params.kz_suppress_max + 2,
                                                                     params.kz_suppress_hi);
+        }
+
+        // 6c3. Fluid pz bandpass: suppress pzA and pzB at same off-target kz ranges.
+        //   The color-1 two-stream lives entirely in the fluid momentum — this is the
+        //   mechanism that survived the color-2/3 filter and NaN'd runs at t≈17 TU.
+        // Smem: (2*nwarps+2)*2*sizeof(float) = 144 bytes for NZ=256
+        {
+            int nwarps_pz = NZ / 32;
+            size_t smem_pz = (2 * nwarps_pz + 2) * 2 * sizeof(fct_real_t);
+            if (params.kz_suppress_max >= 1)
+                kernel_fluid_pz_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.pz, d_flB.pz,
+                                                                          NX, NZ, 1, params.kz_suppress_max);
+            if (params.kz_suppress_hi > params.kz_suppress_max + 1)
+                kernel_fluid_pz_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.pz, d_flB.pz,
+                                                                          NX, NZ, params.kz_suppress_max + 2,
+                                                                          params.kz_suppress_hi);
         }
 
         // 6d. z-hyperdiffusion: 4th-order dissipation kills near-Nyquist (kz≈110) numerical

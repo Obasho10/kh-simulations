@@ -301,64 +301,177 @@ __global__ void kernel_ym_subtract_zmean(YMFieldPtrs f, YMFluidPtrs flA, YMFluid
 // Shared memory layout: [12*NZ cosine-sums | 12*NZ sine-sums]
 // Launch: kernel<<<NX, NZ, 2*12*NZ*sizeof(fct_real_t)>>>
 // =====================================================================
+// Optimised DFT-range suppression for 12 color-2/3 fields.
+// Key speedup vs old kernel: load each field from global memory ONCE into
+// registers, accumulate all mode subtractions in registers, write back once.
+// Warp-shuffle replace the shared-memory tree-reduce → only 3 __syncthreads
+// per mode instead of 10, and smem drops from 24 KB to 864 B per block,
+// allowing 32 blocks/SM (vs 2) → full occupancy.
+// Launch: <<<NX, NZ, (2*NZ/32+2)*12*sizeof(fct_real_t)>>>
 __global__ void kernel_ym_subtract_kz_range(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
                                               int nx, int nz, int kz_lo, int kz_hi) {
     extern __shared__ fct_real_t smem[];
-    fct_real_t* sc = smem;           // cosine-weighted sums [12*nz]
-    fct_real_t* ss = smem + 12*nz;  // sine-weighted sums   [12*nz]
+    // smem layout (per block, NFIELDS=12):
+    //   [0..nwarps*12-1]              Am warp partial sums
+    //   [nwarps*12..2*nwarps*12-1]    Bm warp partial sums
+    //   [2*nwarps*12..2*nwarps*12+11] Am final (one per field)
+    //   [2*nwarps*12+12..]            Bm final (one per field)
+    const int NFIELDS = 12;
+    int nwarps = nz / 32;
+    fct_real_t* smem_Aw = smem;
+    fct_real_t* smem_Bw = smem + nwarps * NFIELDS;
+    fct_real_t* smem_A  = smem + 2 * nwarps * NFIELDS;
+    fct_real_t* smem_B  = smem_A + NFIELDS;
 
-    int x = blockIdx.x;
-    int z = threadIdx.x;
+    int x = blockIdx.x, z = threadIdx.x;
     if (x >= nx || z >= nz) return;
     int idx = IDX(x, z, nx);
+    int wid = z / 32, lane = z % 32;
+
+    // Load all 12 fields once into registers
+    fct_real_t v[NFIELDS];
+    v[0]  = f.By2[idx];   v[1]  = f.By3[idx];
+    v[2]  = f.Ex2[idx];   v[3]  = f.Ex3[idx];
+    v[4]  = f.Ez2[idx];   v[5]  = f.Ez3[idx];
+    v[6]  = f.Az2[idx];   v[7]  = f.Az3[idx];
+    v[8]  = flA.Q2[idx];  v[9]  = flA.Q3[idx];
+    v[10] = flB.Q2[idx];  v[11] = flB.Q3[idx];
+
+    // Accumulate total subtraction across all modes in registers
+    fct_real_t delta[NFIELDS];
+    #pragma unroll
+    for (int fi = 0; fi < NFIELDS; fi++) delta[fi] = 0.0f;
 
     for (int m = kz_lo; m <= kz_hi; m++) {
         float phase = 2.0f * (float)M_PI * m * z / (float)nz;
-        float cz = cosf(phase);
-        float sz = sinf(phase);
+        float cz = cosf(phase), sz = sinf(phase);
 
-        sc[ 0*nz+z] = f.By2[idx]  * cz;  ss[ 0*nz+z] = f.By2[idx]  * sz;
-        sc[ 1*nz+z] = f.By3[idx]  * cz;  ss[ 1*nz+z] = f.By3[idx]  * sz;
-        sc[ 2*nz+z] = f.Ex2[idx]  * cz;  ss[ 2*nz+z] = f.Ex2[idx]  * sz;
-        sc[ 3*nz+z] = f.Ex3[idx]  * cz;  ss[ 3*nz+z] = f.Ex3[idx]  * sz;
-        sc[ 4*nz+z] = f.Ez2[idx]  * cz;  ss[ 4*nz+z] = f.Ez2[idx]  * sz;
-        sc[ 5*nz+z] = f.Ez3[idx]  * cz;  ss[ 5*nz+z] = f.Ez3[idx]  * sz;
-        sc[ 6*nz+z] = f.Az2[idx]  * cz;  ss[ 6*nz+z] = f.Az2[idx]  * sz;
-        sc[ 7*nz+z] = f.Az3[idx]  * cz;  ss[ 7*nz+z] = f.Az3[idx]  * sz;
-        sc[ 8*nz+z] = flA.Q2[idx] * cz;  ss[ 8*nz+z] = flA.Q2[idx] * sz;
-        sc[ 9*nz+z] = flA.Q3[idx] * cz;  ss[ 9*nz+z] = flA.Q3[idx] * sz;
-        sc[10*nz+z] = flB.Q2[idx] * cz;  ss[10*nz+z] = flB.Q2[idx] * sz;
-        sc[11*nz+z] = flB.Q3[idx] * cz;  ss[11*nz+z] = flB.Q3[idx] * sz;
-        __syncthreads();
-
-        for (int stride = nz >> 1; stride > 0; stride >>= 1) {
-            if (z < stride) {
-                #pragma unroll
-                for (int fi = 0; fi < 12; fi++) {
-                    sc[fi*nz+z] += sc[fi*nz+z+stride];
-                    ss[fi*nz+z] += ss[fi*nz+z+stride];
-                }
-            }
-            __syncthreads();
+        // Per-thread weighted products
+        fct_real_t ar[NFIELDS], br[NFIELDS];
+        #pragma unroll
+        for (int fi = 0; fi < NFIELDS; fi++) {
+            ar[fi] = v[fi] * cz;
+            br[fi] = v[fi] * sz;
         }
 
-        // DFT normalisation: 2/NZ for all non-zero modes
-        float inv2 = 2.0f / (float)nz;
+        // Warp-level reduce (no __syncthreads needed)
+        #pragma unroll
+        for (int off = 16; off > 0; off >>= 1) {
+            #pragma unroll
+            for (int fi = 0; fi < NFIELDS; fi++) {
+                ar[fi] += __shfl_down_sync(0xffffffff, ar[fi], off);
+                br[fi] += __shfl_down_sync(0xffffffff, br[fi], off);
+            }
+        }
 
-        f.By2[idx]  -= (sc[ 0*nz]*cz + ss[ 0*nz]*sz) * inv2;
-        f.By3[idx]  -= (sc[ 1*nz]*cz + ss[ 1*nz]*sz) * inv2;
-        f.Ex2[idx]  -= (sc[ 2*nz]*cz + ss[ 2*nz]*sz) * inv2;
-        f.Ex3[idx]  -= (sc[ 3*nz]*cz + ss[ 3*nz]*sz) * inv2;
-        f.Ez2[idx]  -= (sc[ 4*nz]*cz + ss[ 4*nz]*sz) * inv2;
-        f.Ez3[idx]  -= (sc[ 5*nz]*cz + ss[ 5*nz]*sz) * inv2;
-        f.Az2[idx]  -= (sc[ 6*nz]*cz + ss[ 6*nz]*sz) * inv2;
-        f.Az3[idx]  -= (sc[ 7*nz]*cz + ss[ 7*nz]*sz) * inv2;
-        flA.Q2[idx] -= (sc[ 8*nz]*cz + ss[ 8*nz]*sz) * inv2;
-        flA.Q3[idx] -= (sc[ 9*nz]*cz + ss[ 9*nz]*sz) * inv2;
-        flB.Q2[idx] -= (sc[10*nz]*cz + ss[10*nz]*sz) * inv2;
-        flB.Q3[idx] -= (sc[11*nz]*cz + ss[11*nz]*sz) * inv2;
+        // Lane 0 of each warp writes warp sums to smem
+        if (lane == 0) {
+            #pragma unroll
+            for (int fi = 0; fi < NFIELDS; fi++) {
+                smem_Aw[wid * NFIELDS + fi] = ar[fi];
+                smem_Bw[wid * NFIELDS + fi] = br[fi];
+            }
+        }
+        __syncthreads();  // sync 1: ensure all warp sums visible
+
+        // First NFIELDS threads combine warp sums → final Am, Bm
+        if (z < NFIELDS) {
+            fct_real_t sc = 0, ss = 0;
+            for (int w = 0; w < nwarps; w++) {
+                sc += smem_Aw[w * NFIELDS + z];
+                ss += smem_Bw[w * NFIELDS + z];
+            }
+            float inv2 = 2.0f / (float)nz;
+            smem_A[z] = sc * inv2;
+            smem_B[z] = ss * inv2;
+        }
+        __syncthreads();  // sync 2: final Am/Bm visible to all
+
+        // Accumulate this mode's subtraction in registers
+        #pragma unroll
+        for (int fi = 0; fi < NFIELDS; fi++)
+            delta[fi] += smem_A[fi] * cz + smem_B[fi] * sz;
+
+        __syncthreads();  // sync 3: protect smem_A/B before next mode overwrites
+    }
+
+    // Write back once (global memory write × 12, not × 12 × 39)
+    f.By2[idx]  = v[0]  - delta[0];
+    f.By3[idx]  = v[1]  - delta[1];
+    f.Ex2[idx]  = v[2]  - delta[2];
+    f.Ex3[idx]  = v[3]  - delta[3];
+    f.Ez2[idx]  = v[4]  - delta[4];
+    f.Ez3[idx]  = v[5]  - delta[5];
+    f.Az2[idx]  = v[6]  - delta[6];
+    f.Az3[idx]  = v[7]  - delta[7];
+    flA.Q2[idx] = v[8]  - delta[8];
+    flA.Q3[idx] = v[9]  - delta[9];
+    flB.Q2[idx] = v[10] - delta[10];
+    flB.Q3[idx] = v[11] - delta[11];
+}
+
+// Optimised DFT-range suppression for fluid pz (2 fields).
+// Same register-caching + warp-shuffle strategy as above.
+// Kills the color-1 two-stream — the mechanism missed by the color-2/3 filter.
+// Launch: <<<NX, NZ, (2*NZ/32+2)*2*sizeof(fct_real_t)>>>
+__global__ void kernel_fluid_pz_subtract_kz_range(fct_real_t* pzA, fct_real_t* pzB,
+                                                    int nx, int nz, int kz_lo, int kz_hi) {
+    extern __shared__ fct_real_t smem[];
+    const int NFIELDS = 2;
+    int nwarps = nz / 32;
+    fct_real_t* smem_Aw = smem;
+    fct_real_t* smem_Bw = smem + nwarps * NFIELDS;
+    fct_real_t* smem_A  = smem + 2 * nwarps * NFIELDS;
+    fct_real_t* smem_B  = smem_A + NFIELDS;
+
+    int x = blockIdx.x, z = threadIdx.x;
+    if (x >= nx || z >= nz) return;
+    int idx = IDX(x, z, nx);
+    int wid = z / 32, lane = z % 32;
+
+    fct_real_t v[NFIELDS] = {pzA[idx], pzB[idx]};
+    fct_real_t delta[NFIELDS] = {0.0f, 0.0f};
+
+    for (int m = kz_lo; m <= kz_hi; m++) {
+        float phase = 2.0f * (float)M_PI * m * z / (float)nz;
+        float cz = cosf(phase), sz = sinf(phase);
+
+        fct_real_t ar[NFIELDS] = {v[0]*cz, v[1]*cz};
+        fct_real_t br[NFIELDS] = {v[0]*sz, v[1]*sz};
+
+        #pragma unroll
+        for (int off = 16; off > 0; off >>= 1) {
+            ar[0] += __shfl_down_sync(0xffffffff, ar[0], off);
+            ar[1] += __shfl_down_sync(0xffffffff, ar[1], off);
+            br[0] += __shfl_down_sync(0xffffffff, br[0], off);
+            br[1] += __shfl_down_sync(0xffffffff, br[1], off);
+        }
+
+        if (lane == 0) {
+            smem_Aw[wid * NFIELDS + 0] = ar[0];  smem_Aw[wid * NFIELDS + 1] = ar[1];
+            smem_Bw[wid * NFIELDS + 0] = br[0];  smem_Bw[wid * NFIELDS + 1] = br[1];
+        }
+        __syncthreads();
+
+        if (z < NFIELDS) {
+            fct_real_t sc = 0, ss = 0;
+            for (int w = 0; w < nwarps; w++) {
+                sc += smem_Aw[w * NFIELDS + z];
+                ss += smem_Bw[w * NFIELDS + z];
+            }
+            float inv2 = 2.0f / (float)nz;
+            smem_A[z] = sc * inv2;
+            smem_B[z] = ss * inv2;
+        }
+        __syncthreads();
+
+        delta[0] += smem_A[0] * cz + smem_B[0] * sz;
+        delta[1] += smem_A[1] * cz + smem_B[1] * sz;
         __syncthreads();
     }
+
+    pzA[idx] = v[0] - delta[0];
+    pzB[idx] = v[1] - delta[1];
 }
 
 // =====================================================================
