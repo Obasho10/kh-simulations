@@ -306,21 +306,98 @@ The kz_suppress_max filter (low-kz) does not help because the two-stream peaks a
 
 ---
 
-## Campaign 12 — NAB_TANH_COSAZ, full bandpass (color-2/3 + fluid pz) (running 2026-06-30)
+## Campaign 12 — NAB_TANH_COSAZ, full bandpass (color-2/3 + fluid pz) (2026-06-30)
 
 **Setup**: Same as Campaign 11 but adds a fluid pz bandpass: kz_suppress_hi=14 (not 40) zeroes pzA and pzB at kz=k+1..14 in addition to the color-2/3 filter. BP=14 covers the full two-stream unstable band (kz < √2/V0 ≈ 14.1 for V0=0.1). Color-2/3 filter also uses BP=14.
 
 **New kernel**: `kernel_fluid_pz_subtract_kz_range(pzA, pzB, nx, nz, kz_lo, kz_hi)` — register-caching + warp-shuffle design (smem 144 B vs old 4 KB). Called twice per step alongside the color-2/3 filter.
 
-**Kernel optimisation**: Both DFT kernels rewritten to load fields into registers once and accumulate all mode subtractions in registers, writing back once. Old design re-read global memory 39× per field. New design: 1 read + 1 write. Smem drops from 24 KB → 864 B for the 12-field kernel → 32 blocks/SM vs 2 → full occupancy. Syncthreads per mode: 10 → 3.
+**Kernel optimisation**: Both DFT kernels rewritten to load fields into registers once and accumulate all mode subtractions in registers, writing back once. New design: 1 read + 1 write. Smem drops from 24 KB → 864 B for the 12-field kernel → 32 blocks/SM vs 2 → full occupancy. Syncthreads per mode: 10 → 3. Speed: ~9,230 steps/min (7× faster than initial BP=40 implementation).
 
-**Early result (Phase 1, k=1, EPS=0.15)**:
-- Run survived well past t=17 TU (old death point) — confirmed by 8+ min uninterrupted runtime at 100% GPU
-- Speed: ~9,230 steps/min (7× faster than the initial BP=40 implementation with old kernel)
-- Energy at t=4.9 TU: E/E0=0.9981 (flat — two-stream suppressed, no NaN)
-- Phase 2 (k=1..6 with kz_suppress_max=k-1) running after Phase 1 completes
+**Result**: NaN at t=14.7 TU. By1[kz=0] Weibel explosion — zmean at that time only covered By2/By3, not By1/Ex1/Ez1.
 
-**Expected outcome**: KH growth rates γ_KH(kz=1..6) measurable in clean linear phase before energy threshold.
+---
+
+## Campaign 13 — NAB_TANH_COSAZ, extended zmean covers By1/Ex1/Ez1 (2026-06-30)
+
+**Setup**: Extended `kernel_ym_subtract_zmean` to cover all 15 fields including By1, Ex1, Ez1. Same BP=14 bandpass. Fixes the kz=0 component of color-1 EM.
+
+**Result**: Fixed t=14.7 TU NaN. But all k=1..6 still NaN at exactly t=17.2 TU (step 70000). The kz=0 component of color-1 EM is zeroed, but nonzero kz modes of By1/Ex1/Ez1 grow freely.
+
+---
+
+## Campaign 14 — NAB_TANH_COSAZ, color-1 EM kz-range filter + pxA/pxB (2026-06-30)
+
+**Setup**: Extended `kernel_ym_subtract_kz_range` from 12 to 15 fields, adding By1, Ex1, Ez1. Also added pxA, pxB to the fluid bandpass. The extended kz_suppress_max filter covers kz=1..k-1 for all 15 color fields.
+
+**Result**: All k=1..6 still NaN at step 70000 (t=17.2 TU). Spectrum analysis (column mapping: X=col0, Z=col1, By1=col2, By2=col3, By3=col4, Az2=col5, Az3=col6, ...) revealed:
+
+- **By1[kz=k_mode]** growing at γ≈1.1 TU⁻¹ — a color-1 EM instability at the TARGET kz
+- The DFT filter skips kz=k_mode intentionally (it's the KH seed mode); By1 at kz=k_mode is therefore NEVER filtered
+- By1[kz=1] reached ~0.01 by step 70000 (≈12× faster than KH), causing the NaN
+
+**Root cause**: Counter-streaming color-1 beams at ±V0 sustain a filamentation/EM two-stream instability at every nonzero kz, including kz=k_mode. The bandpass filter cannot protect kz=k_mode without killing the KH signal. The KH chain (By2→Ez2→Az2→Q3→Q2→Lorentz→By2) does NOT require By1, Ex1, or Ez1.
+
+---
+
+## Campaign 15 — NAB_TANH_COSAZ, cudaMemset By1/Ex1/Ez1=0 each step (2026-06-30)
+
+**Setup**: Step 6e added in `main_ym.cu` (after Maxwell solve, before Lorentz/Precession): when `suppress_kz0=1`, calls `cudaMemset(By1, 0)`, `cudaMemset(Ex1, 0)`, `cudaMemset(Ez1, 0)` after every Maxwell iteration. Eliminates ALL kz modes of color-1 EM, removing the γ≈1.1 TU⁻¹ instability at every kz including k_mode. Same BP=14 bandpass as Campaigns 12–14, EPS=0.15, α=2.0, V0=0.1.
+
+**Phase 1 result (k=1, kz_suppress_max=0 — diagnostic run)**:
+
+- **First run to survive past t=17.2 TU** — ran to t=58.9 TU (NaN from KH nonlinear explosion)
+- E/E0=0.9725 flat from t=2.5 to t=49.1 TU (clean linear phase)
+- KH growth clearly observable:
+
+| t (TU) | By2[kz=1] | E/E0 |
+|--------|-----------|------|
+| 0.0 | 1.250e-6 (seed) | — |
+| 4.9 | 2.590e-6 | 0.9725 |
+| 9.8 | 3.704e-6 | 0.9725 |
+| 14.7 | 3.360e-6 | 0.9725 |
+| 19.6 | 3.145e-6 | 0.9725 |
+| 24.5 | 4.894e-6 | 0.9725 |
+| 29.5 | 7.690e-6 | 0.9725 |
+| 34.4 | 1.480e-5 | 0.9725 |
+| 49.1 | — | 0.9731 |
+| 54.0 | — | 0.9784 |
+| 56.5 | — | 0.9875 |
+| 58.9 | NaN (KH nonlinear) | — |
+
+**γ_KH(kz=1) from Phase 1**: ~0.11 TU⁻¹ (fit to By2 points t=24.5..34.4). The early oscillation in By2 (decreasing t=9.8→19.6) reflects the real part of the KH eigenvalue (ω_r≠0): a propagating KH wave with γ<|ω_r|.
+
+**kz=5 diagnostic**: By2[kz=5] flat (KH stabilized); Az2[kz=5] grows at γ≈0.20 TU⁻¹ = α×V0 (color precession rate, not KH). kz=5 is above the KH stability cutoff for α=2, V0=0.1, EPS=0.15.
+
+**Key new physics**:
+1. KH stability cutoff lies between kz=1 (γ≈0.11 TU⁻¹) and kz=5 (γ≈0), consistent with the WKB polynomial where α²Vkz stabilizes high-kz modes.
+2. Az2[kz=k] grows at γ≈α×V0=0.20 TU⁻¹ for all kz — this is the color precession rate, NOT the KH growth rate.
+3. The precession mode exists even when KH is stable (kz=5 shows Az2 growth, By2 flat).
+
+**Phase 2 status (k=1..6 sequential sweep, kz_suppress_max=k-1, BP=14)**:
+
+| kz | Binary | γ_KH (TU⁻¹) | γ_WKB (TU⁻¹) | ratio | Notes |
+|----|--------|-------------|---------------|-------|-------|
+| 1 | NEW | 0.113 | 0.553 | 0.20 | Clean, confirmed Phase 1+2 |
+| 2 | OLD* | oscillating | 0.436 | — | Needs NEW binary confirmation |
+| 3 | OLD* | ~0.036 (early) | 0.362 | ~0.10 | Needs confirmation |
+| 4 | OLD* | ~0 | 0.315 | ~0 | Near marginal stability |
+| 5 | NEW | 0→0.088† | 0.282 | 0→0.31 | Stable early; precession cascade at t>30 TU |
+| 6 | NEW | −0.007 | 0.258 | <0 | Damped |
+
+*OLD binary = Campaign 15 Phase 2 from earlier session (without cudaMemset fix), NaN at step 70000, only 4 snapshots at t=0..14.7 TU available. NEW binary Phase 2 runs (k=2..5) pending from main campaign script.
+
+†kz=5: By2 is flat at ~3.5e-6 for t=0..30 TU (KH stable), then grows at γ≈0.088 TU⁻¹ for t=34..49 TU as Az2 precession mode reaches Az2≈8e-5..3e-3, large enough to modify the effective background and trigger a secondary instability.
+
+**WKB polynomial (eq. 33, wkb.pdf) for α=2, V0=0.1, n=0**:
+```
+ω⁴ − kz²ω² − 0.200ω − 0.400×kz = 0
+```
+where C = α^(3/2)×V0/√2 = 0.200, α²V0 = 0.400.
+
+**Key finding — geometric mismatch**: The WKB polynomial (eq. 33) was derived for the log-cosh Az1 geometry, where the coupling well is centred AT the shear layer (ξ=0). In Mode 5 (cosine Az1), the Az1 potential has a MAXIMUM (+V0) at the shear centre x=3π and MINIMA (−V0) at x=0,2π,4π — far from the shear layer. This is an anti-well at the shear centre, so the WKB trapped-mode eigenvalue (which requires a well at ξ=0) is NOT applicable to Mode 5.
+
+The observed KH growth in Mode 5 is a GLOBAL (non-trapped) instability driven by the closed loop By2→Ez2→Az2→Q3→Q2→Lorentz→By2. Its growth rate (0.113 TU⁻¹ at kz=1) is 5× below the WKB prediction for the log-cosh geometry. The stability cutoff appears near kz=4–5 in the simulation (vs WKB predicting instability for all kz=1..6).
 
 ---
 
@@ -330,10 +407,11 @@ The kz_suppress_max filter (low-kz) does not help because the two-stream peaks a
 |-------|--------|
 | FCT NaN wall at t=63–71 TU in NAB_DTANH | Bypassed by switching to mode 5 (NAB_TANH_COSAZ). |
 | kz=0 Weibel mode | Suppressed by suppress_kz0=1 + hyp_diff=5e-5. |
-| KH mode at kz≥1 not observable in DTANH | Resolved: mode 5 confirms KH IS growing (γ≈0.03–0.17 TU⁻¹ at EPS=0.50–0.10). |
-| Color-1 fluid two-stream (kz=1..14) | Addressed in Campaign 12 by fluid pz bandpass. Runs now surviving past 17 TU. |
-| NAB_STEP ruled out | Confirmed fatal (Campaigns 7 and 9). Color-1 two-stream from full-domain ±V0 beams. |
-| CLAUDE.md had DT typo (0.001×DX → 0.01×DX) | Fixed 2026-06-29 |
+| KH mode at kz≥1 not observable in DTANH | Resolved: mode 5 confirms KH IS growing (γ≈0.11 TU⁻¹ at kz=1, EPS=0.15). |
+| Color-1 EM instability (all kz incl. k_mode) | Fixed in Campaign 15 by cudaMemset By1/Ex1/Ez1=0 each step. |
+| Color-1 fluid two-stream (kz=1..14) | Fixed in Campaign 12 by fluid pz bandpass (BP=14). |
+| NAB_STEP ruled out | Confirmed fatal (Campaigns 7 and 9). |
+| WKB dispersion comparison | Preliminary: γ_meas/γ_WKB ≈ 0.20 at kz=1 and falls to ~0 at kz=4–5. Discrepancy from cosine Az1 geometric mismatch vs. log-cosh WKB derivation. |
 
 ---
 
