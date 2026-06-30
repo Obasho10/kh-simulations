@@ -300,13 +300,15 @@ int main(int argc, char* argv[]) {
             kernel_ym_subtract_zmean<<<NX, NZ, smem_sz>>>(d_fields, d_flA, d_flB, NX, NZ);
         }
 
-        // 6c2. Bandpass filter: keep only kz=k_mode in color-2/3 fields.
-        //   Low side:  suppress kz=1..kz_suppress_max (below target, slow KH harmonics)
-        //   High side: suppress kz=k_mode+1..kz_suppress_hi (kills two-stream at kz~10-14)
-        // Smem: (2*nwarps+2)*NFIELDS*sizeof(float) = (16+2)*12*4 = 864 bytes for NZ=256
+        // 6c2. Bandpass filter: keep only kz=k_mode in color-1 EM (By1,Ex1,Ez1) + color-2/3.
+        //   Low side:  suppress kz=1..kz_suppress_max (below target)
+        //   High side: suppress kz=k_mode+1..kz_suppress_hi (kills EM instability at kz~7-14)
+        //   Now includes color-1 EM fields — finite-kz EM instability in color-1 sector
+        //   (γ≈0.08-0.1 TU⁻¹ at kz=7-14) triggers NaN at t≈17.2 TU if unfiltered.
+        // Smem: (2*nwarps+2)*15*4 = (16+2)*15*4 = 1080 bytes for NZ=256
         {
             int nwarps_bp = NZ / 32;
-            size_t smem_bp = (2 * nwarps_bp + 2) * 12 * sizeof(fct_real_t);
+            size_t smem_bp = (2 * nwarps_bp + 2) * 15 * sizeof(fct_real_t);
             if (params.kz_suppress_max >= 1)
                 kernel_ym_subtract_kz_range<<<NX, NZ, smem_bp>>>(d_fields, d_flA, d_flB,
                                                                     NX, NZ, 1, params.kz_suppress_max);
@@ -316,22 +318,26 @@ int main(int argc, char* argv[]) {
                                                                     params.kz_suppress_hi);
         }
 
-        // 6c3. Fluid n+pz bandpass: suppress nA, nB, pzA, pzB at the same off-target kz ranges.
-        //   BOTH fields must be filtered together.  Filtering pz alone leaves density free to
-        //   bunch at off-target kz → density voids form → ½pz²/n diverges → NaN at t≈14.7 TU.
-        //   Filtering n+pz together keeps vz=pz/n well-behaved at all kz.
-        // Smem: (2*nwarps+2)*2*sizeof(float) = 144 bytes for NZ=256
+        // 6c3. Fluid n+pz+px bandpass: suppress nA,nB, pzA,pzB, pxA,pxB at same off-target kz.
+        //   n, pz, px all filtered together so vz=pz/n and vx=px/n stay well-behaved.
+        //   pxA/pxB added here to prevent x-momentum two-stream from seeding color-1 EM.
+        // Smem: (2*nwarps+2)*2*4 = 144 bytes for NZ=256
         {
             int nwarps_pz = NZ / 32;
             size_t smem_pz = (2 * nwarps_pz + 2) * 2 * sizeof(fct_real_t);
             if (params.kz_suppress_max >= 1) {
                 kernel_fluid_pz_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.pz, d_flB.pz,
                                                                           NX, NZ, 1, params.kz_suppress_max);
+                kernel_fluid_pz_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.px, d_flB.px,
+                                                                          NX, NZ, 1, params.kz_suppress_max);
                 kernel_fluid_n_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.n, d_flB.n,
                                                                          NX, NZ, 1, params.kz_suppress_max);
             }
             if (params.kz_suppress_hi > params.kz_suppress_max + 1) {
                 kernel_fluid_pz_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.pz, d_flB.pz,
+                                                                          NX, NZ, params.kz_suppress_max + 2,
+                                                                          params.kz_suppress_hi);
+                kernel_fluid_pz_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.px, d_flB.px,
                                                                           NX, NZ, params.kz_suppress_max + 2,
                                                                           params.kz_suppress_hi);
                 kernel_fluid_n_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.n, d_flB.n,

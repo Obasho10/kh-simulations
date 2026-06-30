@@ -75,11 +75,13 @@ __global__ void kernel_ym_subtract_zmean(YMFieldPtrs f, YMFluidPtrs flA, YMFluid
 __global__ void kernel_ym_hyperdiffuse_z(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
                                           int nx, int nz, fct_real_t mu);
 
-// DFT range suppression: subtract Fourier modes kz=kz_lo..kz_hi from color-2/3 fields.
-// Call twice per step to implement a bandpass: once for kz=1..k-1 (below target) and
-// once for kz=k+1..kz_hi (above target, kills two-stream at kz~10-14).
-// Optimised: register-caching (1 global read per field) + warp-shuffle reduce (3 syncs/mode).
-// Launch: kernel<<<NX, NZ, (2*NZ/32+2)*12*sizeof(fct_real_t)>>>  (864 B smem for NZ=256)
+// DFT range suppression: subtract Fourier modes kz=kz_lo..kz_hi from color-1 EM
+// (By1, Ex1, Ez1) + color-2/3 fields.  Az1 frozen — not touched.
+// Kills finite-kz EM instabilities in color-1 sector (γ≈0.08-0.1 TU⁻¹ at kz=7-14)
+// that trigger NaN at t≈17.2 TU independent of the kz=0 Weibel.
+// Call twice per step: kz=1..k-1 (low) and kz=k+1..kz_hi (high, kills two-stream).
+// Optimised: register-caching (1 global read) + warp-shuffle reduce (3 syncs/mode).
+// Launch: kernel<<<NX, NZ, (2*NZ/32+2)*15*sizeof(fct_real_t)>>>  (1080 B for NZ=256)
 __global__ void kernel_ym_subtract_kz_range(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
                                               int nx, int nz, int kz_lo, int kz_hi);
 

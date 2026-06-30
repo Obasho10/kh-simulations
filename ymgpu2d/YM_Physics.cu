@@ -310,22 +310,23 @@ __global__ void kernel_ym_subtract_zmean(YMFieldPtrs f, YMFluidPtrs flA, YMFluid
 // Shared memory layout: [12*NZ cosine-sums | 12*NZ sine-sums]
 // Launch: kernel<<<NX, NZ, 2*12*NZ*sizeof(fct_real_t)>>>
 // =====================================================================
-// Optimised DFT-range suppression for 12 color-2/3 fields.
-// Key speedup vs old kernel: load each field from global memory ONCE into
-// registers, accumulate all mode subtractions in registers, write back once.
-// Warp-shuffle replace the shared-memory tree-reduce → only 3 __syncthreads
-// per mode instead of 10, and smem drops from 24 KB to 864 B per block,
-// allowing 32 blocks/SM (vs 2) → full occupancy.
-// Launch: <<<NX, NZ, (2*NZ/32+2)*12*sizeof(fct_real_t)>>>
+// Optimised DFT-range suppression for 15 color-1 EM + color-2/3 fields.
+// Covers By1/Ex1/Ez1 (color-1 EM at off-target kz) as well as color-2/3.
+// Az1 is frozen — not filtered.  Color-1 filtering prevents the finite-kz
+// EM instability (By1[kz=7..14] growing at γ≈0.08-0.1 TU⁻¹) from triggering
+// NaN at t≈17.2 TU.
+// Register-caching: 1 global read per field; warp-shuffle reduce: 3 syncs/mode.
+// Smem: (2*NZ/32+2)*15*4 = 1080 B for NZ=256 → still 32 blocks/SM on A5000.
+// Launch: <<<NX, NZ, (2*NZ/32+2)*15*sizeof(fct_real_t)>>>
 __global__ void kernel_ym_subtract_kz_range(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
                                               int nx, int nz, int kz_lo, int kz_hi) {
     extern __shared__ fct_real_t smem[];
-    // smem layout (per block, NFIELDS=12):
-    //   [0..nwarps*12-1]              Am warp partial sums
-    //   [nwarps*12..2*nwarps*12-1]    Bm warp partial sums
-    //   [2*nwarps*12..2*nwarps*12+11] Am final (one per field)
-    //   [2*nwarps*12+12..]            Bm final (one per field)
-    const int NFIELDS = 12;
+    // smem layout (per block, NFIELDS=15):
+    //   [0..nwarps*15-1]              Am warp partial sums
+    //   [nwarps*15..2*nwarps*15-1]    Bm warp partial sums
+    //   [2*nwarps*15..2*nwarps*15+14] Am final (one per field)
+    //   [2*nwarps*15+15..]            Bm final (one per field)
+    const int NFIELDS = 15;
     int nwarps = nz / 32;
     fct_real_t* smem_Aw = smem;
     fct_real_t* smem_Bw = smem + nwarps * NFIELDS;
@@ -337,14 +338,17 @@ __global__ void kernel_ym_subtract_kz_range(YMFieldPtrs f, YMFluidPtrs flA, YMFl
     int idx = IDX(x, z, nx);
     int wid = z / 32, lane = z % 32;
 
-    // Load all 12 fields once into registers
+    // Load all 15 fields once into registers
+    // [0-2]: color-1 EM (By1, Ex1, Ez1) — not filtered at kz=0 (frozen Az1 excluded)
+    // [3-14]: color-2/3 EM + color charges
     fct_real_t v[NFIELDS];
-    v[0]  = f.By2[idx];   v[1]  = f.By3[idx];
-    v[2]  = f.Ex2[idx];   v[3]  = f.Ex3[idx];
-    v[4]  = f.Ez2[idx];   v[5]  = f.Ez3[idx];
-    v[6]  = f.Az2[idx];   v[7]  = f.Az3[idx];
-    v[8]  = flA.Q2[idx];  v[9]  = flA.Q3[idx];
-    v[10] = flB.Q2[idx];  v[11] = flB.Q3[idx];
+    v[0]  = f.By1[idx];   v[1]  = f.Ex1[idx];   v[2]  = f.Ez1[idx];
+    v[3]  = f.By2[idx];   v[4]  = f.By3[idx];
+    v[5]  = f.Ex2[idx];   v[6]  = f.Ex3[idx];
+    v[7]  = f.Ez2[idx];   v[8]  = f.Ez3[idx];
+    v[9]  = f.Az2[idx];   v[10] = f.Az3[idx];
+    v[11] = flA.Q2[idx];  v[12] = flA.Q3[idx];
+    v[13] = flB.Q2[idx];  v[14] = flB.Q3[idx];
 
     // Accumulate total subtraction across all modes in registers
     fct_real_t delta[NFIELDS];
@@ -404,19 +408,22 @@ __global__ void kernel_ym_subtract_kz_range(YMFieldPtrs f, YMFluidPtrs flA, YMFl
         __syncthreads();  // sync 3: protect smem_A/B before next mode overwrites
     }
 
-    // Write back once (global memory write × 12, not × 12 × 39)
-    f.By2[idx]  = v[0]  - delta[0];
-    f.By3[idx]  = v[1]  - delta[1];
-    f.Ex2[idx]  = v[2]  - delta[2];
-    f.Ex3[idx]  = v[3]  - delta[3];
-    f.Ez2[idx]  = v[4]  - delta[4];
-    f.Ez3[idx]  = v[5]  - delta[5];
-    f.Az2[idx]  = v[6]  - delta[6];
-    f.Az3[idx]  = v[7]  - delta[7];
-    flA.Q2[idx] = v[8]  - delta[8];
-    flA.Q3[idx] = v[9]  - delta[9];
-    flB.Q2[idx] = v[10] - delta[10];
-    flB.Q3[idx] = v[11] - delta[11];
+    // Write back once (global memory write × 15)
+    f.By1[idx]  = v[0]  - delta[0];
+    f.Ex1[idx]  = v[1]  - delta[1];
+    f.Ez1[idx]  = v[2]  - delta[2];
+    f.By2[idx]  = v[3]  - delta[3];
+    f.By3[idx]  = v[4]  - delta[4];
+    f.Ex2[idx]  = v[5]  - delta[5];
+    f.Ex3[idx]  = v[6]  - delta[6];
+    f.Ez2[idx]  = v[7]  - delta[7];
+    f.Ez3[idx]  = v[8]  - delta[8];
+    f.Az2[idx]  = v[9]  - delta[9];
+    f.Az3[idx]  = v[10] - delta[10];
+    flA.Q2[idx] = v[11] - delta[11];
+    flA.Q3[idx] = v[12] - delta[12];
+    flB.Q2[idx] = v[13] - delta[13];
+    flB.Q3[idx] = v[14] - delta[14];
 }
 
 // Optimised DFT-range suppression for fluid pz (2 fields).
