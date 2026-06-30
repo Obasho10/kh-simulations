@@ -352,6 +352,17 @@ int main(int argc, char* argv[]) {
             kernel_ym_hyperdiffuse_z<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB,
                                                                NX, NZ, params.hyp_diff_coeff);
 
+        // 6e. Zero color-1 EM (By1, Ex1, Ez1) completely each step.
+        //     Campaign 14 analysis: By1[kz=1] grows at γ≈1.1 TU⁻¹ — a color-1 EM instability
+        //     at the target kz that the bandpass filter cannot suppress (it's at kz=k_mode).
+        //     Zeroing all of By1/Ex1/Ez1 kills this instability while preserving the KH chain:
+        //     By2→Ez2→Az2→Q3→Q2→Lorentz→By2 via frozen Az1×color-3 non-Abelian coupling.
+        if (params.suppress_kz0) {
+            CUDA_CHECK(cudaMemset(d_fields.By1, 0, bytes));
+            CUDA_CHECK(cudaMemset(d_fields.Ex1, 0, bytes));
+            CUDA_CHECK(cudaMemset(d_fields.Ez1, 0, bytes));
+        }
+
         // 7. Update sources for next FCT step
         kernel_ym_lorentz<<<blocks2d, threads2d>>>(d_srcA, d_fields, d_flA, NX, NZ, params.periodic_x);
         kernel_ym_lorentz<<<blocks2d, threads2d>>>(d_srcB, d_fields, d_flB, NX, NZ, params.periodic_x);
