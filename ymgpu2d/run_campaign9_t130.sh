@@ -13,7 +13,7 @@
 ALPHA=2.0
 V0=0.1
 AMP=0.001
-MODE=4          # NAB_STEP
+MODE=3          # NAB_DTANH (single-tanh switched to step; NOT NAB_STEP=4 — that has two-stream blowup)
 HYP=5e-5        # hyperdiffusion kills kz>=74
 
 cd /DATA/cm/lcpfct/ymgpu2d

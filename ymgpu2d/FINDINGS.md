@@ -218,6 +218,33 @@ DTANH avoids the two-stream instability because the velocity tanh profile has vz
 
 ---
 
+## Campaign 9 — NAB_STEP (mistake), α=2.0, kz_suppress_max=k-1, k=1..6 (2026-06-30)
+
+**Setup**: `run_mode=4` (NAB_STEP — **error, should have been mode=3**), `alpha=2.0`, `perturb_amp=0.001`, `V0=0.1`, `suppress_kz0=1`, `hyp_diff=5e-5`, `kz_suppress_max=k-1`. Ran on t130:/DATA/cm. k=1..4 completed (all NaN); k=5 killed mid-run; k=6 never started.
+
+**Goal**: Isolate kz=1..6 growth rates by suppressing all modes below the target. New kernel `kernel_ym_subtract_lowkz` projects out DFT modes kz=1..kz_suppress_max at each step (DFT subtraction, 24 KB smem per block).
+
+**Result**: All runs hit NaN at t=12–22 TU — identical to Campaign 7's NAB_STEP blowup.
+
+| k | kz_suppress_max | halt type | t_halt (TU) | E/E0 before NaN |
+|---|-----------------|-----------|-------------|-----------------|
+| 1 | 0 | NaN | 22.1 | 1.88 |
+| 2 | 1 | NaN | 12.3 | 1.15 |
+| 3 | 2 | NaN | 14.7 | 1.61 |
+| 4 | 3 | NaN | 14.7 | 1.62 |
+| 5 | 4 | Killed | — | — |
+| 6 | 5 | Not reached | — | — |
+
+**Root cause**: Mode 4 (NAB_STEP) was used instead of Mode 3 (NAB_DTANH). Campaign 7 already established that NAB_STEP is fatal: the step-function velocity profile gives vz=±V0 everywhere, generating a color-1 two-stream instability (γ≈0.7 TU⁻¹) that NaN's at t≈12–22 TU regardless of any suppression settings.
+
+**Diagnosis from logs**: The energy trajectory through t=9.8 TU is *identical* across all four runs (E/E0 = 0.993, 1.003, 1.150, 1.112) — confirming the divergence is not related to kz_suppress_max and originates from the same two-stream physics.
+
+**New code (kept)**: `kernel_ym_subtract_lowkz` and `kz_suppress_max` parameter are correct and will be reused in the next campaign with the correct mode.
+
+**Fix for Campaign 10**: Switch to `run_mode=3` (NAB_DTANH), same α=2, V0=0.1. The FCT NaN wall at t=63–71 TU gives ~60 TU of clean window — need to determine if low-kz suppression + double-well geometry is compatible with KH measurement at kz=1..6.
+
+---
+
 ## Known Issues / Unresolved
 
 | Issue | Status |
@@ -225,7 +252,7 @@ DTANH avoids the two-stream instability because the velocity tanh profile has vz
 | FCT NaN wall at t=63–71 TU in NAB_DTANH | Active blocker. Double-tanh shear causes FCT instability at fixed times regardless of α, k, suppress_kz0, or hyp_diff=5e-5. Needs higher hyp_diff, fluid viscosity, or EPS increase. |
 | kz=0 Weibel mode | Suppressed in Campaign 6 (suppress_kz0 + hyp_diff=5e-5). suppress_kz0 alone (C5) was insufficient. |
 | KH mode at kz≥1 not observable in DTANH | WKB 42× overestimates; double-well geometry strongly suppresses kz≥1 mode. |
-| NAB_STEP ruled out | Color-1 two-stream instability (beams ±Q1, ±vz everywhere) blows up at t≈15 TU independent of α. No fix exists without changing the beam configuration. |
+| NAB_STEP ruled out | Color-1 two-stream instability (beams ±Q1, ±vz everywhere) blows up at t≈15 TU independent of α. No fix exists without changing the beam configuration. Confirmed again in Campaign 9 (mistake). |
 | CLAUDE.md had DT typo (0.001×DX → 0.01×DX) | Fixed 2026-06-29 |
 | dispersion_ym.py had same DT typo | Fixed 2026-06-29 |
 
