@@ -1,4 +1,4 @@
-NVCC      := nvcc
+NVCC      := /usr/local/cuda-12.4/bin/nvcc
 CXX_FLAGS := -std=c++17 -O2 -lineinfo
 CUDA_FLAGS := --expt-relaxed-constexpr
 

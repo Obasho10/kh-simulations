@@ -37,7 +37,7 @@ struct YMParams {
     int periodic_x;          // use periodic wrapping in x (instead of wall) for EM kernels
     fct_real_t xi_sponge;    // |ξ| at which sponge begins (0 = disabled)
     fct_real_t sigma_sponge; // sponge damping rate (TU⁻¹ per unit ξ beyond xi_sponge)
-    int suppress_kz0;        // subtract z-mean of color-2/3 fields each step to kill kz=0 Weibel mode
+    int suppress_kz0;        // subtract z-mean of By1/Ex1/Ez1 + color-2/3 fields to kill kz=0 Weibel/filamentation
     fct_real_t hyp_diff_coeff; // 4th-order z-hyperdiffusion coefficient (0=off); use ~5e-5 to kill kz>=74
     int kz_suppress_max;     // subtract DFT modes kz=1..N from color-2/3 fields each step (0=off)
     int kz_suppress_hi;      // also subtract DFT modes kz=kz_suppress_max+2..N to kill two-stream (0=off)
@@ -63,9 +63,10 @@ __global__ void kernel_ym_potential(YMFieldPtrs f, YMParams p, int nx, int nz);
 __global__ void kernel_ym_sponge(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
                                   int nx, int nz, YMParams p);
 
-// kz=0 suppression: subtract z-mean of all color-2/3 fields each step.
-// Launch: <<<NX, NZ, 12*NZ*sizeof(fct_real_t)>>>  (one block per x-column)
-// Kills the kz=0 Weibel-like eigenmode so kz>=1 KH modes can grow freely.
+// kz=0 suppression: subtract z-mean of By1/Ex1/Ez1 (color-1 EM) + all color-2/3 fields.
+// Kills color-1 Weibel filamentation (By1[kz=0] → nonlinear explosion at t≈14.7 TU)
+// AND color-2/3 kz=0 Weibel.  Az1 frozen — not touched.
+// Launch: <<<NX, NZ, 15*NZ*sizeof(fct_real_t)>>>  (one block per x-column)
 __global__ void kernel_ym_subtract_zmean(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
                                           int nx, int nz);
 
@@ -83,11 +84,17 @@ __global__ void kernel_ym_subtract_kz_range(YMFieldPtrs f, YMFluidPtrs flA, YMFl
                                               int nx, int nz, int kz_lo, int kz_hi);
 
 // DFT range suppression for fluid z-momentum: subtract kz=kz_lo..kz_hi from pzA and pzB.
-// Kills the color-1 two-stream at off-target kz modes (the mechanism missed by color-2/3 filter).
-// Optimised: same register-caching + warp-shuffle strategy as kernel_ym_subtract_kz_range.
+// Kills the color-1 two-stream at off-target kz modes.
 // Launch: kernel<<<NX, NZ, (2*NZ/32+2)*2*sizeof(fct_real_t)>>>  (144 B smem for NZ=256)
 __global__ void kernel_fluid_pz_subtract_kz_range(fct_real_t* pzA, fct_real_t* pzB,
                                                     int nx, int nz, int kz_lo, int kz_hi);
+
+// DFT range suppression for fluid density: subtract kz=kz_lo..kz_hi from nA and nB.
+// MUST be called with the same kz ranges as kernel_fluid_pz_subtract_kz_range.
+// Without this, density voids form at off-target kz (n→0 with pz=0 → ½pz²/n diverges → NaN).
+// Launch: kernel<<<NX, NZ, (2*NZ/32+2)*2*sizeof(fct_real_t)>>>  (144 B smem for NZ=256)
+__global__ void kernel_fluid_n_subtract_kz_range(fct_real_t* nA, fct_real_t* nB,
+                                                   int nx, int nz, int kz_lo, int kz_hi);
 
 // =====================================================================
 // INLINE SU(2) CROSS-PRODUCT HELPERS  (ε^{abc}: 123=231=312=+1, rest=-1)

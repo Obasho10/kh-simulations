@@ -291,10 +291,12 @@ int main(int argc, char* argv[]) {
         if (params.xi_sponge > 0.0)
             kernel_ym_sponge<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB, NX, NZ, params);
 
-        // 6c. kz=0 suppression: subtract z-mean of color-2/3 fields to kill uniform Weibel mode.
-        //     Sources are recomputed in step 7 from the cleaned state.
+        // 6c. kz=0 suppression: subtract z-mean of color-1 EM (By1,Ex1,Ez1) AND color-2/3
+        //     fields each step.  Kills both the color-1 Weibel filamentation instability
+        //     (By1[kz=0] growing → nonlinear explosion at t≈14.7 TU) and the color-2/3
+        //     kz=0 Weibel.  Az1 is frozen so its mean is static and not zeroed.
         if (params.suppress_kz0) {
-            size_t smem_sz = 12 * NZ * sizeof(fct_real_t);
+            size_t smem_sz = 15 * NZ * sizeof(fct_real_t);
             kernel_ym_subtract_zmean<<<NX, NZ, smem_sz>>>(d_fields, d_flA, d_flB, NX, NZ);
         }
 
@@ -314,20 +316,28 @@ int main(int argc, char* argv[]) {
                                                                     params.kz_suppress_hi);
         }
 
-        // 6c3. Fluid pz bandpass: suppress pzA and pzB at same off-target kz ranges.
-        //   The color-1 two-stream lives entirely in the fluid momentum — this is the
-        //   mechanism that survived the color-2/3 filter and NaN'd runs at t≈17 TU.
+        // 6c3. Fluid n+pz bandpass: suppress nA, nB, pzA, pzB at the same off-target kz ranges.
+        //   BOTH fields must be filtered together.  Filtering pz alone leaves density free to
+        //   bunch at off-target kz → density voids form → ½pz²/n diverges → NaN at t≈14.7 TU.
+        //   Filtering n+pz together keeps vz=pz/n well-behaved at all kz.
         // Smem: (2*nwarps+2)*2*sizeof(float) = 144 bytes for NZ=256
         {
             int nwarps_pz = NZ / 32;
             size_t smem_pz = (2 * nwarps_pz + 2) * 2 * sizeof(fct_real_t);
-            if (params.kz_suppress_max >= 1)
+            if (params.kz_suppress_max >= 1) {
                 kernel_fluid_pz_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.pz, d_flB.pz,
                                                                           NX, NZ, 1, params.kz_suppress_max);
-            if (params.kz_suppress_hi > params.kz_suppress_max + 1)
+                kernel_fluid_n_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.n, d_flB.n,
+                                                                         NX, NZ, 1, params.kz_suppress_max);
+            }
+            if (params.kz_suppress_hi > params.kz_suppress_max + 1) {
                 kernel_fluid_pz_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.pz, d_flB.pz,
                                                                           NX, NZ, params.kz_suppress_max + 2,
                                                                           params.kz_suppress_hi);
+                kernel_fluid_n_subtract_kz_range<<<NX, NZ, smem_pz>>>(d_flA.n, d_flB.n,
+                                                                         NX, NZ, params.kz_suppress_max + 2,
+                                                                         params.kz_suppress_hi);
+            }
         }
 
         // 6d. z-hyperdiffusion: 4th-order dissipation kills near-Nyquist (kz≈110) numerical
