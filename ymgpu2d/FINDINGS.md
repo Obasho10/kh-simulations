@@ -374,20 +374,60 @@ The kz_suppress_max filter (low-kz) does not help because the two-stream peaks a
 2. Az2[kz=k] grows at γ≈α×V0=0.20 TU⁻¹ for all kz — this is the color precession rate, NOT the KH growth rate.
 3. The precession mode exists even when KH is stable (kz=5 shows Az2 growth, By2 flat).
 
-**Phase 2 status (k=1..6 sequential sweep, kz_suppress_max=k-1, BP=14)**:
+**Phase 2 results (k=1..6 sequential sweep, kz_suppress_max=k-1, BP=14, NEW binary)**:
 
-| kz | Binary | γ_KH (TU⁻¹) | γ_WKB (TU⁻¹) | ratio | Notes |
-|----|--------|-------------|---------------|-------|-------|
-| 1 | NEW | 0.113 | 0.553 | 0.20 | Clean, confirmed Phase 1+2 |
-| 2 | OLD* | oscillating | 0.436 | — | Needs NEW binary confirmation |
-| 3 | OLD* | ~0.036 (early) | 0.362 | ~0.10 | Needs confirmation |
-| 4 | OLD* | ~0 | 0.315 | ~0 | Near marginal stability |
-| 5 | NEW | 0→0.088† | 0.282 | 0→0.31 | Stable early; precession cascade at t>30 TU |
-| 6 | NEW | −0.007 | 0.258 | <0 | Damped |
+| kz | Binary | γ_KH (TU⁻¹) | γ_WKB (TU⁻¹) | ratio | t_linear (TU) | Notes |
+|----|--------|-------------|---------------|-------|---------------|-------|
+| 1 | NEW | **0.090** | 0.553 | 0.16 | 24.5..29.5 | Cascade at t>29, NaN t=68.7 |
+| 2 | NEW* | ~0.010 | 0.436 | 0.023 | 9.8..29.5 (peaks) | Barely unstable; cascade at t~30 |
+| 3 | NEW* | TBD | 0.362 | — | — | Running |
+| 4 | NEW* | TBD | 0.315 | — | — | Pending |
+| 5 | NEW | ~0 | 0.282 | ~0 | 0..30 TU | Stable; precession cascade at t>34 |
+| 6 | NEW | −0.007 | 0.258 | <0 | 0..29.5 | Damped (KH stable) |
 
-*OLD binary = Campaign 15 Phase 2 from earlier session (without cudaMemset fix), NaN at step 70000, only 4 snapshots at t=0..14.7 TU available. NEW binary Phase 2 runs (k=2..5) pending from main campaign script.
+NEW* = Phase 2 new-binary run in progress at time of this writing.
 
-†kz=5: By2 is flat at ~3.5e-6 for t=0..30 TU (KH stable), then grows at γ≈0.088 TU⁻¹ for t=34..49 TU as Az2 precession mode reaches Az2≈8e-5..3e-3, large enough to modify the effective background and trigger a secondary instability.
+**Phase 2 k=1 full data (combined Phase 1 + Phase 2)**:
+
+| t (TU) | By2[kz=1] | Az2[kz=1] | Notes |
+|--------|-----------|-----------|-------|
+| 0.0 | 1.250e-6 | — | seed |
+| 4.9 | 2.590e-6 | — | |
+| 9.8 | 3.704e-6 | — | |
+| 14.7 | 3.360e-6 | — | |
+| 19.6 | 3.145e-6 | 2.438e-5 | |
+| 24.5 | 4.894e-6 | 5.861e-5 | ← linear KH onset |
+| 29.5 | 7.690e-6 | 1.690e-4 | ← cascade trigger (Az2≈1.7e-4) |
+| 34.4 | 1.480e-5 | 5.210e-4 | cascade dominant |
+| 39.3 | 4.005e-5 | 1.544e-3 | γ≈0.203 TU⁻¹ |
+| 44.2 | 1.200e-4 | 4.904e-3 | γ≈0.218 TU⁻¹ = α×V0 |
+| 49.1 | 3.700e-4 | 1.613e-2 | γ≈0.225 TU⁻¹ |
+| 54.0 | 1.157e-3 | 4.933e-2 | γ≈0.228 TU⁻¹ |
+| 58.9 | 2.651e-3 | 1.261e-1 | KH nonlinear saturation begins |
+| 63.8 | 3.343e-3 | 2.177e-1 | γ slowing (0.046 TU⁻¹) |
+| 68.7 | NaN | NaN | NaN (density explosion) |
+
+**γ_KH(kz=1) = 0.090 TU⁻¹** from linear window t=24.5..29.5 (before precession cascade).
+
+**Precession cascade (kz=1)**: At t=29.5, Az2[kz=1]≈1.7e-4 (= 0.17% of Az1=V0=0.1). By2 then grows at γ≈0.21-0.23 TU⁻¹ = α×V0 (color precession rate) from t=29.5 to t=54 TU. This is NOT KH growth — it is the Az2 precession mode feeding back into By2 through the Q3→Q2→Lorentz path. The true linear KH window is t=24.5..29.5 (~5 TU wide). All γ estimates over wider ranges are contaminated by the cascade.
+
+**kz=2 early data (NEW binary)**:
+
+| t (TU) | By2[kz=2] | Az2[kz=2] |
+|--------|-----------|-----------|
+| 0.0 | 1.250e-6 | 0 |
+| 9.8 | 3.605e-6 | 1.744e-6 | ← peak 1 |
+| 14.7 | 2.865e-6 | 5.446e-6 | |
+| 19.6 | 3.839e-6 | 1.374e-5 | ← peak 2 |
+| 24.5 | 2.919e-6 | 4.100e-5 | |
+| 29.5 | 4.703e-6 | 1.379e-4 | ← peak 3 |
+| 34.4 | 8.475e-6 | 4.494e-4 | ← cascade starting |
+
+Peak envelope growth: t=9.8→19.6 (γ≈0.006 TU⁻¹), t=19.6→29.5 (γ≈0.020 TU⁻¹). Cascade onset at t≈29-34 when Az2≈1.4-4.5e-4 (same Az2 level as kz=1). **γ_KH(kz=2) ≈ 0.010 TU⁻¹** (peak envelope pre-cascade).
+
+**kz=5 (NEW binary)**: By2[5] stable (γ≈0) for t=0..30 TU, then precession cascade at γ≈0.088 TU⁻¹ at t>34 TU.
+
+**kz=6 (NEW binary)**: Peak at t=9.8 (4.13e-6), then slowly DECREASING to t=29.5 (3.64e-6). Envelope decay γ ≈ −0.007 TU⁻¹ (damped).
 
 **WKB polynomial (eq. 33, wkb.pdf) for α=2, V0=0.1, n=0**:
 ```
@@ -397,7 +437,9 @@ where C = α^(3/2)×V0/√2 = 0.200, α²V0 = 0.400.
 
 **Key finding — geometric mismatch**: The WKB polynomial (eq. 33) was derived for the log-cosh Az1 geometry, where the coupling well is centred AT the shear layer (ξ=0). In Mode 5 (cosine Az1), the Az1 potential has a MAXIMUM (+V0) at the shear centre x=3π and MINIMA (−V0) at x=0,2π,4π — far from the shear layer. This is an anti-well at the shear centre, so the WKB trapped-mode eigenvalue (which requires a well at ξ=0) is NOT applicable to Mode 5.
 
-The observed KH growth in Mode 5 is a GLOBAL (non-trapped) instability driven by the closed loop By2→Ez2→Az2→Q3→Q2→Lorentz→By2. Its growth rate (0.113 TU⁻¹ at kz=1) is 5× below the WKB prediction for the log-cosh geometry. The stability cutoff appears near kz=4–5 in the simulation (vs WKB predicting instability for all kz=1..6).
+The observed KH growth in Mode 5 is a GLOBAL (non-trapped) instability driven by the closed loop By2→Ez2→Az2→Q3→Q2→Lorentz→By2. Its growth rate (0.090 TU⁻¹ at kz=1) is **6× below** the WKB prediction. The stability cutoff is near **kz≈1.5–2** (simulation shows: kz=1 unstable at 0.090 TU⁻¹, kz=2 barely unstable at ≈0.010 TU⁻¹, kz≥5 stable). WKB incorrectly predicts instability for all kz=1..6 with a much higher cutoff.
+
+**Precession cascade contamination**: For ALL kz, Az2[kz] grows at γ≈α×V0=0.20 TU⁻¹ (color precession) regardless of KH stability. Once Az2≈1-5e-4, it acts as a secondary Az1-like background and drives secondary By2 growth through the same feedback loop. This cascade typically starts at t≈29-34 TU and makes By2 grow at γ≈0.20-0.23 TU⁻¹ — masking the true KH rate at late times. The linear KH window for each kz is only the period BEFORE the cascade trigger, typically t≈4-30 TU.
 
 ---
 
@@ -411,7 +453,8 @@ The observed KH growth in Mode 5 is a GLOBAL (non-trapped) instability driven by
 | Color-1 EM instability (all kz incl. k_mode) | Fixed in Campaign 15 by cudaMemset By1/Ex1/Ez1=0 each step. |
 | Color-1 fluid two-stream (kz=1..14) | Fixed in Campaign 12 by fluid pz bandpass (BP=14). |
 | NAB_STEP ruled out | Confirmed fatal (Campaigns 7 and 9). |
-| WKB dispersion comparison | Preliminary: γ_meas/γ_WKB ≈ 0.20 at kz=1 and falls to ~0 at kz=4–5. Discrepancy from cosine Az1 geometric mismatch vs. log-cosh WKB derivation. |
+| WKB dispersion comparison | Revised: γ_meas(kz=1)=0.090 TU⁻¹ (ratio 0.16 vs WKB 0.553). Stability cutoff at kz≈1.5 (sim) vs kz→∞ (WKB). Geometric mismatch: cosine Az1 anti-well at shear centre vs log-cosh well required by WKB eq. 33. |
+| Precession cascade contamination | Az2[kz] grows at γ≈α×V0=0.20 TU⁻¹ for ALL kz (stable and unstable). Once Az2≈1-5e-4 (t≈29-34 TU), it triggers secondary By2 growth at γ≈0.20 TU⁻¹. True linear KH window is t<29 TU only. |
 
 ---
 
