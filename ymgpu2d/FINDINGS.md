@@ -383,7 +383,7 @@ The kz_suppress_max filter (low-kz) does not help because the two-stream peaks a
 | 3 | NEW | **−0.011** | 0.362 | <0 | 9.8..24.5 (peaks) | Damped; killed t=29.5 |
 | 4 | NEW | **+0.010±0.01** | 0.315 | 0.032 | 9.8..34.4 (peaks) | Marginally unstable (within error of kz=3) |
 | 5 | NEW | **+0.005** | 0.282 | 0.018 | 9.8..24.5 (peaks) | Marginally unstable (within noise) |
-| 6 | NEW | **−0.007** | 0.258 | <0 | 0..29.5 (peaks) | Damped; confirmed by separate run |
+| 6 | NEW | **−0.006** | 0.258 | <0 | 9.8..29.5 (envelope) | Confirmed: peak→decline, -0.006 TU⁻¹ |
 
 NEW* = Phase 2 new-binary run in progress at time of this writing.
 
