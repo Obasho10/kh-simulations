@@ -381,7 +381,7 @@ The kz_suppress_max filter (low-kz) does not help because the two-stream peaks a
 | 1 | NEW | **0.090** | 0.553 | 0.16 | 24.5..29.5 | Cascade at t>29, NaN t=68.7 |
 | 2 | NEW* | ~0.010 | 0.436 | 0.023 | 9.8..29.5 (peaks) | Barely unstable; cascade at t~30 |
 | 3 | NEW | **−0.011** | 0.362 | <0 | 9.8..24.5 (peaks) | Damped; killed t=29.5 |
-| 4 | NEW* | TBD | 0.315 | — | — | Running |
+| 4 | NEW | **+0.010±0.01** | 0.315 | 0.032 | 9.8..34.4 (peaks) | Marginally unstable (within error of kz=3) |
 | 5 | NEW | ~0 | 0.282 | ~0 | 0..30 TU | Stable; precession cascade at t>34 |
 | 6 | NEW | −0.007 | 0.258 | <0 | 0..29.5 | Damped (KH stable) |
 
@@ -427,7 +427,9 @@ Peak envelope growth: t=9.8→19.6 (γ≈0.006 TU⁻¹), t=19.6→29.5 (γ≈0.0
 
 **kz=3 (NEW binary)**: Peaks at t=9.8 (3.56e-6), 14.7 (4.26e-6 — max), 24.5 (3.82e-6 — declining). **γ_KH(kz=3) = −0.011 TU⁻¹** (damped — KH stable). Az2[3]=8.3e-5 at t=29.5 (below cascade threshold of ~1.5e-4).
 
-**Stability cutoff**: kz_c ≈ **2.4** — between kz=2 (γ=+0.010) and kz=3 (γ=−0.011). The WKB predicts instability for all kz=1..6 (no finite cutoff). The simulation cutoff is 3× lower in kz than WKB's most conservative estimate.
+**Stability cutoff**: kz_c ≈ **2–4** — all of kz=2,3,4 have |γ|<0.015 TU⁻¹. The WKB predicts γ>0.3 TU⁻¹ for all kz=1..6 (no finite cutoff). The simulation cutoff is at kz≈2–3 (the pattern kz=3 damped, kz=4 marginally unstable is within the ±0.01 TU⁻¹ measurement uncertainty). The dominant finding: **kz=1 is strongly unstable (0.090 TU⁻¹), kz≥2 are marginally stable/unstable (~0.01 TU⁻¹), kz≥5 are clearly stable.**
+
+**kz=4 (NEW binary)**: Peaks at t=9.8 (3.76e-6), t=19.6 (4.24e-6), and at t=34.4 (4.80e-6, near-peak). γ_peaks ≈ +0.010 TU⁻¹ (marginally unstable, same order as kz=2 and within error of kz=3). All three kz=2,3,4 have |γ| < 0.015 TU⁻¹ — within measurement uncertainty of zero.
 
 **kz=5 (NEW binary)**: By2[5] stable (γ≈0) for t=0..30 TU, then precession cascade at γ≈0.088 TU⁻¹ at t>34 TU.
 
