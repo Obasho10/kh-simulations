@@ -1,33 +1,50 @@
 #!/bin/bash
-# Campaign 10: kz=1..6 dispersion sweep on t130 — NAB_DTANH (mode 3, NOT mode 4)
-# Parameters: alpha=2, V0=0.1 (Campaign 8 sweet spot for kz=0 WKB validation)
-# Suppression: kz=0 (subtract mean) + kz=1..k-1 (new DFT kernel) + high-kz hyperdiff
+# Campaign 10: mode-5 (NAB_TANH_COSAZ) EPS sweep to find KH onset, then kz=1..6 at thin EPS
 #
-# Campaign 9 was aborted: accidentally used NAB_STEP (mode=4) which has a fatal
-# color-1 two-stream instability at t≈12-22 TU regardless of suppression settings.
-# This script uses NAB_DTANH (mode=3) — double-tanh shear, periodic BC, FCT NaN wall
-# at t=63-71 TU gives ~60 TU of clean window.
+# Mode 5: single thin-tanh shear + bounded cosine Az1
+#   vz_A = +V0*tanh((x-Lx/2)/EPS)    — thin shear, zero at interface (no two-stream)
+#   Az1  = -V0*cos(2π x/Lx)           — bounded |Az1|<=V0 (no log-cosh blow-up)
 #
-# Signature: ./ym_coupled <k_mode> <alpha> <perturb_amp> <run_mode> <V0>
+# KH requires kz*EPS < 0.64 (Miles criterion):
+#   EPS < 0.64 for kz=1  →  EPS=0.5 should show weak KH
+#   EPS < 0.10 for kz=6  →  EPS=0.1 needed for all kz=1..6
+#
+# Strategy:
+#   Phase 1 — EPS sweep at k=1 to find KH onset threshold
+#   Phase 2 — kz=1..6 at the two thinnest EPS values that survive
+#
+# Signature: ./ym_coupled <k_mode> <alpha> <amp> <mode> <V0>
 #            <xi_sponge> <sigma_sponge> <freeze_override> <suppress_kz0>
-#            <hyp_diff> <kz_suppress_max>
+#            <hyp_diff> <kz_suppress_max> <eps_override>
 #
-# Storage note: t130:/DATA has ~600 GB free. Each run ~200 MB CSV → 6 runs ≈ 1.2 GB.
+# Storage: t130:/DATA ~600 GB free. Each run ~200 MB CSV. Total ~2 GB.
 
 ALPHA=2.0
 V0=0.1
 AMP=0.001
-MODE=3          # NAB_DTANH — double-tanh shear, bounded domain, no two-stream issue
-HYP=5e-5        # hyperdiffusion kills kz>=74
+MODE=5          # NAB_TANH_COSAZ
+HYP=5e-5
+KZ0=1           # suppress kz=0
 
 cd /DATA/cm/lcpfct/ymgpu2d
 
-for k in 1 2 3 4 5 6; do
-    KZ_SUPP=$((k - 1))   # suppress kz=0..k-1; isolates target mode kz=k
-    echo "=== k=$k  kz_suppress_max=$KZ_SUPP ==="
-    nohup ./ym_coupled $k $ALPHA $AMP $MODE $V0 0 5.0 -1 1 $HYP $KZ_SUPP \
-        > run_k${k}_a${ALPHA}_c10.log 2>&1
-    echo "k=$k done"
+echo "=== Phase 1: EPS sweep at k=1 ==="
+for EPS in 0.50 0.30 0.15 0.10; do
+    echo "--- k=1  EPS=$EPS ---"
+    nohup ./ym_coupled 1 $ALPHA $AMP $MODE $V0 0 5.0 -1 $KZ0 $HYP 0 $EPS \
+        > run_eps${EPS}_k1_c10.log 2>&1
+    echo "EPS=$EPS done"
+done
+
+echo "=== Phase 2: kz=1..6 at EPS=0.15 and EPS=0.10 ==="
+for EPS in 0.15 0.10; do
+    for k in 1 2 3 4 5 6; do
+        KZ_SUPP=$((k - 1))
+        echo "--- k=$k  EPS=$EPS  kz_suppress_max=$KZ_SUPP ---"
+        nohup ./ym_coupled $k $ALPHA $AMP $MODE $V0 0 5.0 -1 $KZ0 $HYP $KZ_SUPP $EPS \
+            > run_eps${EPS}_k${k}_c10.log 2>&1
+        echo "k=$k EPS=$EPS done"
+    done
 done
 
 echo "Campaign 10 complete."

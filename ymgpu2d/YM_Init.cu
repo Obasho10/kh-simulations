@@ -81,6 +81,39 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
         // Seed By2 uniformly in x; k_z = k_mode (integer) since Lz=2π, dz=2π/NZ.
         by2_init = perturb_amp * V0 * sinf(k_z * z_val);
 
+    } else if (run_mode == 5) {
+        // NAB_TANH_COSAZ (mode 5): single thin-tanh shear + bounded cosine Az1.
+        //
+        // Geometry: single shear interface at x = Lx/2.
+        //   vz_A = +V0 * tanh((x - Lx/2) / EPS)   [thin when EPS << 1/kz]
+        //
+        // Az1 profile: cosine, bounded, period = Lx.
+        //   Az1 = -V0 * cos(2π x / Lx)             [|Az1| <= V0 everywhere]
+        //   Peak (+V0) at x = Lx/2 (interface) — maximum coupling where KH lives.
+        //   Bounded coupling: α|Az1|_max = α V0 (never blows up).
+        //
+        // By1 gauge field: By1 = -∂Az1/∂x = -V0*(2π/Lx)*sin(2π x/Lx)  (small: ~0.033 V0)
+        //
+        // This design fixes both DTANH failures:
+        //   1. Single layer (no double-well eigenfunction splitting).
+        //   2. Cosine Az1 bounded (no log-cosh outer-region blowup at small EPS).
+        //   3. Tanh velocity (zero at interface → no two-stream instability unlike NAB_STEP).
+        //
+        fct_real_t Lx    = nx * dx;
+        fct_real_t x_ph  = x * dx;
+        fct_real_t xi5   = (x_ph - 0.5f * Lx) / epsilon;
+        vz_A             = V0 * tanhf(xi5);
+
+        fct_real_t kx_cos = 2.0f * (fct_real_t)M_PI / Lx;
+        az1_init = -V0 * cosf(kx_cos * x_ph);
+        by1_init = -V0 * kx_cos * sinf(kx_cos * x_ph);  // gauge-consistent ∂Az1/∂x
+
+        // Circularly-polarized seed localised at the shear layer
+        fct_real_t sech5 = 1.0f / coshf(xi5);
+        fct_real_t bs5   = perturb_amp * V0 * sech5;
+        by2_init = bs5 * cosf(k_z * z_val);
+        by3_init = bs5 * sinf(k_z * z_val);
+
     } else {
         // NAB_DTANH (mode 3): double-tanh periodic domain.
         // Two shear layers at x = L/4 and x = 3L/4.

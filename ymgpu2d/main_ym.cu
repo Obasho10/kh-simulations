@@ -34,22 +34,28 @@ int main(int argc, char* argv[]) {
     // kz_suppress_max: subtract DFT modes kz=1..N from color-2/3 fields each step (0=off)
     // Use k_mode-1 to suppress all modes below the target, isolating mid-kz growth.
     int kz_suppress_max     = (argc > 11) ? std::atoi(argv[11]) : 0;
-    const char* mode_names[] = {"NAB_LINEAR", "NAB_CIRC", "EMHD_KH", "NAB_DTANH", "NAB_STEP"};
+    // eps_override: shear half-width (physical units). -1 = use mode default (Lx/6=π).
+    // Reduce below 0.64/kz to activate KH; mode 5 (NAB_TANH_COSAZ) is designed for thin EPS.
+    fct_real_t eps_override = (argc > 12) ? std::atof(argv[12]) : -1.0f;
+    const char* mode_names[] = {"NAB_LINEAR", "NAB_CIRC", "EMHD_KH", "NAB_DTANH", "NAB_STEP",
+                                "NAB_TANH_COSAZ"};
     const char* mode_tag     = (run_mode == 1) ? "_circ"
                              : (run_mode == 2) ? "_emhd"
                              : (run_mode == 3) ? "_dtanh"
-                             : (run_mode == 4) ? "_step" : "";
+                             : (run_mode == 4) ? "_step"
+                             : (run_mode == 5) ? "_tanh" : "";
 
     std::cout << "================================================================\n"
               << " GPU SU(2) Yang-Mills KH Solver (two-beam)\n"
               << " k_mode=" << k_mode << "  alpha_YM=" << aYM
               << "  perturb_amp=" << p_amp << "  V0=" << V0_arg
-              << "  mode=" << mode_names[run_mode < 5 ? run_mode : 0] << "\n"
+              << "  mode=" << mode_names[run_mode < 6 ? run_mode : 0] << "\n"
               << " xi_sponge=" << xi_sponge << "  sigma_sponge=" << sigma_sponge
               << "  freeze_az1_override=" << freeze_override
               << "  suppress_kz0=" << suppress_kz0
               << "  hyp_diff=" << hyp_diff
-              << "  kz_suppress_max=" << kz_suppress_max << "\n"
+              << "  kz_suppress_max=" << kz_suppress_max
+              << "  eps_override=" << eps_override << "\n"
               << "================================================================\n";
 
     // Periodic box: Lx=6π, Lz=2π, NX=3*NZ, dx=dz=2π/NZ, dt=0.01*dx
@@ -61,7 +67,8 @@ int main(int argc, char* argv[]) {
     const fct_real_t DZ = LZ / NZ;           // = 2π/NZ
     const fct_real_t DT = 0.01 * DX;
     const fct_real_t V0 = V0_arg;
-    const fct_real_t EPS = LX / (fct_real_t)6.0;  // = π; scale for tanh modes on new grid
+    const fct_real_t EPS = (eps_override > 0.0f) ? eps_override
+                                                   : LX / (fct_real_t)6.0;  // default = π
 
     GridParams grid{ NX, NZ, DX, DZ };
     size_t num_cells = (size_t)NX * NZ;
@@ -72,8 +79,8 @@ int main(int argc, char* argv[]) {
     params.c = 1.0; params.eps_0 = 1.0;
     params.alpha_YM = aYM;
     params.V0 = V0; params.epsilon = EPS;
-    // freeze Az1: static background for WKB theory (CIRC, DTANH) and STEP (prescribed Az1)
-    params.freeze_az1 = (run_mode == 1 || run_mode == 3 || run_mode == 4) ? 1 : 0;
+    // freeze Az1: static background for WKB theory (CIRC, DTANH, STEP, TANH_COSAZ)
+    params.freeze_az1 = (run_mode == 1 || run_mode == 3 || run_mode == 4 || run_mode == 5) ? 1 : 0;
     if (freeze_override >= 0) params.freeze_az1 = freeze_override;
     // periodic EM BC: all modes >=1 use periodic x (no walls)
     params.periodic_x = (run_mode >= 1) ? 1 : 0;
@@ -137,6 +144,8 @@ int main(int argc, char* argv[]) {
         dir_ss << "_sp" << std::setprecision(1) << xi_sponge;
     if (params.freeze_az1 && run_mode == 0)
         dir_ss << "_frz";  // only tag when freeze is non-default for this run_mode
+    if (eps_override > 0.0f)
+        dir_ss << "_eps" << std::fixed << std::setprecision(2) << eps_override;
     if (suppress_kz0)
         dir_ss << "_nkz0";
     if (kz_suppress_max >= 1)
