@@ -380,8 +380,8 @@ The kz_suppress_max filter (low-kz) does not help because the two-stream peaks a
 |----|--------|-------------|---------------|-------|---------------|-------|
 | 1 | NEW | **0.090** | 0.553 | 0.16 | 24.5..29.5 | Cascade at t>29, NaN t=68.7 |
 | 2 | NEW* | ~0.010 | 0.436 | 0.023 | 9.8..29.5 (peaks) | Barely unstable; cascade at t~30 |
-| 3 | NEW* | TBD | 0.362 | — | — | Running |
-| 4 | NEW* | TBD | 0.315 | — | — | Pending |
+| 3 | NEW | **−0.011** | 0.362 | <0 | 9.8..24.5 (peaks) | Damped; killed t=29.5 |
+| 4 | NEW* | TBD | 0.315 | — | — | Running |
 | 5 | NEW | ~0 | 0.282 | ~0 | 0..30 TU | Stable; precession cascade at t>34 |
 | 6 | NEW | −0.007 | 0.258 | <0 | 0..29.5 | Damped (KH stable) |
 
@@ -425,6 +425,10 @@ NEW* = Phase 2 new-binary run in progress at time of this writing.
 
 Peak envelope growth: t=9.8→19.6 (γ≈0.006 TU⁻¹), t=19.6→29.5 (γ≈0.020 TU⁻¹). Cascade onset at t≈29-34 when Az2≈1.4-4.5e-4 (same Az2 level as kz=1). **γ_KH(kz=2) ≈ 0.010 TU⁻¹** (peak envelope pre-cascade).
 
+**kz=3 (NEW binary)**: Peaks at t=9.8 (3.56e-6), 14.7 (4.26e-6 — max), 24.5 (3.82e-6 — declining). **γ_KH(kz=3) = −0.011 TU⁻¹** (damped — KH stable). Az2[3]=8.3e-5 at t=29.5 (below cascade threshold of ~1.5e-4).
+
+**Stability cutoff**: kz_c ≈ **2.4** — between kz=2 (γ=+0.010) and kz=3 (γ=−0.011). The WKB predicts instability for all kz=1..6 (no finite cutoff). The simulation cutoff is 3× lower in kz than WKB's most conservative estimate.
+
 **kz=5 (NEW binary)**: By2[5] stable (γ≈0) for t=0..30 TU, then precession cascade at γ≈0.088 TU⁻¹ at t>34 TU.
 
 **kz=6 (NEW binary)**: Peak at t=9.8 (4.13e-6), then slowly DECREASING to t=29.5 (3.64e-6). Envelope decay γ ≈ −0.007 TU⁻¹ (damped).
@@ -437,7 +441,7 @@ where C = α^(3/2)×V0/√2 = 0.200, α²V0 = 0.400.
 
 **Key finding — geometric mismatch**: The WKB polynomial (eq. 33) was derived for the log-cosh Az1 geometry, where the coupling well is centred AT the shear layer (ξ=0). In Mode 5 (cosine Az1), the Az1 potential has a MAXIMUM (+V0) at the shear centre x=3π and MINIMA (−V0) at x=0,2π,4π — far from the shear layer. This is an anti-well at the shear centre, so the WKB trapped-mode eigenvalue (which requires a well at ξ=0) is NOT applicable to Mode 5.
 
-The observed KH growth in Mode 5 is a GLOBAL (non-trapped) instability driven by the closed loop By2→Ez2→Az2→Q3→Q2→Lorentz→By2. Its growth rate (0.090 TU⁻¹ at kz=1) is **6× below** the WKB prediction. The stability cutoff is near **kz≈1.5–2** (simulation shows: kz=1 unstable at 0.090 TU⁻¹, kz=2 barely unstable at ≈0.010 TU⁻¹, kz≥5 stable). WKB incorrectly predicts instability for all kz=1..6 with a much higher cutoff.
+The observed KH growth in Mode 5 is a GLOBAL (non-trapped) instability driven by the closed loop By2→Ez2→Az2→Q3→Q2→Lorentz→By2. Its growth rate (0.090 TU⁻¹ at kz=1) is **6× below** the WKB prediction. The stability cutoff is near **kz_c≈2.4** (kz=2: γ=+0.010 TU⁻¹ unstable; kz=3: γ=−0.011 TU⁻¹ damped). WKB incorrectly predicts instability for all kz=1..6 with a much higher cutoff.
 
 **Precession cascade contamination**: For ALL kz, Az2[kz] grows at γ≈α×V0=0.20 TU⁻¹ (color precession) regardless of KH stability. Once Az2≈1-5e-4, it acts as a secondary Az1-like background and drives secondary By2 growth through the same feedback loop. This cascade typically starts at t≈29-34 TU and makes By2 grow at γ≈0.20-0.23 TU⁻¹ — masking the true KH rate at late times. The linear KH window for each kz is only the period BEFORE the cascade trigger, typically t≈4-30 TU.
 
