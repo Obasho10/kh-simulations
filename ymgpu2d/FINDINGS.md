@@ -288,13 +288,39 @@ The kz_suppress_max filter (low-kz) does not help because the two-stream peaks a
 
 ---
 
-## Campaign 11 — NAB_TANH_COSAZ, bandpass filter kz=k_mode only (running 2026-06-30)
+## Campaign 11 — NAB_TANH_COSAZ, color-2/3 bandpass only (2026-06-30)
 
-**Setup**: same as Campaign 10 but adds `kz_suppress_hi=40` (new arg[13]): suppress kz=k_mode+1..40 in color-2,3 each step. Combined with suppress_kz0 + kz_suppress_max=k-1, the filter keeps ONLY kz=k_mode in the color-2,3 sector. `EPS=0.15` for Phase 2, EPS sweep at k=1 for Phase 1.
+**Setup**: same as Campaign 10 but adds `kz_suppress_hi=40`: suppress kz=k+1..40 in color-2/3 fields each step. Combined with suppress_kz0 + kz_suppress_max=k-1, only kz=k_mode survives in the EM sector.
 
-**Kernel change**: `kernel_ym_subtract_lowkz` renamed to `kernel_ym_subtract_kz_range(kz_lo, kz_hi)` — called twice per step (below and above target).
+**Result**: **Identical NaN timing as Campaign 10** — all three EPS values NaN'd at t=17.2 TU regardless of bandpass setting. EPS=0.50 was actually slightly *worse* (17.2 TU vs 19.6 TU in C10). The color-2/3 bandpass did nothing.
 
-**Expected outcome**: Two-stream at kz=10 can no longer be amplified via color-2,3. The color-1 two-stream (fluid) still evolves freely but without the non-Abelian feedback should remain bounded much longer. If the run survives to t>50 TU, the KH growth rates at kz=1..6 can be cleanly measured and compared to WKB.
+| EPS | k | t_halt (TU) | Notes |
+|-----|---|-------------|-------|
+| 0.50 | 1 | 17.2 | worse than C10 without filter |
+| 0.15 | 1 | 17.2 | same as C10 |
+| 0.10 | 1 | 17.2 | same as C10 |
+
+**Diagnosis**: The NaN is not from the color-2/3 EM sector — it comes from the **color-1 fluid two-stream** in pzA and pzB. Counter-streaming beams at ±V0 drive z-momentum oscillations at kz=1..kz_ts≈14 in the fluid. Density n can approach zero from these oscillations, causing pz/n=vz→NaN. This mechanism is independent of any color-2/3 filtering.
+
+**Fix for Campaign 12**: Add `kernel_fluid_pz_subtract_kz_range` — same DFT subtraction applied to pzA and pzB each step, covering kz=k+1..14 (the two-stream unstable band). This cuts the fluid two-stream at the source.
+
+---
+
+## Campaign 12 — NAB_TANH_COSAZ, full bandpass (color-2/3 + fluid pz) (running 2026-06-30)
+
+**Setup**: Same as Campaign 11 but adds a fluid pz bandpass: kz_suppress_hi=14 (not 40) zeroes pzA and pzB at kz=k+1..14 in addition to the color-2/3 filter. BP=14 covers the full two-stream unstable band (kz < √2/V0 ≈ 14.1 for V0=0.1). Color-2/3 filter also uses BP=14.
+
+**New kernel**: `kernel_fluid_pz_subtract_kz_range(pzA, pzB, nx, nz, kz_lo, kz_hi)` — register-caching + warp-shuffle design (smem 144 B vs old 4 KB). Called twice per step alongside the color-2/3 filter.
+
+**Kernel optimisation**: Both DFT kernels rewritten to load fields into registers once and accumulate all mode subtractions in registers, writing back once. Old design re-read global memory 39× per field. New design: 1 read + 1 write. Smem drops from 24 KB → 864 B for the 12-field kernel → 32 blocks/SM vs 2 → full occupancy. Syncthreads per mode: 10 → 3.
+
+**Early result (Phase 1, k=1, EPS=0.15)**:
+- Run survived well past t=17 TU (old death point) — confirmed by 8+ min uninterrupted runtime at 100% GPU
+- Speed: ~9,230 steps/min (7× faster than the initial BP=40 implementation with old kernel)
+- Energy at t=4.9 TU: E/E0=0.9981 (flat — two-stream suppressed, no NaN)
+- Phase 2 (k=1..6 with kz_suppress_max=k-1) running after Phase 1 completes
+
+**Expected outcome**: KH growth rates γ_KH(kz=1..6) measurable in clean linear phase before energy threshold.
 
 ---
 
@@ -303,12 +329,11 @@ The kz_suppress_max filter (low-kz) does not help because the two-stream peaks a
 | Issue | Status |
 |-------|--------|
 | FCT NaN wall at t=63–71 TU in NAB_DTANH | Bypassed by switching to mode 5 (NAB_TANH_COSAZ). |
-| kz=0 Weibel mode | Suppressed by suppress_kz0=1 + hyp_diff=5e-5 in all active campaigns. |
-| KH mode at kz≥1 not observable in DTANH | Resolved: mode 5 confirms KH IS growing (γ≈0.03–0.17 TU⁻¹). DTANH had shear too wide. |
-| Two-stream at kz≈10–14 | Active blocker (Campaign 10). Being addressed by kz_suppress_hi=40 bandpass in C11. |
-| NAB_STEP ruled out | Confirmed fatal (Campaigns 7 and 9). Not revisited. |
+| kz=0 Weibel mode | Suppressed by suppress_kz0=1 + hyp_diff=5e-5. |
+| KH mode at kz≥1 not observable in DTANH | Resolved: mode 5 confirms KH IS growing (γ≈0.03–0.17 TU⁻¹ at EPS=0.50–0.10). |
+| Color-1 fluid two-stream (kz=1..14) | Addressed in Campaign 12 by fluid pz bandpass. Runs now surviving past 17 TU. |
+| NAB_STEP ruled out | Confirmed fatal (Campaigns 7 and 9). Color-1 two-stream from full-domain ±V0 beams. |
 | CLAUDE.md had DT typo (0.001×DX → 0.01×DX) | Fixed 2026-06-29 |
-| dispersion_ym.py had same DT typo | Fixed 2026-06-29 |
 
 ---
 

@@ -39,7 +39,7 @@ for k in 1 2 3 4 5 6; do
     KZ_SUPP=$((k - 1))
     echo "--- k=$k  EPS=$EPS  kz_suppress_max=$KZ_SUPP  bp=$BP ---"
     nohup ./ym_coupled $k $ALPHA $AMP $MODE $V0 0 5.0 -1 $KZ0 $HYP $KZ_SUPP $EPS $BP \
-        > run_full_bp_eps${EPS}_k${k}_bp40_c12.log 2>&1
+        > run_full_bp_eps${EPS}_k${k}_bp${BP}_c12.log 2>&1
     echo "k=$k done"
 done
 

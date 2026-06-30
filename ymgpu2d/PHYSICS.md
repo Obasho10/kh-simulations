@@ -252,19 +252,18 @@ Damp `vz` back toward equilibrium in the high-shear region at each step. This is
 **Option 5 — Artificial smoothing of the initial profile**
 Initialize with a slightly wider shear layer (larger EPS). A wider tanh is better-resolved on the grid and FCT-stable for longer. The WKB eigenfunction width scales with `1/sqrt(α·V₀/EPS)`, so widening EPS also changes the quantization levels.
 
-### NAB_STEP ruled out (Campaign 7)
+### NAB_STEP ruled out (Campaigns 7, 9)
 
-NAB_STEP was tested in Campaign 7 (α=2, suppress_kz0=1, hyp_diff=5e-5). All k values blew up at t≈12–20 TU from a **color-1 two-stream instability**. In NAB_STEP, both beams have |vz|=V0 everywhere, so the opposite-color beams (Q1=±1, vz=±V0) create a full-domain two-stream configuration with growth rate ω_p/√2 ≈ 0.7 TU⁻¹. This is independent of α and cannot be fixed by suppress_kz0, hyp_diff, or By1 initialization. NAB_STEP is incompatible with the opposite-color two-beam setup.
+NAB_STEP was tested in Campaigns 7 and 9 (α=2, suppress_kz0=1, hyp_diff=5e-5). All k values blew up at t≈12–22 TU from a **color-1 two-stream instability**. In NAB_STEP, both beams have |vz|=V0 everywhere, so the opposite-color beams (Q1=±1, vz=±V0) create a full-domain two-stream configuration with growth rate ω_p/√2 ≈ 0.7 TU⁻¹. Independent of α — cannot be fixed by any EM filter.
 
-**DTANH is the only viable geometry** because vz→0 at the shear interfaces where the two-stream mode would be strongest, suppressing the instability.
+### Current solution: NAB_TANH_COSAZ (mode 5) + DFT fluid pz filter
 
-### Recommended path
+Mode 5 combines the bounded cosine Az1 of NAB_STEP (no outer-region blowup) with a tanh velocity profile (vz→0 at the shear interface). The residual outer-region two-stream at kz=1..14 is suppressed each step by `kernel_fluid_pz_subtract_kz_range` zeroing those DFT modes from pzA and pzB. The same kz range is also zeroed in the color-2/3 EM fields by `kernel_ym_subtract_kz_range`.
 
-Push the FCT NaN wall further in **NAB_DTANH + suppress_kz0 + hyp_diff**, then analyze By2(kz=k) growth in the resulting clean window. Specific options ranked by implementation cost:
-
-1. **Higher hyp_diff** (try 5e-4 or 1e-3): current 5e-5 gave t=63–71 TU. Increasing by 10–100× may push wall past 100 TU. Risk: more damping on the physical kz=1..8 modes.
-2. **Fluid momentum diffusion**: add 4th-order x-diffusion to px, pz after each FCT step (analogous to hyp_diff for EM fields). Targets the FCT shear instability directly without affecting the EM physics. Requires a new kernel.
-3. **Wider shear width EPS**: larger EPS → smoother tanh → FCT stable for longer. Changes the WKB quantization but the kz=0 match at α=2 provides a re-calibration baseline.
+With this setup (Campaign 12, EPS=0.15, α=2, BP=14):
+- E/E0 stays flat through t≥5 TU (no two-stream growth)
+- Run speed: ~9,200 steps/min on RTX A5000
+- KH mode at target kz is the only growing perturbation in the system
 
 ---
 
@@ -276,4 +275,5 @@ Push the FCT NaN wall further in **NAB_DTANH + suppress_kz0 + hyp_diff**, then a
 | 1 NAB_CIRC | tanh (single) | same, frozen | By2 cos + By3 sin | on |
 | 2 EMHD_KH | tanh (single) | 0 | By1 sin(kz) | N/A |
 | 3 NAB_DTANH | double-tanh | −V₀(log cosh ξ₁−log cosh ξ₂), frozen | circular (sech₁+sech₂)·(cos,sin) | on |
-| 4 NAB_STEP | step ±V₀ | −V₀ cos(x), frozen | By2 sin(kz), uniform x | on |
+| 4 NAB_STEP | step ±V₀ (**ruled out**) | −V₀ cos(x), frozen | By2 sin(kz), uniform x | on |
+| 5 NAB_TANH_COSAZ | tanh (single, EPS=eps_override) | −V₀ cos(x), frozen | By2 sin(kz)·sech(ξ/EPS) | on |
