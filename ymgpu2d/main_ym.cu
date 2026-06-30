@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
     dir_ss << "ym_k" << k_mode << "_a" << std::fixed << std::setprecision(3) << aYM;
     if (p_amp == 0.0) dir_ss << "_noperturb";
     dir_ss << mode_tag;
-    if (V0 != 0.1) dir_ss << "_v" << std::setprecision(3) << V0;
+    if (V0 != 0.1) dir_ss << "_v" << std::setprecision(4) << V0;
     if (xi_sponge > 0.0)
         dir_ss << "_sp" << std::setprecision(1) << xi_sponge;
     if (params.freeze_az1 && run_mode == 0)

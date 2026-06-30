@@ -217,10 +217,54 @@ By2 is the primary diagnostic field. Az2,Az3 track non-Abelian potential growth.
 
 | Scenario | Expected lifetime | Notes |
 |----------|-------------------|-------|
-| NAB_STEP mode 4 | up to 49 TU (2M steps) | No outer blowup; cosine Az1 bounded |
-| NAB_DTANH mode 3 | TBD | Two smooth layers; double log-cosh Az1 |
+| NAB_STEP mode 4, baseline | ~49 TU | Halts from kz=0 Weibel energy threshold |
+| NAB_STEP mode 4, suppress_kz0+hyp_diff | TBD (>49 TU) | No smooth shear → no FCT NaN wall; recommended next run |
+| NAB_DTANH mode 3, baseline | ~49 TU | kz=0 Weibel hits 100×E0 threshold |
+| NAB_DTANH, suppress_kz0 only | ~46–51 TU | kz=0 leaks through Az/Q channels; still energy-halts |
+| NAB_DTANH, suppress_kz0+hyp_diff=5e-5 | ~63–71 TU (FCT NaN) | Weibel suppressed; FCT NaN wall from double-tanh shear |
 
 **Key improvement**: max coupling is `α·V₀=0.05/TU` everywhere in mode 4, vs. unbounded `α·V₀·log cosh(ξ)` in old runs. No outer-region blow-up mechanism.
+
+---
+
+## 8. FCT Blowup — Cause and Mitigation
+
+### Root cause
+
+The FCT NaN wall seen in all NAB_DTANH runs at t=63–71 TU is **FCT advection instability of the smooth double-tanh shear profile**, not a physics instability. The double-tanh velocity `vz(x) = V₀(tanh(ξ₁)−tanh(ξ₂)−1)` has a continuous high-shear gradient over several cells. FCT is monotone in the sense that it prevents new extrema, but under repeated operator-split sweeps (x then z then x…) the shear region accumulates truncation error that eventually produces a NaN in the density floor or momentum divide.
+
+The timing is set by the fluid advection alone (same t_NaN regardless of α, k, or EM coupling strength), confirming it is purely numerical.
+
+### Mitigation options
+
+**Option 1 — Switch to NAB_STEP (mode 4)** *(recommended)*
+The step-function velocity `vz = ±V₀` is piecewise constant: no smooth gradient to advect, no FCT accumulation. Campaign 4 (STEP mode, α=2) ran to 49 TU and halted cleanly from the energy threshold, not NaN. With suppress_kz0+hyp_diff, STEP mode should survive far beyond 49 TU. The cosine Az1 provides bounded coupling and the three-fold x-periodicity is fully compatible with the periodic domain.
+
+**Option 2 — Increase hyp_diff**
+`hyp_diff=5e-5` extended k=7,8 by ~2.5 TU. To push past 80 TU in DTANH mode would likely require `hyp_diff~5e-4` or larger, which risks damping the KH mode itself (diffusion timescale `1/(hyp_diff·k⁴)` must exceed the KH growth time). Not recommended as the primary path.
+
+**Option 3 — Reduce DT**
+The FCT CFL condition is `|v|·DT/DX < 1`. Current DT=0.01·DX gives CFL=0.01·V₀=0.001 — far below the limit. Reducing DT further would not help since the instability is not a CFL violation; it is error accumulation over many steps.
+
+**Option 4 — Add velocity sponge at shear layers**
+Damp `vz` back toward equilibrium in the high-shear region at each step. This is physical damping of the shear flow and suppresses the background KH that the FCT instability seeds, but also changes the equilibrium. Not implemented; would require a new source term in the fluid kernel.
+
+**Option 5 — Artificial smoothing of the initial profile**
+Initialize with a slightly wider shear layer (larger EPS). A wider tanh is better-resolved on the grid and FCT-stable for longer. The WKB eigenfunction width scales with `1/sqrt(α·V₀/EPS)`, so widening EPS also changes the quantization levels.
+
+### NAB_STEP ruled out (Campaign 7)
+
+NAB_STEP was tested in Campaign 7 (α=2, suppress_kz0=1, hyp_diff=5e-5). All k values blew up at t≈12–20 TU from a **color-1 two-stream instability**. In NAB_STEP, both beams have |vz|=V0 everywhere, so the opposite-color beams (Q1=±1, vz=±V0) create a full-domain two-stream configuration with growth rate ω_p/√2 ≈ 0.7 TU⁻¹. This is independent of α and cannot be fixed by suppress_kz0, hyp_diff, or By1 initialization. NAB_STEP is incompatible with the opposite-color two-beam setup.
+
+**DTANH is the only viable geometry** because vz→0 at the shear interfaces where the two-stream mode would be strongest, suppressing the instability.
+
+### Recommended path
+
+Push the FCT NaN wall further in **NAB_DTANH + suppress_kz0 + hyp_diff**, then analyze By2(kz=k) growth in the resulting clean window. Specific options ranked by implementation cost:
+
+1. **Higher hyp_diff** (try 5e-4 or 1e-3): current 5e-5 gave t=63–71 TU. Increasing by 10–100× may push wall past 100 TU. Risk: more damping on the physical kz=1..8 modes.
+2. **Fluid momentum diffusion**: add 4th-order x-diffusion to px, pz after each FCT step (analogous to hyp_diff for EM fields). Targets the FCT shear instability directly without affecting the EM physics. Requires a new kernel.
+3. **Wider shear width EPS**: larger EPS → smoother tanh → FCT stable for longer. Changes the WKB quantization but the kz=0 match at α=2 provides a re-calibration baseline.
 
 ---
 

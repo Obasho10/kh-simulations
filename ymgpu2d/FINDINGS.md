@@ -125,12 +125,107 @@ All α<2 runs hit FCT NaN at t≈66–69 TU (FCT instability in the double-tanh 
 
 ---
 
+## Campaign 5 — NAB_DTANH, α=2.0, suppress_kz0=1, k=1..8 (2026-06-29)
+
+**Setup**: `run_mode=3`, `alpha=2.0`, `perturb_amp=0.001`, `V0=0.1`, `suppress_kz0=1` (no hyp_diff). k=1..8 sequential; k=6 killed mid-run, k=7–8 not reached.
+
+**Goal**: Check whether projecting out the kz=0 component of By2/By3 at each step prevents the Weibel blowup and exposes the KH mode.
+
+**Result**: suppress_kz0 alone is insufficient. k=1..5 still hit the 100×E0 energy threshold at t=46.6–51.5 TU.
+
+| k | halt type | t_halt (TU) |
+|---|-----------|------------|
+| 1 | Energy ×100 | 51.5 |
+| 2 | Energy ×100 | 49.1 |
+| 3 | Energy ×100 | 49.1 |
+| 4 | Energy ×100 | 49.1 |
+| 5 | Energy ×100 | 46.6 |
+| 6 | Terminated | — |
+| 7–8 | Not run | — |
+
+**Interpretation**: The kz=0 suppression zeroes By2/By3 at kz=0, but the Weibel energy flows through other channels (Az2, Az3, Q2, Q3 at kz=0) which are not zeroed. The rapid blowup pattern (E/E0 jumping from ~1.4 to 1401 within 10 TU for k=1) differs from the gradual Campaign 3 profile, suggesting the suppression forces a transient that feeds the instability differently. Regardless, the kz=0 mode is not cleanly eliminated and the runs still die before a KH growth window.
+
+---
+
+## Campaign 6 — NAB_DTANH, α=2.0, suppress_kz0=1, hyp_diff=5e-5, k=1..8 (2026-06-30)
+
+**Setup**: `run_mode=3`, `alpha=2.0`, `perturb_amp=0.001`, `V0=0.1`, `suppress_kz0=1`, `hyp_diff=5e-5`. All 8 modes run sequentially and completed. Output directories: `ym_k{1..8}_a2.000_dtanh_nkz0_hd5e-05/`.
+
+**Goal**: Add hyperdiffusion to suppress the remaining kz=0 Weibel energy leaking through non-By channels and extend the run window.
+
+**Result**: kz=0 blowup is eliminated. All 8 runs survive to t=63.8–71.2 TU, then die from the FCT NaN wall.
+
+| k | halt type | t_halt (TU) |
+|---|-----------|------------|
+| 1 | FCT NaN | 63.8 |
+| 2 | FCT NaN | 66.3 |
+| 3 | FCT NaN | 68.7 |
+| 4 | FCT NaN | 68.7 |
+| 5 | FCT NaN | 68.7 |
+| 6 | FCT NaN | 68.7 |
+| 7 | FCT NaN | 71.2 |
+| 8 | FCT NaN | 71.2 |
+
+**Energy traces**: E/E0 stays in [0.99, 1.15] throughout all runs — no systematic growth above ~15%. The Weibel mode is genuinely suppressed. The NaN onset is sudden (E/E0 goes from ~1.15 to -nan in one 10000-step interval) with no energy warning.
+
+**FCT NaN wall**: the halt times match Campaign 4's FCT NaN times almost exactly (63.8, 66.3, 68.7 TU for k=1–6, 71 TU for k=7–8). The `hyp_diff=5e-5` gave a small extension for k=7,8 (~2.5 TU) but did not cure the instability. The FCT NaN originates from advection of the double-tanh shear velocity profile: FCT is monotone but still accumulates truncation error in the high-shear region, eventually producing a density or momentum value that propagates into a divide-by-zero or float overflow.
+
+**No KH growth detected**: the WKB prediction for kz=1, α=2 is γ≈0.55 TU⁻¹, which would give ×10 amplitude per 4 TU. In 63 TU of clean window that signal would be enormous if present. Its absence, combined with Campaign 3's finding that By2(kz=1) grew only 1.9× in 49 TU (γ≈0.013 TU⁻¹), confirms the double-tanh geometry strongly suppresses the kz≥1 KH mode.
+
+**Conclusion**: suppress_kz0 + hyp_diff successfully eliminates the kz=0 Weibel blowup but the FCT NaN wall (from the double-tanh shear) remains the binding constraint. The two-well geometry also suppresses the KH mode itself. Both issues point to switching away from NAB_DTANH.
+
+---
+
+## Campaign 7 — NAB_STEP, α=2.0, suppress_kz0=1, hyp_diff=5e-5, k=1..8 (2026-06-30)
+
+**Setup**: `run_mode=4`, `alpha=2.0`, `perturb_amp=0.001`, `V0=0.1`, `suppress_kz0=1`, `hyp_diff=5e-5`.
+
+**Result**: All k values blow up from NaN at t≈12–20 TU. Much earlier than Campaign 6's 63–71 TU.
+
+| k | halt type | t_halt (TU) |
+|---|-----------|------------|
+| 1 | NaN | 19.6 |
+| 2 | NaN | 14.7 |
+| 3–8 | NaN | ~14–20 |
+
+**Root cause — color-1 two-stream instability**: NAB_STEP places both beams with `vz_A = −vz_B = ±V0` everywhere (not just at interfaces). Beams A (+Q1=+1, +vz) and B (−Q1=−1, −vz) form a two-stream configuration in the color-1 sector with relative velocity 2V0. Growth rate ω_p/√2 ≈ 0.7 TU⁻¹. Starting from numerical noise this saturates and drives blow-up at t≈13–20 TU, **independent of α** (confirmed: old α=0.5 STEP run also blew up at t≈15 TU).
+
+DTANH avoids the two-stream instability because the velocity tanh profile has vz→0 at the interfaces where the mode localises — the instability sees a short, velocity-limited region rather than the full domain.
+
+**By1 initialization attempt**: Tried initializing By1 to the equilibrium triangle wave (integral of Jz1−⟨Jz1⟩) to reduce the plasma oscillation. This made things worse (blowup at t=12.3 instead of 19.6 TU) because the large |By1|∼0.84 generates a transverse Lorentz force F_xA = −vz_A·By1 = ∓V0·By1 that immediately accelerates the beams in x, dumping kinetic energy into the EM fields. There is no cold-plasma static equilibrium with both vz≠0 everywhere and By1≠0. Reverted.
+
+**Conclusion**: NAB_STEP is fundamentally broken as a geometry for two opposite-color counter-streaming beams. The color-1 two-stream instability terminates runs at t≈15 TU regardless of α, suppress_kz0, or hyp_diff. By1 initialization attempts only accelerate the collapse.
+
+---
+
+## Campaign 8 — NAB_DTANH, 2D sweep: α∈[1,6]×V₀∈[0.001,0.4], 200 runs (planned 2026-06-30)
+
+**Setup**: `run_mode=3`, `k_mode=1`, `perturb_amp=0.001`, `suppress_kz0=0`, `hyp_diff=2e-4`. α: 10 linearly-spaced from 1 to 6; V₀: 20 log-spaced from 0.001 to 0.4. Total: 200 sequential runs.
+
+**Goal**: Map γ(α, V₀) across the full 2D parameter space and compare to the analytic WKB prediction γ_WKB = (√(α³/2)·V₀)^(1/3)·sin(π/3). Determine whether the double-well suppression seen in Campaign 4 (DTANH geometry, ratio≈0.32–0.99 across α=0.5–2) persists across V₀, or whether the suppression depends on the combined dimensionless coupling α·V₀.
+
+**hyp_diff choice**: `2e-4` (4× Campaign 6 value) gives damping rate 1.44 TU⁻¹ at kz=50 — sufficient to kill any numerical instability at kz≥50 even at the maximum physical growth rate γ≈1.39 TU⁻¹ (α=6, V₀=0.4). kz=8 sees only 0.001 TU⁻¹ damping (negligible).
+
+**Code change**: `main_ym.cu` directory naming fixed to `setprecision(4)` for V₀ (was 3), ensuring all 20 V₀ values get unique directory names. **Requires rebuild on t126.**
+
+**Expected run times**: FCT NaN wall at t≈63–71 TU for slow-growing modes; energy threshold at t≈20–50 TU for fast-growing (large α, V₀) modes. Each run ≈0.5–1 min; total sweep ≈3–5 hours.
+
+**Measurability**: γ≥0.08 TU⁻¹ detectable (kz=0 amplitude grows from ~1e-13 to above 1e-12 within 63 TU window). Corner (α=1, V₀=0.001) predicted γ≈0.077 is marginal — may report NaN. All other corners should be measurable.
+
+**Analysis**: `python3 analyze_campaign8.py` — auto-discovers directories, fits exponential, generates heatmap of γ_meas/γ_WKB and scatter plot.
+
+**Expected WKB range**: γ_WKB ∈ [0.077, 1.39] TU⁻¹ (36× dynamic range). The analytic formula predicts γ ∝ α^(1/2)·V₀^(1/3). If the double-well suppression factor depends only on geometry (not α or V₀), the ratio γ_meas/γ_WKB should be constant across the 2D space — forming a flat heatmap. If the suppression depends on αV₀ (as the quantum double-well analogy suggests), the ratio will vary systematically and reveal the correction function.
+
+---
+
 ## Known Issues / Unresolved
 
 | Issue | Status |
 |-------|--------|
-| kz=0 Weibel mode dominates at α≥0.5 | Identified (Campaign 3). Suppression would require code change (project out kz=0 from fields) or xi_sponge |
-| KH mode at kz≥1 not observable | WKB 42× overestimates; double-shear geometry suppresses mode. Need single-layer geometry or kz=0 suppression |
+| FCT NaN wall at t=63–71 TU in NAB_DTANH | Active blocker. Double-tanh shear causes FCT instability at fixed times regardless of α, k, suppress_kz0, or hyp_diff=5e-5. Needs higher hyp_diff, fluid viscosity, or EPS increase. |
+| kz=0 Weibel mode | Suppressed in Campaign 6 (suppress_kz0 + hyp_diff=5e-5). suppress_kz0 alone (C5) was insufficient. |
+| KH mode at kz≥1 not observable in DTANH | WKB 42× overestimates; double-well geometry strongly suppresses kz≥1 mode. |
+| NAB_STEP ruled out | Color-1 two-stream instability (beams ±Q1, ±vz everywhere) blows up at t≈15 TU independent of α. No fix exists without changing the beam configuration. |
 | CLAUDE.md had DT typo (0.001×DX → 0.01×DX) | Fixed 2026-06-29 |
 | dispersion_ym.py had same DT typo | Fixed 2026-06-29 |
 
