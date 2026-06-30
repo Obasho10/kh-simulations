@@ -34,6 +34,9 @@ int main(int argc, char* argv[]) {
     // kz_suppress_max: subtract DFT modes kz=1..N from color-2/3 fields each step (0=off)
     // Use k_mode-1 to suppress all modes below the target, isolating mid-kz growth.
     int kz_suppress_max     = (argc > 11) ? std::atoi(argv[11]) : 0;
+    // kz_suppress_hi: also subtract DFT modes kz=k_mode+1..N (bandpass: kills two-stream at kz~10-14)
+    // Use ~40 to cover the two-stream danger zone while leaving the target kz=k_mode alone.
+    int kz_suppress_hi      = (argc > 13) ? std::atoi(argv[13]) : 0;
     // eps_override: shear half-width (physical units). -1 = use mode default (Lx/6=π).
     // Reduce below 0.64/kz to activate KH; mode 5 (NAB_TANH_COSAZ) is designed for thin EPS.
     fct_real_t eps_override = (argc > 12) ? std::atof(argv[12]) : -1.0f;
@@ -55,6 +58,7 @@ int main(int argc, char* argv[]) {
               << "  suppress_kz0=" << suppress_kz0
               << "  hyp_diff=" << hyp_diff
               << "  kz_suppress_max=" << kz_suppress_max
+              << "  kz_suppress_hi=" << kz_suppress_hi
               << "  eps_override=" << eps_override << "\n"
               << "================================================================\n";
 
@@ -89,6 +93,7 @@ int main(int argc, char* argv[]) {
     params.suppress_kz0    = suppress_kz0;
     params.hyp_diff_coeff  = hyp_diff;
     params.kz_suppress_max = kz_suppress_max;
+    params.kz_suppress_hi  = kz_suppress_hi;
 
     // ── Allocate device memory ──
     YMFieldPtrs d_fields;
@@ -150,6 +155,8 @@ int main(int argc, char* argv[]) {
         dir_ss << "_nkz0";
     if (kz_suppress_max >= 1)
         dir_ss << "_nkz1to" << kz_suppress_max;
+    if (kz_suppress_hi > 0)
+        dir_ss << "_bp" << kz_suppress_hi;
     if (hyp_diff > 0.0)
         dir_ss << "_hd" << std::scientific << std::setprecision(0) << hyp_diff;
     std::string out_dir = dir_ss.str();
@@ -291,12 +298,18 @@ int main(int argc, char* argv[]) {
             kernel_ym_subtract_zmean<<<NX, NZ, smem_sz>>>(d_fields, d_flA, d_flB, NX, NZ);
         }
 
-        // 6c2. Low-kz suppression: subtract DFT modes kz=1..kz_suppress_max to remove
-        //      faster-growing low-kz modes that would mask the target mid-kz KH mode.
-        if (params.kz_suppress_max >= 1) {
-            size_t smem_sz2 = 2 * 12 * NZ * sizeof(fct_real_t);
-            kernel_ym_subtract_lowkz<<<NX, NZ, smem_sz2>>>(d_fields, d_flA, d_flB,
-                                                             NX, NZ, params.kz_suppress_max);
+        // 6c2. Bandpass filter: keep only kz=k_mode in color-2/3 fields.
+        //   Low side:  suppress kz=1..kz_suppress_max (below target, slow KH harmonics)
+        //   High side: suppress kz=k_mode+1..kz_suppress_hi (kills two-stream at kz~10-14)
+        {
+            size_t smem_bp = 2 * 12 * NZ * sizeof(fct_real_t);
+            if (params.kz_suppress_max >= 1)
+                kernel_ym_subtract_kz_range<<<NX, NZ, smem_bp>>>(d_fields, d_flA, d_flB,
+                                                                    NX, NZ, 1, params.kz_suppress_max);
+            if (params.kz_suppress_hi > params.kz_suppress_max + 1)
+                kernel_ym_subtract_kz_range<<<NX, NZ, smem_bp>>>(d_fields, d_flA, d_flB,
+                                                                    NX, NZ, params.kz_suppress_max + 2,
+                                                                    params.kz_suppress_hi);
         }
 
         // 6d. z-hyperdiffusion: 4th-order dissipation kills near-Nyquist (kz≈110) numerical

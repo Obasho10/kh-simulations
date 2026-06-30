@@ -239,9 +239,62 @@ DTANH avoids the two-stream instability because the velocity tanh profile has vz
 
 **Diagnosis from logs**: The energy trajectory through t=9.8 TU is *identical* across all four runs (E/E0 = 0.993, 1.003, 1.150, 1.112) — confirming the divergence is not related to kz_suppress_max and originates from the same two-stream physics.
 
-**New code (kept)**: `kernel_ym_subtract_lowkz` and `kz_suppress_max` parameter are correct and will be reused in the next campaign with the correct mode.
+**New code (kept)**: `kernel_ym_subtract_kz_range` (renamed from `kernel_ym_subtract_lowkz`) and `kz_suppress_max` parameter are correct and will be reused in the next campaign with the correct mode.
 
-**Fix for Campaign 10**: Switch to `run_mode=3` (NAB_DTANH), same α=2, V0=0.1. The FCT NaN wall at t=63–71 TU gives ~60 TU of clean window — need to determine if low-kz suppression + double-well geometry is compatible with KH measurement at kz=1..6.
+**Fix for Campaign 10**: New mode 5 (NAB_TANH_COSAZ) with thin-tanh shear + bounded cosine Az1.
+
+---
+
+## Campaign 10 — NAB_TANH_COSAZ (mode 5), EPS sweep + kz=1..6 (2026-06-30)
+
+**Setup**: `run_mode=5` (new mode: single thin-tanh shear, cosine Az1), `alpha=2.0`, `perturb_amp=0.001`, `V0=0.1`, `suppress_kz0=1`, `hyp_diff=5e-5`. Phase 1: EPS=0.50,0.30,0.15,0.10 at k=1. Phase 2: k=1..6 at EPS=0.15 with kz_suppress_max=k-1.
+
+**Mode 5 design**: fixes both prior failures — cosine Az1 (|Az1|≤V0 everywhere, no log-cosh outer-region blowup), single shear layer (no double-well suppression), tanh velocity (zero at interface, no step-function two-stream).
+
+**Result**: All runs NaN at t=17–20 TU. Better than NAB_STEP (t=12–22 TU) but still far short of a usable window.
+
+| EPS | k | kz_suppress_max | t_halt (TU) |
+|-----|---|-----------------|-------------|
+| 0.50 | 1 | 0 | 19.6 |
+| 0.30 | 1 | 0 | 19.6 |
+| 0.15 | 1–5 | k-1 | 17.2 |
+| 0.10 | 1 | 0 | 17.2 |
+
+**KH growth confirmed**: By2 at target kz grows cleanly in the early linear phase:
+
+| EPS | γ_KH(kz=1) (TU⁻¹) | γ_KH/γ_WKB |
+|-----|-------------------|------------|
+| 0.50 | 0.034 | 6.2% |
+| 0.30 | 0.044 | 8.0% |
+| 0.15 | 0.064 | 11.6% |
+| 0.10 | 0.170 | 30.8% |
+
+Growth rate rises with smaller EPS (correct trend — kz*EPS→0 activates KH). Still below WKB because the tanh profile reduces the effective coupling vs the step-function WKB assumption.
+
+**Root cause of NaN**: Two-stream instability at kz≈10–14 in the color-2,3 sector. By2[kz=10] grows from noise (~5e-14) to 5e-8 in 14.7 TU at γ≈0.8 TU⁻¹ — 10× faster than KH. The counter-streaming beams (±V0 away from the shear interface) provide full two-stream drive at all kz > 0; non-Abelian coupling amplifies it through color-2,3.
+
+**Key diagnostic** (EPS=0.15, k=1):
+```
+t=0.0:   By2[kz=1]=2.5e-6   By2[kz=10]=5e-14   (initial seed vs noise)
+t=4.9:   By2[kz=1]=5.1e-6   By2[kz=10]=4e-12   (KH linear growth)
+t=9.8:   By2[kz=1]=6.8e-6   By2[kz=10]=2.7e-9  (two-stream overtakes)
+t=14.7:  By2[kz=1]=6.4e-6   By2[kz=10]=4.9e-8  (two-stream 7000× KH)
+t=17.2:  NaN
+```
+
+The kz_suppress_max filter (low-kz) does not help because the two-stream peaks at kz≈10–14, above k_target.
+
+**Fix for Campaign 11**: Add high-kz bandpass — suppress kz=k_mode+1..40 in color-2,3 fields each step. This cuts the non-Abelian amplification of the two-stream while leaving the target KH mode (kz=k_mode) untouched.
+
+---
+
+## Campaign 11 — NAB_TANH_COSAZ, bandpass filter kz=k_mode only (running 2026-06-30)
+
+**Setup**: same as Campaign 10 but adds `kz_suppress_hi=40` (new arg[13]): suppress kz=k_mode+1..40 in color-2,3 each step. Combined with suppress_kz0 + kz_suppress_max=k-1, the filter keeps ONLY kz=k_mode in the color-2,3 sector. `EPS=0.15` for Phase 2, EPS sweep at k=1 for Phase 1.
+
+**Kernel change**: `kernel_ym_subtract_lowkz` renamed to `kernel_ym_subtract_kz_range(kz_lo, kz_hi)` — called twice per step (below and above target).
+
+**Expected outcome**: Two-stream at kz=10 can no longer be amplified via color-2,3. The color-1 two-stream (fluid) still evolves freely but without the non-Abelian feedback should remain bounded much longer. If the run survives to t>50 TU, the KH growth rates at kz=1..6 can be cleanly measured and compared to WKB.
 
 ---
 
@@ -249,10 +302,11 @@ DTANH avoids the two-stream instability because the velocity tanh profile has vz
 
 | Issue | Status |
 |-------|--------|
-| FCT NaN wall at t=63–71 TU in NAB_DTANH | Active blocker. Double-tanh shear causes FCT instability at fixed times regardless of α, k, suppress_kz0, or hyp_diff=5e-5. Needs higher hyp_diff, fluid viscosity, or EPS increase. |
-| kz=0 Weibel mode | Suppressed in Campaign 6 (suppress_kz0 + hyp_diff=5e-5). suppress_kz0 alone (C5) was insufficient. |
-| KH mode at kz≥1 not observable in DTANH | WKB 42× overestimates; double-well geometry strongly suppresses kz≥1 mode. |
-| NAB_STEP ruled out | Color-1 two-stream instability (beams ±Q1, ±vz everywhere) blows up at t≈15 TU independent of α. No fix exists without changing the beam configuration. Confirmed again in Campaign 9 (mistake). |
+| FCT NaN wall at t=63–71 TU in NAB_DTANH | Bypassed by switching to mode 5 (NAB_TANH_COSAZ). |
+| kz=0 Weibel mode | Suppressed by suppress_kz0=1 + hyp_diff=5e-5 in all active campaigns. |
+| KH mode at kz≥1 not observable in DTANH | Resolved: mode 5 confirms KH IS growing (γ≈0.03–0.17 TU⁻¹). DTANH had shear too wide. |
+| Two-stream at kz≈10–14 | Active blocker (Campaign 10). Being addressed by kz_suppress_hi=40 bandpass in C11. |
+| NAB_STEP ruled out | Confirmed fatal (Campaigns 7 and 9). Not revisited. |
 | CLAUDE.md had DT typo (0.001×DX → 0.01×DX) | Fixed 2026-06-29 |
 | dispersion_ym.py had same DT typo | Fixed 2026-06-29 |
 

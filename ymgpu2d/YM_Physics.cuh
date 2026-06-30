@@ -40,6 +40,7 @@ struct YMParams {
     int suppress_kz0;        // subtract z-mean of color-2/3 fields each step to kill kz=0 Weibel mode
     fct_real_t hyp_diff_coeff; // 4th-order z-hyperdiffusion coefficient (0=off); use ~5e-5 to kill kz>=74
     int kz_suppress_max;     // subtract DFT modes kz=1..N from color-2/3 fields each step (0=off)
+    int kz_suppress_hi;      // also subtract DFT modes kz=kz_suppress_max+2..N to kill two-stream (0=off)
 };
 
 // =====================================================================
@@ -73,12 +74,12 @@ __global__ void kernel_ym_subtract_zmean(YMFieldPtrs f, YMFluidPtrs flA, YMFluid
 __global__ void kernel_ym_hyperdiffuse_z(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
                                           int nx, int nz, fct_real_t mu);
 
-// Low-kz suppression: subtract DFT modes kz=1..kz_max from color-2/3 fields.
-// For each x-column, projects out each Fourier mode and subtracts its reconstruction,
-// zeroing unwanted low-kz modes that grow faster than the target KH wavenumber.
+// DFT range suppression: subtract Fourier modes kz=kz_lo..kz_hi from color-2/3 fields.
+// Call twice per step to implement a bandpass: once for kz=1..k-1 (below target) and
+// once for kz=k+1..kz_hi (above target, kills two-stream at kz~10-14).
 // Launch: kernel<<<NX, NZ, 2*12*NZ*sizeof(fct_real_t)>>>  (one block per x-column)
-__global__ void kernel_ym_subtract_lowkz(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
-                                           int nx, int nz, int kz_max);
+__global__ void kernel_ym_subtract_kz_range(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
+                                              int nx, int nz, int kz_lo, int kz_hi);
 
 // =====================================================================
 // INLINE SU(2) CROSS-PRODUCT HELPERS  (ε^{abc}: 123=231=312=+1, rest=-1)

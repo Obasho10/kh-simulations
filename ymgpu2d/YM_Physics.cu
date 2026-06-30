@@ -301,8 +301,8 @@ __global__ void kernel_ym_subtract_zmean(YMFieldPtrs f, YMFluidPtrs flA, YMFluid
 // Shared memory layout: [12*NZ cosine-sums | 12*NZ sine-sums]
 // Launch: kernel<<<NX, NZ, 2*12*NZ*sizeof(fct_real_t)>>>
 // =====================================================================
-__global__ void kernel_ym_subtract_lowkz(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
-                                           int nx, int nz, int kz_max) {
+__global__ void kernel_ym_subtract_kz_range(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
+                                              int nx, int nz, int kz_lo, int kz_hi) {
     extern __shared__ fct_real_t smem[];
     fct_real_t* sc = smem;           // cosine-weighted sums [12*nz]
     fct_real_t* ss = smem + 12*nz;  // sine-weighted sums   [12*nz]
@@ -312,7 +312,7 @@ __global__ void kernel_ym_subtract_lowkz(YMFieldPtrs f, YMFluidPtrs flA, YMFluid
     if (x >= nx || z >= nz) return;
     int idx = IDX(x, z, nx);
 
-    for (int m = 1; m <= kz_max; m++) {
+    for (int m = kz_lo; m <= kz_hi; m++) {
         float phase = 2.0f * (float)M_PI * m * z / (float)nz;
         float cz = cosf(phase);
         float sz = sinf(phase);
