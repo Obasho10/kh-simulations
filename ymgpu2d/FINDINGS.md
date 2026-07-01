@@ -1,16 +1,19 @@
 # YM KH Simulation — Findings Tracker
 
-## Current Code State (2026-06-29)
+## Current Code State (2026-07-01)
 
-**Architecture**: Periodic domain, `Lx=6π`, `Lz=2π`, `NX=3*NZ=768`, `NZ=256`, `DX=DZ=2π/NZ≈0.0245`, `DT=0.01*DX≈2.45e-4`. 1 TU ≈ 4082 steps; 2M steps ≈ 490 TU (runs halt early from energy threshold at ~50–102 TU depending on α).
+**Architecture**: Periodic domain, `Lx=6π`, `Lz=2π`, `NX=3*NZ=768`, `NZ=256`, `DX=DZ=2π/NZ≈0.0245`, `DT=0.01*DX≈2.45e-4`. 1 TU ≈ 4082 steps; 2M steps ≈ 490 TU (runs halt early from energy threshold at ~50–100 TU).
 
-**Active mode**: `NAB_DTANH` (run_mode=3) — frozen double-log-cosh `Az1`, two smooth tanh shear layers at x=Lx/4 and x=3Lx/4, circular seed `By2=seed·sin(k·z)`, `By3=seed·cos(k·z)`. `freeze_az1=1`.
+**Latest active mode**: `NAB_CIRC` (run_mode=1, Campaign 16) — `Az1=−V0·log(cosh(ξ))` (zero at shear centre, grows outward), single tanh shear, frozen Az1, periodic x. Previously `NAB_TANH_COSAZ` (run_mode=5, Campaigns 10–15).
 
-**Energy threshold**: 100× E0 for modes 3/4; 5× for modes 0/1.
+**Standard suppression flags** (all active campaigns): `suppress_kz0=1`, `hyp_diff=5e-5`, `BP=14`, `cudaMemset By1/Ex1/Ez1=0` each step (step 6e, since Campaign 15).
+
+**Energy threshold**: 100× E0 for modes 3/4/5 and for modes 0/1 with xi_sponge>0; 5× for modes 0/1 without sponge.
 
 **Snapshot columns**: `X,Z,By1,By2,By3,Az2,Az3,PzA,PxA,Q1A,PzB,PxB,Q1B`
 
-Binary on server: `/DATA/cm/lcpfct/ymgpu2d/ym_coupled`
+Primary GPU server: `t130` (RTX A5000, sm_86) → `/DATA/cm/lcpfct/ymgpu2d/ym_coupled`, ~9200 steps/min.
+Backup GPU server: `abi` (farmerzone, 3× GTX 1080 Ti, sm_61) → `/DATA/s23103/lcpfct/ymgpu2d/ym_coupled`, ~4500 steps/min/GPU; build with `PATH=/usr/local/cuda-12.4/bin:$PATH make`.
 
 ---
 
@@ -461,8 +464,98 @@ The observed KH growth in Mode 5 is a GLOBAL (non-trapped) instability driven by
 | Color-1 EM instability (all kz incl. k_mode) | Fixed in Campaign 15 by cudaMemset By1/Ex1/Ez1=0 each step. |
 | Color-1 fluid two-stream (kz=1..14) | Fixed in Campaign 12 by fluid pz bandpass (BP=14). |
 | NAB_STEP ruled out | Confirmed fatal (Campaigns 7 and 9). |
-| WKB dispersion comparison | Revised: γ_meas(kz=1)=0.090 TU⁻¹ (ratio 0.16 vs WKB 0.553). Stability cutoff at kz≈1.5 (sim) vs kz→∞ (WKB). Geometric mismatch: cosine Az1 anti-well at shear centre vs log-cosh well required by WKB eq. 33. |
-| Precession cascade contamination | Az2[kz] grows at γ≈α×V0=0.20 TU⁻¹ for ALL kz (stable and unstable). Once Az2≈1-5e-4 (t≈29-34 TU), it triggers secondary By2 growth at γ≈0.20 TU⁻¹. True linear KH window is t<29 TU only. |
+| WKB dispersion comparison | Campaign 15 (Mode 5): γ_meas(kz=1)=0.090, ratio 0.16. Campaign 16 (Mode 1, log-cosh Az1): γ_meas(kz=1)=0.281, ratio 0.51 — 3× improvement. Remaining 2× gap is the step-potential vs log-cosh well shape. kz=2..6 still masked by cascade in both modes. |
+| Precession cascade contamination | Az2[kz] grows at γ≈0.20–0.24 TU⁻¹ for ALL kz (Mode 5 and Mode 1). In Mode 1, cascade is zero for kz=1 (Az1=0 at centre) but active for kz≥2 (outer-region coupling). To measure KH at kz≥2 requires reducing α×V0 or eigenmode-matched Az2 seeding. |
+| WKB geometry mismatch (Mode 5) | Resolved by Campaign 16: Mode 1 (log-cosh Az1) gives 3× better match. The WKB requires Az1=0 at shear centre — satisfied by log-cosh (Mode 1), violated by cosine (Mode 5). |
+
+---
+
+## Campaign 16 — NAB_CIRC (Mode 1, log-cosh Az1), WKB geometry test (2026-07-01)
+
+**Setup**: `run_mode=1` (NAB_CIRC: log-cosh Az1, single tanh shear, periodic x, frozen Az1), `alpha=2.0`, `perturb_amp=0.001`, `V0=0.1`, `EPS=0.15`, `xi_sponge=10.0`, `sigma_sponge=5.0`, `suppress_kz0=1`, `hyp_diff=5e-5`, `BP=14`, `kz_suppress_max=k-1`. Ran on **abi** (farmerzone, 3× GTX 1080 Ti sm_61, ~4500 steps/min/GPU) in two parallel batches of 3. Script: `run_campaign16_abi.sh`.
+
+**Motivation**: Campaign 15 (Mode 5, cosine Az1) showed only kz=1 unstable at γ=0.090 TU⁻¹, with WKB predicting 0.26–0.55 TU⁻¹ for all kz=1..6. The failure is geometric: cosine Az1 has a MAXIMUM (+V0) at the shear centre — an anti-well. The WKB eq. 33 requires Az1=0 at the shear centre with coupling growing outward (a confining well). Mode 1 uses `Az1 = −V0·log(cosh(ξ))`, which is zero at ξ=0 and grows as −V0|ξ|/EPS away from it — the correct WKB geometry. The sponge (xi_sponge=10) damps color-2/3 fields at |ξ|>10 to prevent the outer-region log-cosh coupling (α|Az1|≈12 at the periodic boundary) from building up; it also triggers the 100× energy threshold (vs 5× without sponge).
+
+**WKB eigenmode scale**: n=0 mode characteristic width ξ_char = 1/√(α·kz·V0) EPS-units ≈ 2.24 (kz=1), 1.58 (kz=2), 1.29 (kz=3) — all well inside the sponge boundary (|ξ|=10).
+
+**Data (max|By2| and max|Az2| per snapshot, growth rate γ per 4.9 TU interval)**:
+
+**kz=1** (NaN t=41.7 TU):
+
+| t (TU) | By2_max | γ_By2 | Az2_max | γ_Az2 |
+|--------|---------|-------|---------|-------|
+| 0.0 | 1.000e-04 | — | 0 | — |
+| 4.9 | 1.537e-05 | −0.382 | 3.23e-05 | — |
+| 9.8 | 4.390e-05 | +0.214 | 2.23e-04 | +0.395 |
+| 14.7 | 1.766e-04 | **+0.284** | 9.76e-04 | +0.301 |
+| 19.6 | 7.070e-04 | **+0.283** | 3.99e-03 | +0.287 |
+| 24.5 | 2.818e-03 | **+0.282** | 1.61e-02 | +0.285 |
+| 29.4 | 1.118e-02 | **+0.281** | 6.44e-02 | +0.283 |
+| 34.3 | 4.313e-02 | **+0.276** | 2.54e-01 | +0.280 |
+| 39.2 | 1.155e+00 | +0.671 | 8.28e-01 | +0.242 |
+
+**kz=2** (E/E0=378 > 100, halt t=73.6 TU):
+
+| t (TU) | By2_max | γ_By2 | Az2_max | γ_Az2 |
+|--------|---------|-------|---------|-------|
+| 0.0 | 1.000e-04 | — | 0 | — |
+| 4.9 | 6.429e-06 | −0.560 | 1.01e-05 | — |
+| 9.8 | 1.816e-06 | −0.258 | 1.98e-05 | +0.136 |
+| 14.7 | 1.461e-06 | −0.044 | 5.61e-05 | +0.213 |
+| 19.6 | 2.578e-06 | +0.116 | 1.52e-04 | +0.204 |
+| 24.5 | 7.644e-06 | +0.222 | 3.85e-04 | +0.189 |
+| 29.4 | 1.879e-05 | +0.184 | 9.69e-04 | +0.188 |
+| 34.3 | 4.930e-05 | +0.197 | 2.50e-03 | +0.194 |
+| 39.2 | 1.375e-04 | +0.209 | 6.61e-03 | +0.198 |
+| 44.1 | 3.998e-04 | +0.218 | 1.76e-02 | +0.200 |
+| 49.0 | 1.316e-03 | +0.243 | 4.70e-02 | +0.200 |
+| 53.9 | 5.606e-03 | +0.296 | 1.24e-01 | +0.198 |
+| 58.8 | 4.890e-02 | +0.442 | 3.40e-01 | +0.206 |
+| 63.7 | 2.212e-01 | +0.308 | 7.54e-01 | +0.162 |
+| 68.6 | 2.006e+00 | +0.450 | 9.47e-01 | +0.046 |
+| 73.5 | 2.293e+01 | +0.497 | 1.03e+00 | +0.017 |
+
+**kz=3** (NaN t=66.3 TU), **kz=4** (NaN t=63.8 TU), **kz=5** (NaN t=68.7 TU), **kz=6** (NaN t=63.8 TU) — summary in table below.
+
+**Complete dispersion results**:
+
+| kz | γ_WKB | γ_Mode5 | γ_Mode1 | Mode1/WKB | Interpretation |
+|----|-------|---------|---------|-----------|----------------|
+| 1 | 0.553 | 0.090 | **0.281** | 0.51 | Clean WKB eigenmode (By2/Az2 co-grow) |
+| 2 | 0.436 | ≈0 | ≤0.20 (cascade) | — | Az2 leads By2 from t=4.9; cascade masked |
+| 3 | 0.362 | ≈0 | ≤0.23 (cascade) | — | Same cascade pattern |
+| 4 | 0.315 | ≈0 | 0.26–0.42 (late) | — | Cascade early; By2 > cascade rate at Az2~O(1) |
+| 5 | 0.282 | ≈0 | 0.36–0.43 (late) | — | Same; By2 rate approaches WKB at nonlinear stage |
+| 6 | 0.258 | ≈0 | 0.38–0.44 (late) | — | Same pattern |
+
+**Key finding — kz=1 WKB mode confirmed**:
+
+For kz=1, By2 and Az2 grow at **exactly the same rate** (γ=0.281±0.004 TU⁻¹) from t≈10 TU onward with no lag. This is the eigenmode signature: all fields in the KH chain (By2→Ez2→Az2→Q3→Q2→By2) evolve together. In the precession cascade pattern (Campaigns 14–15), Az2 LEADS By2. Here they co-evolve, confirming this is the genuine WKB trapped n=0 mode, not the cascade.
+
+**γ(kz=1) = 0.281 TU⁻¹** — 3.1× higher than Mode 5 (0.090), confirming the geometric mismatch was dominant. Still **2× below WKB** (0.553).
+
+**Remaining factor of 2 discrepancy (kz=1)**:
+
+The WKB (eq. 33, khaxn.pdf) was derived for step-function velocity V₀z = v·sgn(x), which gives Az1 = v·x²/2 (parabola growing as x²). Mode 1 uses tanh velocity → log-cosh Az1, which grows as −V0|ξ|/EPS (linear) for large |ξ|, not quadratic. The effective confining potential for the eigenmode is shallower in Mode 1 than in the WKB step-potential — a shallower well gives a smaller eigenvalue (growth rate). This is the intrinsic accuracy limit of the WKB step-potential approximation applied to a smooth tanh shear: it overestimates γ by ~2× for kz=1.
+
+**kz=2..6 — precession cascade masks KH**:
+
+For kz≥2, Az2 grows at γ≈0.20–0.24 TU⁻¹ from t=4.9 TU onward while By2 decays from the initial seed. This cascade (Az2 grows from zero via color precession in the background Az1 field) has γ_cascade ≈ 0.20–0.24, comparable to or faster than any true KH rate for these modes. The WKB predicts γ_KH=0.26–0.44 TU⁻¹ for kz=2..6 — if correct, By2 should outpace the cascade from the start. The observed By2 decay conclusively shows γ_KH(kz=2..6) ≤ γ_cascade ≈ 0.20–0.24 TU⁻¹ in Mode 1.
+
+For kz=4,5,6: at late times (t>44 TU) as Az2 saturates near O(1), By2 acceleration reaches 0.3–0.44 TU⁻¹ — approaching WKB values. This is likely nonlinear secondary driving rather than linear KH, since Az2~O(1) >> linear regime.
+
+**Cascade rate comparison (Mode 1 vs Mode 5)**:
+
+| kz | γ_cascade (Mode 5) | γ_cascade (Mode 1) |
+|----|-------------------|-------------------|
+| 1 | 0.20 TU⁻¹ | ~0 (Az1=0 at center) |
+| 2 | 0.20 TU⁻¹ | 0.20 TU⁻¹ |
+| 3 | 0.20 TU⁻¹ | 0.23 TU⁻¹ |
+| 4–6 | 0.20 TU⁻¹ | 0.22–0.24 TU⁻¹ |
+
+For kz=1, the cascade in Mode 1 is effectively zero at the shear centre (Az1=0 there → no precession), which is why the true KH (γ=0.281) is cleanly visible above the noise. For kz≥2, the cascade rates in Mode 1 are similar to Mode 5 (≈0.20–0.24), because the cascade is driven in the OUTER REGION where Az1≠0 even in Mode 1.
+
+**To measure KH rates at kz≥2**: reduce α×V0 to push the cascade rate below γ_KH, or seed with a pre-formed Az2 profile matching the expected eigenmode structure so the KH starts well above the cascade noise floor from t=0.
 
 ---
 
