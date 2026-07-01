@@ -15,6 +15,6 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
                                 fct_real_t dx, fct_real_t dz,
                                 int k_mode, fct_real_t perturb_amp,
                                 fct_real_t V0, fct_real_t epsilon,
-                                int run_mode);
+                                int run_mode, fct_real_t alpha_YM);
 
 #endif // YM_INIT_CUH

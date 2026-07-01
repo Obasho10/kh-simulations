@@ -4,16 +4,18 @@
 
 **Architecture**: Periodic domain, `Lx=6π`, `Lz=2π`, `NX=3*NZ=768`, `NZ=256`, `DX=DZ=2π/NZ≈0.0245`, `DT=0.01*DX≈2.45e-4`. 1 TU ≈ 4082 steps; 2M steps ≈ 490 TU (runs halt early from energy threshold at ~50–100 TU).
 
-**Latest active mode**: `NAB_CIRC` (run_mode=1, Campaign 16) — `Az1=−V0·log(cosh(ξ))` (zero at shear centre, grows outward), single tanh shear, frozen Az1, periodic x. Previously `NAB_TANH_COSAZ` (run_mode=5, Campaigns 10–15).
+**Latest active mode**: `NAB_CIRC_AZ2` (run_mode=6, Campaign 18) — same log-cosh Az1 as Mode 1 but seeds **Az2/Az3** with the WKB Gaussian profile instead of By2/By3. Parallel: Campaign 17 (Mode 1, α=0.5, reduced cascade) on abi.
+
+**New run_mode=6 (NAB_CIRC_AZ2)**: Added to `YM_Init.cu`. Seeds `Az2 ∝ exp(−ξ²/2ξ_char²)·cos(kz·z)`, `Az3 ∝ exp(−ξ²/2ξ_char²)·sin(kz·z)` where `ξ_char=1/sqrt(α·kz·V0)`. By2=By3=0 at t=0. See PHYSICS.md §9 for full derivation.
 
 **Standard suppression flags** (all active campaigns): `suppress_kz0=1`, `hyp_diff=5e-5`, `BP=14`, `cudaMemset By1/Ex1/Ez1=0` each step (step 6e, since Campaign 15).
 
-**Energy threshold**: 100× E0 for modes 3/4/5 and for modes 0/1 with xi_sponge>0; 5× for modes 0/1 without sponge.
+**Energy threshold**: 100× E0 for modes 3/4/5/6 and for modes 0/1 with xi_sponge>0; 5× for modes 0/1 without sponge.
 
 **Snapshot columns**: `X,Z,By1,By2,By3,Az2,Az3,PzA,PxA,Q1A,PzB,PxB,Q1B`
 
-Primary GPU server: `t130` (RTX A5000, sm_86) → `/DATA/cm/lcpfct/ymgpu2d/ym_coupled`, ~9200 steps/min.
-Backup GPU server: `abi` (farmerzone, 3× GTX 1080 Ti, sm_61) → `/DATA/s23103/lcpfct/ymgpu2d/ym_coupled`, ~4500 steps/min/GPU; build with `PATH=/usr/local/cuda-12.4/bin:$PATH make`.
+GPU servers: `t130`/`t136` (RTX A5000, sm_86) → `/DATA/cm/lcpfct/ymgpu2d/`, ~9200 steps/min.
+Backup: `abi` (farmerzone, 3× GTX 1080 Ti, sm_61) → `/DATA/s23103/lcpfct/ymgpu2d/`, ~4500 steps/min/GPU.
 
 ---
 
@@ -451,6 +453,57 @@ where C = α^(3/2)×V0/√2 = 0.200, α²V0 = 0.400.
 The observed KH growth in Mode 5 is a GLOBAL (non-trapped) instability driven by the closed loop By2→Ez2→Az2→Q3→Q2→Lorentz→By2. Its growth rate (0.090 TU⁻¹ at kz=1) is **6× below** the WKB prediction. The stability cutoff is near **kz_c≈2.4** (kz=2: γ=+0.010 TU⁻¹ unstable; kz=3: γ=−0.011 TU⁻¹ damped). WKB incorrectly predicts instability for all kz=1..6 with a much higher cutoff.
 
 **Precession cascade contamination**: For ALL kz, Az2[kz] grows at γ≈α×V0=0.20 TU⁻¹ (color precession) regardless of KH stability. Once Az2≈1-5e-4, it acts as a secondary Az1-like background and drives secondary By2 growth through the same feedback loop. This cascade typically starts at t≈29-34 TU and makes By2 grow at γ≈0.20-0.23 TU⁻¹ — masking the true KH rate at late times. The linear KH window for each kz is only the period BEFORE the cascade trigger, typically t≈4-30 TU.
+
+---
+
+## Campaign 17 — NAB_CIRC (Mode 1), α=0.5, reduced cascade (running on abi)
+
+**Status**: Running on abi (farmerzone, 3× GTX 1080 Ti). Batch 1 (k=1,2,3) in progress; batch 2 (k=4,5,6) follows. Script: `run_campaign17_abi.sh`.
+
+**Setup**: Mode 1 (NAB_CIRC, log-cosh Az1), `alpha=0.5`, `V0=0.1`, `EPS=0.15`, `xi_sponge=20.0` (raised from 10 to accommodate wider eigenmode at lower α), `suppress_kz0=1`, `hyp_diff=5e-5`, `BP=14`.
+
+**Motivation**: At α=2 (Campaign 16), the precession cascade rate γ_cascade≈0.20–0.24 TU⁻¹ masked KH growth at kz=2..6. At α=0.5: γ_cascade≈α·V0=0.05 TU⁻¹ (4× slower). If γ_KH(kz=2..6) > 0.05 TU⁻¹, the KH signal should now emerge above the cascade floor.
+
+**Expected WKB comparison at α=0.5** (to be verified numerically):
+- Cascade floor: γ_cascade ≈ 0.05 TU⁻¹
+- WKB eigenmode width: ξ_char=4.47 (kz=1) — wider than α=2 case (2.24), requiring larger xi_sponge
+- WKB growth rates at α=0.5 are smaller (weaker coupling → weaker instability); exact values from eq. 33
+
+Results to be added when runs complete.
+
+---
+
+## Campaign 18 — NAB_CIRC_AZ2 (Mode 6), Gaussian Az2 seed (queued for t136)
+
+**Status**: Code ready; queued for t136 (RTX A5000, /DATA/cm/lcpfct/ymgpu2d/). The t136 node was unreachable at launch time — will sync+build+launch as soon as it comes back. Script: `run_campaign18_t136.sh`.
+
+**Setup**: Mode 6 (NAB_CIRC_AZ2), `alpha=2.0`, `V0=0.1`, `EPS=0.15`, `xi_sponge=10.0`, `suppress_kz0=1`, `hyp_diff=5e-5`, `BP=14`, kz=1..6. Sequential (single GPU).
+
+**Key change — run_mode=6 (NAB_CIRC_AZ2)**:
+- Seeds `Az2/Az3` with WKB n=0 Gaussian: `A₀·exp(−ξ²/2ξ_char²)·(cos,sin)(kz·z)`
+- `ξ_char = 1/sqrt(α·kz·V0)` (computed in the init kernel using the passed `alpha_YM`)
+- `By2=By3=0` at t=0 — they grow from Az2 via the KH chain (no By2 transient)
+- `Az1 = −V0·log(cosh(ξ))` (same as Mode 1, frozen)
+
+**Physics motivation (Option 1 of eigenmode seeding strategy)**:
+
+In Campaign 16 (Mode 1, α=2):
+- kz=1: By2 and Az2 co-grow at γ=0.281 TU⁻¹ immediately (Az1=0 at centre → no cascade)
+- kz=2..6: Az2 cascade (γ≈0.20–0.24 TU⁻¹) starts from zero and dominates before KH can emerge
+
+The root cause for kz≥2: Az2 starts at zero, so the cascade has to build it from scratch (from outer-region Az1 coupling). By the time Az2 is large enough for the KH chain to compete, the cascade has already set the rate.
+
+**Seeding Az2 directly at the WKB Gaussian profile**:
+- Eliminates the cascade build-up phase
+- Az2 starts at the correct spatial structure for the n=0 eigenmode
+- If γ_KH > γ_cascade, By2 should grow at γ_KH from t≈0 (1–2 KH periods)
+- Even if the amplitude ratio |Az2|/|By2| differs from the true eigenmode, the transient is ~1 KH period, not the 5–15 TU cascade build-up
+
+**Expected outcome**:
+- kz=1: no change expected (cascade already suppressed in Mode 1 at kz=1; should see γ≈0.28 again)
+- kz=2..6: if γ_KH > 0.05–0.20 TU⁻¹, By2 should grow from t=0 at γ_KH without initial decay
+
+**Next step (Option 2)**: Write `ym_eigenmode.py` — 1D scipy eigenvalue solver for the full linearized YM+fluid system, giving the exact multi-component eigenfunction [By2, Az2, Q2A, Q3A, ...]. See PHYSICS.md §9.
 
 ---
 

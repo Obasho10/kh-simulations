@@ -41,18 +41,19 @@ int main(int argc, char* argv[]) {
     // Reduce below 0.64/kz to activate KH; mode 5 (NAB_TANH_COSAZ) is designed for thin EPS.
     fct_real_t eps_override = (argc > 12) ? std::atof(argv[12]) : -1.0f;
     const char* mode_names[] = {"NAB_LINEAR", "NAB_CIRC", "EMHD_KH", "NAB_DTANH", "NAB_STEP",
-                                "NAB_TANH_COSAZ"};
+                                "NAB_TANH_COSAZ", "NAB_CIRC_AZ2"};
     const char* mode_tag     = (run_mode == 1) ? "_circ"
                              : (run_mode == 2) ? "_emhd"
                              : (run_mode == 3) ? "_dtanh"
                              : (run_mode == 4) ? "_step"
-                             : (run_mode == 5) ? "_tanh" : "";
+                             : (run_mode == 5) ? "_tanh"
+                             : (run_mode == 6) ? "_circ_az2seed" : "";
 
     std::cout << "================================================================\n"
               << " GPU SU(2) Yang-Mills KH Solver (two-beam)\n"
               << " k_mode=" << k_mode << "  alpha_YM=" << aYM
               << "  perturb_amp=" << p_amp << "  V0=" << V0_arg
-              << "  mode=" << mode_names[run_mode < 6 ? run_mode : 0] << "\n"
+              << "  mode=" << mode_names[run_mode < 7 ? run_mode : 0] << "\n"
               << " xi_sponge=" << xi_sponge << "  sigma_sponge=" << sigma_sponge
               << "  freeze_az1_override=" << freeze_override
               << "  suppress_kz0=" << suppress_kz0
@@ -84,7 +85,7 @@ int main(int argc, char* argv[]) {
     params.alpha_YM = aYM;
     params.V0 = V0; params.epsilon = EPS;
     // freeze Az1: static background for WKB theory (CIRC, DTANH, STEP, TANH_COSAZ)
-    params.freeze_az1 = (run_mode == 1 || run_mode == 3 || run_mode == 4 || run_mode == 5) ? 1 : 0;
+    params.freeze_az1 = (run_mode == 1 || run_mode == 3 || run_mode == 4 || run_mode == 5 || run_mode == 6) ? 1 : 0;
     if (freeze_override >= 0) params.freeze_az1 = freeze_override;
     // periodic EM BC: all modes >=1 use periodic x (no walls)
     params.periodic_x = (run_mode >= 1) ? 1 : 0;
@@ -172,7 +173,7 @@ int main(int argc, char* argv[]) {
     dim3 blocks2d((NX + 15) / 16, (NZ + 15) / 16);
 
     kernel_ym_init<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB,
-                                             NX, NZ, DX, DZ, k_mode, p_amp, V0, EPS, run_mode);
+                                             NX, NZ, DX, DZ, k_mode, p_amp, V0, EPS, run_mode, (float)aYM);
     cudaDeviceSynchronize();
 
     // Derive velocities and precompute initial sources

@@ -18,7 +18,7 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
                                 fct_real_t dx, fct_real_t dz,
                                 int k_mode, fct_real_t perturb_amp,
                                 fct_real_t V0, fct_real_t epsilon,
-                                int run_mode) {
+                                int run_mode, fct_real_t alpha_YM) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int z = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= nx || z >= nz) return;
@@ -41,7 +41,7 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
 
     // ── Defaults ──
     fct_real_t by1_init = 0.0f, by2_init = 0.0f, by3_init = 0.0f;
-    fct_real_t az1_init = 0.0f;
+    fct_real_t az1_init = 0.0f, az2_init = 0.0f, az3_init = 0.0f;
     fct_real_t vz_A = +V0 * tanhf(xi);   // single-tanh shear (overridden in mode 3)
 
     if (run_mode == 0) {
@@ -50,11 +50,29 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
         az1_init = az1_eq;
 
     } else if (run_mode == 1) {
-        // NAB_CIRC: (+)-helicity seed.
-        // rfft[cos][k]=NZ/2 (real), rfft[sin][k]=-i*NZ/2 → F2+iF3 = NZ (nonzero)
+        // NAB_CIRC: (+)-helicity By2/By3 seed, log-cosh Az1.
         by2_init = base_seed * cosf(k_z * z_val);
         by3_init = base_seed * sinf(k_z * z_val);
         az1_init = az1_eq;
+
+    } else if (run_mode == 6) {
+        // NAB_CIRC_AZ2: same as Mode 1 but seeds Az2/Az3 instead of By2/By3.
+        // Seeds the WKB n=0 Gaussian eigenfunction directly into Az2 to bypass
+        // the precession cascade build-up that masks KH growth at kz>=2.
+        //
+        // WKB harmonic-oscillator width: ξ_char = 1/sqrt(α·kz·V0) in ξ-units
+        //   (ξ = (x-Lx/2)/EPS). Physical half-width = EPS·ξ_char.
+        //   α=2,kz=1,V0=0.1: ξ_char=2.24, σ_phys=0.336
+        //   α=2,kz=2,V0=0.1: ξ_char=1.58, σ_phys=0.237
+        //
+        // By2/By3 left at zero — they grow naturally from Az2 via the KH chain
+        // (Az2 → Q3 → Q2 → Lorentz → By2) once the eigenmode is excited.
+        az1_init = az1_eq;
+        fct_real_t xi_char = 1.0f / sqrtf(alpha_YM * (fct_real_t)k_mode * V0 + 1e-12f);
+        fct_real_t gauss   = expf(-0.5f * xi * xi / (xi_char * xi_char));
+        fct_real_t az_seed = perturb_amp * V0 * gauss;
+        az2_init = az_seed * cosf(k_z * z_val);
+        az3_init = az_seed * sinf(k_z * z_val);
 
     } else if (run_mode == 2) {
         // EMHD_KH: color-1 Kelvin-Helmholtz; no Az1 coupling
@@ -143,7 +161,8 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
     f.By2[idx] = by2_init;
     f.By3[idx] = by3_init;
     f.Az1[idx] = az1_init;
-    f.Az2[idx] = f.Az3[idx] = 0.0f;
+    f.Az2[idx] = az2_init;
+    f.Az3[idx] = az3_init;
     f.Ex1[idx] = f.Ex2[idx] = f.Ex3[idx] = 0.0f;
     f.Ez1[idx] = f.Ez2[idx] = f.Ez3[idx] = 0.0f;
     f.Jx1[idx] = f.Jx2[idx] = f.Jx3[idx] = 0.0f;

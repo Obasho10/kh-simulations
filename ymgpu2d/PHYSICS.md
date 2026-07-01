@@ -277,3 +277,64 @@ With this setup (Campaign 12, EPS=0.15, α=2, BP=14):
 | 3 NAB_DTANH | double-tanh | −V₀(log cosh ξ₁−log cosh ξ₂), frozen | circular (sech₁+sech₂)·(cos,sin) | on |
 | 4 NAB_STEP | step ±V₀ (**ruled out**) | −V₀ cos(x), frozen | By2 sin(kz), uniform x | on |
 | 5 NAB_TANH_COSAZ | tanh (single, EPS=eps_override) | −V₀ cos(x), frozen | By2 sin(kz)·sech(ξ/EPS) | on |
+| 6 NAB_CIRC_AZ2 | tanh (single) | −V₀ log cosh(ξ), frozen | **Az2/Az3 WKB Gaussian** exp(−ξ²/2ξ_char²)·(cos,sin) | on |
+
+---
+
+## 9. Eigenmode Seeding Strategy
+
+### The cascade problem
+
+In all modes seeding By2/By3, the precession cascade corrupts kz≥2 linear measurements (see Campaign 16):
+- Az2 grows at γ_cascade ≈ α·V₀ from the background Az1 precession (even when Az2_init=0)
+- For α=2, V₀=0.1: γ_cascade ≈ 0.20–0.24 TU⁻¹
+- If γ_KH < γ_cascade, By2 decays initially and the true KH signal is buried
+
+### Option 1 — Gaussian Az2 seed (run_mode=6, Campaign 18)
+
+Seed `Az2/Az3` with the WKB n=0 Gaussian profile instead of `By2/By3`:
+
+```
+Az2(x,z,t=0) = A₀ · exp(−ξ²/(2·ξ_char²)) · cos(kz·z)
+Az3(x,z,t=0) = A₀ · exp(−ξ²/(2·ξ_char²)) · sin(kz·z)
+ξ_char = 1/sqrt(α · kz · V₀)   [in ξ-units, ξ=(x−Lx/2)/EPS]
+```
+
+| α | kz | ξ_char | σ_phys = EPS·ξ_char |
+|---|----|--------|---------------------|
+| 2 | 1 | 2.24 | 0.336 |
+| 2 | 2 | 1.58 | 0.237 |
+| 2 | 3 | 1.29 | 0.194 |
+| 2 | 4 | 1.12 | 0.168 |
+| 2 | 6 | 0.913 | 0.137 |
+
+**Rationale**: Az2 is the field that the cascade builds slowly (from zero). Seeding it at the correct WKB Gaussian width pre-loads the KH activation chain at the field most directly coupled to the eigenmode. By2 starts at zero but grows immediately via the KH chain (Az2→Q3→Q2→Lorentz→By2). The cascade cannot _add_ more Az2 than is already there at the correct spatial structure.
+
+**Expected outcome**: If the eigenmode is present, By2 should start growing at γ_KH from t≈0 (or after one KH period ~1/γ), with no initial decay phase. The co-growth signature (By2 and Az2 at the same rate with no lag) should appear at t=0 rather than at t≈10 TU as in Campaign 16.
+
+**Limitation**: Az2_seed/By2_seed ratio ≈ 1 (equal amplitudes), whereas the true eigenmode may have |Az2|/|By2| >> 1 (from the WKB relation Az2~∂xBy2/γ²). A mismatch in this ratio launches a transient that decays within a few KH periods. Option 2 (full eigenvalue solver) eliminates this transient completely.
+
+### Option 2 — 1D eigenvalue solver (next step)
+
+Solve the linearized YM+fluid equations as a matrix eigenvalue problem in x-space:
+
+```
+γ · Ψ(x) = L(x, ∂/∂x) · Ψ(x)
+Ψ = [By2, By3, Ex2, Ex3, Ez2, Ez3, Az2, Az3, Q2A, Q3A, Q2B, Q3B]
+```
+
+Discretize on NX=768 points → sparse complex matrix M of size ~(NX×12)². Solve with `scipy.sparse.linalg.eigs` (shift-invert at estimated γ_WKB). The dominant eigenvalue is γ_KH; the eigenvector gives the exact x-profiles of **all** fields.
+
+**Benefits over Option 1**:
+- Exact amplitude ratio between all fields (By2, Az2, Q2, Q3, Ex, Ez) — no transient at t=0
+- Exact growth rate prediction without running the full 2D simulation
+- Can scan (α, kz, V₀) parameter space in seconds
+- Direct verification of the WKB polynomial (eq. 33) vs the full linearized system
+
+**Implementation plan** (`ym_eigenmode.py`):
+1. Build background arrays: Az1(x), vz_A(x), vz_B(x) on NX=768 grid
+2. Assemble sparse block matrix M from the linearized Faraday/Ampere/fluid equations
+3. Call `scipy.sparse.linalg.eigs(M, k=10, sigma=gamma_WKB_estimate)` for each kz
+4. Extract dominant eigenvalue → compare to WKB
+5. Extract eigenvector → write Az2(x), By2(x), Q2A(x), ... profiles
+6. New init kernel reads the profile from a file (or a new run_mode=7) as seed
