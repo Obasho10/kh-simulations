@@ -456,20 +456,54 @@ The observed KH growth in Mode 5 is a GLOBAL (non-trapped) instability driven by
 
 ---
 
-## Campaign 17 — NAB_CIRC (Mode 1), α=0.5, reduced cascade (running on abi)
+## Campaign 17 — NAB_CIRC (Mode 1), α=0.5, reduced cascade (abi, COMPLETE)
 
-**Status**: Running on abi (farmerzone, 3× GTX 1080 Ti). Batch 1 (k=1,2,3) in progress; batch 2 (k=4,5,6) follows. Script: `run_campaign17_abi.sh`.
+**Status**: Complete. All kz=1..6 finished on abi (3× GTX 1080 Ti). Script: `run_campaign17_abi.sh`.
 
-**Setup**: Mode 1 (NAB_CIRC, log-cosh Az1), `alpha=0.5`, `V0=0.1`, `EPS=0.15`, `xi_sponge=20.0` (raised from 10 to accommodate wider eigenmode at lower α), `suppress_kz0=1`, `hyp_diff=5e-5`, `BP=14`.
+**Setup**: Mode 1 (NAB_CIRC, log-cosh Az1), `alpha=0.5`, `V0=0.1`, `EPS=0.15`, `xi_sponge=20.0`, `suppress_kz0=1`, `hyp_diff=5e-5`, `BP=14`.
 
-**Motivation**: At α=2 (Campaign 16), the precession cascade rate γ_cascade≈0.20–0.24 TU⁻¹ masked KH growth at kz=2..6. At α=0.5: γ_cascade≈α·V0=0.05 TU⁻¹ (4× slower). If γ_KH(kz=2..6) > 0.05 TU⁻¹, the KH signal should now emerge above the cascade floor.
+**Run durations** (all NaN at end — nonlinear blowup, not energy threshold):
 
-**Expected WKB comparison at α=0.5** (to be verified numerically):
-- Cascade floor: γ_cascade ≈ 0.05 TU⁻¹
-- WKB eigenmode width: ξ_char=4.47 (kz=1) — wider than α=2 case (2.24), requiring larger xi_sponge
-- WKB growth rates at α=0.5 are smaller (weaker coupling → weaker instability); exact values from eq. 33
+| kz | NaN halt (TU) | Snapshots |
+|----|--------------|-----------|
+| 1 | 112.9 | 24 |
+| 2 | 105.5 | 22 |
+| 3 | 112.9 | 24 |
+| 4 | 120.3 | 25 |
+| 5 | 130.1 | 27 |
+| 6 | 135.0 | 28 |
 
-Results to be added when runs complete.
+Runs lasted 105–135 TU — 2–3× longer than Campaign 16 (40–74 TU), confirming that lower α suppresses early blowup.
+
+**Sustained growth rates (log-linear fit, linear phase only)**:
+
+| kz | window (TU) | γ_By2 | γ_Az2 | Az2/By2 (mid) | Interpretation |
+|----|------------|-------|-------|---------------|----------------|
+| 1 | 29–108 | **+0.119** | **+0.118** | 71 | **Co-growth → eigenmode** |
+| 2 | 29–98 | +0.126 | +0.143 | 153 | Partial (Az2 slightly faster) |
+| 3 | 29–108 | +0.113 | +0.134 | 317 | Cascade (Az2>By2) |
+| 4 | 29–118 | +0.091 | +0.126 | 614 | Cascade |
+| 5 | 29–122 | +0.062 | +0.121 | 580 | Cascade |
+| 6 | 29–132 | +0.053 | +0.114 | 382 | Cascade |
+
+**Key finding — kz=1 eigenmode at α=0.5**:
+
+kz=1 shows near-identical γ_By2=0.119 and γ_Az2=0.118 TU⁻¹ from t≈34–108 TU with Az2/By2≈70 (approximately constant). This is the eigenmode co-growth signature. The large ratio (70 vs ~5 in C16 kz=1) is expected from the WKB relation Az2~∂xBy2/γ²: at lower γ (0.119 vs 0.281) and wider mode (σ=0.671 vs 0.336), the amplitude ratio scales as ~(γ_C16/γ_C17)²×(σ_C17/σ_C16) ≈ (2.4)²×2 ≈ 11× larger.
+
+**Scaling with α**:
+
+| α | γ(kz=1, Mode 1) | γ ratio | α ratio^0.5 |
+|---|-----------------|---------|-------------|
+| 2.0 (C16) | 0.281 TU⁻¹ | 1.00 | 1.00 |
+| 0.5 (C17) | 0.119 TU⁻¹ | 0.42 | 0.50 |
+
+γ scales approximately as α^0.5 (measured ratio 0.42 vs theoretical 0.50 for square-root scaling). Exact WKB scaling requires the eigenvalue solver (Option 2).
+
+**Why kz≥2 are still cascade-dominated at α=0.5**:
+
+The effective cascade rate in Mode 1 is NOT simply α×V0 = 0.05 TU⁻¹. The measured cascade rate is γ_Az2 ≈ 0.11–0.14 TU⁻¹ for all kz. At α=0.5, the WKB eigenmode for kz=1 has ξ_char=4.47 EPS-units — much wider than at α=2 (ξ_char=2.24). The mode extends into the outer region (|ξ|>2) where Az1=-V0·log(cosh(ξ)) ≠ 0, coupling to the cascade. The cascade operates through this outer overlap even in Mode 1. For kz≥2, the modes are narrower (ξ_char<4.47) but the cascade still appears to be driven by modes at the outer boundary region at a fixed rate ≈0.11–0.14 TU⁻¹.
+
+**Conclusion**: Lowering α to 0.5 reduces γ_KH but does NOT proportionally reduce γ_cascade (which stays ≈0.11–0.14 TU⁻¹ regardless of kz). The cascade floor cannot be pushed below ~0.10 TU⁻¹ in Mode 1 at any α with the By2 seed strategy. The eigenmode seeding approach (Campaign 18, Mode 6) is required to bypass the cascade entirely.
 
 ---
 
@@ -518,7 +552,7 @@ The root cause for kz≥2: Az2 starts at zero, so the cascade has to build it fr
 | Color-1 fluid two-stream (kz=1..14) | Fixed in Campaign 12 by fluid pz bandpass (BP=14). |
 | NAB_STEP ruled out | Confirmed fatal (Campaigns 7 and 9). |
 | WKB dispersion comparison | Campaign 15 (Mode 5): γ_meas(kz=1)=0.090, ratio 0.16. Campaign 16 (Mode 1, log-cosh Az1): γ_meas(kz=1)=0.281, ratio 0.51 — 3× improvement. Remaining 2× gap is the step-potential vs log-cosh well shape. kz=2..6 still masked by cascade in both modes. |
-| Precession cascade contamination | Az2[kz] grows at γ≈0.20–0.24 TU⁻¹ for ALL kz (Mode 5 and Mode 1). In Mode 1, cascade is zero for kz=1 (Az1=0 at centre) but active for kz≥2 (outer-region coupling). To measure KH at kz≥2 requires reducing α×V0 or eigenmode-matched Az2 seeding. |
+| Precession cascade contamination | In Mode 1: cascade is suppressed for kz=1 when α=2 (narrow mode, ξ_char=2.24; γ_cascade≈0). At α=0.5 (C17), mode widens (ξ_char=4.47) → outer-region Az1 coupling drives cascade at γ_Az2≈0.11–0.14 for ALL kz regardless of kz. Effective cascade floor in Mode 1 ≈ 0.10–0.14 TU⁻¹, not simply α×V0. Solution: eigenmode seed (Campaign 18, Mode 6). |
 | WKB geometry mismatch (Mode 5) | Resolved by Campaign 16: Mode 1 (log-cosh Az1) gives 3× better match. The WKB requires Az1=0 at shear centre — satisfied by log-cosh (Mode 1), violated by cosine (Mode 5). |
 
 ---
