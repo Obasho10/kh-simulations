@@ -1,4 +1,5 @@
-NVCC      := /usr/local/cuda-12.4/bin/nvcc
+# Auto-detect nvcc: prefer PATH, then scan common cuda-12.x installs
+NVCC      := $(shell which nvcc 2>/dev/null || ls /usr/local/cuda-1[2-9].*/bin/nvcc 2>/dev/null | sort -V | tail -1)
 CXX_FLAGS := -std=c++17 -O2 -lineinfo
 CUDA_FLAGS := --expt-relaxed-constexpr
 
