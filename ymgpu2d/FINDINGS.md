@@ -509,35 +509,44 @@ The effective cascade rate in Mode 1 is NOT simply α×V0 = 0.05 TU⁻¹. The me
 
 ## Campaign 18 — NAB_CIRC_AZ2 (Mode 6), Gaussian Az2 seed (queued for t136)
 
-**Status**: Code ready; queued for t136 (RTX A5000, /DATA/cm/lcpfct/ymgpu2d/). The t136 node was unreachable at launch time — will sync+build+launch as soon as it comes back. Script: `run_campaign18_t136.sh`.
+**Status**: Running on t136 (RTX A5000). kz=1,2,3 complete; kz=4 in progress. Script: `run_campaign18_t136.sh`.
 
 **Setup**: Mode 6 (NAB_CIRC_AZ2), `alpha=2.0`, `V0=0.1`, `EPS=0.15`, `xi_sponge=10.0`, `suppress_kz0=1`, `hyp_diff=5e-5`, `BP=14`, kz=1..6. Sequential (single GPU).
 
 **Key change — run_mode=6 (NAB_CIRC_AZ2)**:
 - Seeds `Az2/Az3` with WKB n=0 Gaussian: `A₀·exp(−ξ²/2ξ_char²)·(cos,sin)(kz·z)`
-- `ξ_char = 1/sqrt(α·kz·V0)` (computed in the init kernel using the passed `alpha_YM`)
-- `By2=By3=0` at t=0 — they grow from Az2 via the KH chain (no By2 transient)
+- `ξ_char = 1/sqrt(α·kz·V0)` (computed in init kernel using `alpha_YM`)
+- `By2=By3=0` at t=0 — they grow from Az2 via the KH chain (no By2 seed decay transient)
 - `Az1 = −V0·log(cosh(ξ))` (same as Mode 1, frozen)
 
-**Physics motivation (Option 1 of eigenmode seeding strategy)**:
+**Results (kz=1,2,3 complete)**:
 
-In Campaign 16 (Mode 1, α=2):
-- kz=1: By2 and Az2 co-grow at γ=0.281 TU⁻¹ immediately (Az1=0 at centre → no cascade)
-- kz=2..6: Az2 cascade (γ≈0.20–0.24 TU⁻¹) starts from zero and dominates before KH can emerge
+| kz | halt (TU) | snaps | window | γ_By2 | γ_Az2 | Az2/By2 (end) | trend | γ_WKB | sim/WKB |
+|----|-----------|-------|--------|-------|-------|--------------|-------|-------|---------|
+| 1 | 49.1 (NaN) | 11 | 29–39 TU | **+0.283** | +0.293 | 5.6 | co-grow (eigenmode) | 0.553 | 0.51 |
+| 2 | 68.7 (NaN) | 15 | 29–64 TU | **+0.206** | +0.183 | 24 | By2>Az2 **(KH signal)** | 0.436 | 0.47 |
+| 3 | 54.0 (NaN) | 12 | 29–49 TU | **+0.222** | +0.226 | 100 | co-grow (eigenmode) | 0.362 | 0.61 |
 
-The root cause for kz≥2: Az2 starts at zero, so the cascade has to build it from scratch (from outer-region Az1 coupling). By the time Az2 is large enough for the KH chain to compete, the cascade has already set the rate.
+**Key findings**:
 
-**Seeding Az2 directly at the WKB Gaussian profile**:
-- Eliminates the cascade build-up phase
-- Az2 starts at the correct spatial structure for the n=0 eigenmode
-- If γ_KH > γ_cascade, By2 should grow at γ_KH from t≈0 (1–2 KH periods)
-- Even if the amplitude ratio |Az2|/|By2| differs from the true eigenmode, the transient is ~1 KH period, not the 5–15 TU cascade build-up
+**kz=1**: γ=0.283 TU⁻¹ — identical to C16 (0.281), confirming the Az2 seed reproduces the same eigenmode. By2 grows from t=0 with NO initial decay (unlike C16 where By2 decayed from 1e-4 to 1e-6 before growing). Az2/By2 converges to ~5-6 (eigenmode ratio) from above by t≈20 TU.
 
-**Expected outcome**:
-- kz=1: no change expected (cascade already suppressed in Mode 1 at kz=1; should see γ≈0.28 again)
-- kz=2..6: if γ_KH > 0.05–0.20 TU⁻¹, By2 should grow from t=0 at γ_KH without initial decay
+**kz=2**: First clean KH measurement. By2 grows FASTER than Az2 (γ_By2=0.206 > γ_Az2=0.183): the eigenmode is not yet fully settled (ratio dropping from 66→24), but By2 is already outpacing the cascade. γ_KH ≈ 0.19–0.21 TU⁻¹. In C16, this mode was entirely masked by cascade.
 
-**Next step (Option 2)**: Write `ym_eigenmode.py` — 1D scipy eigenvalue solver for the full linearized YM+fluid system, giving the exact multi-component eigenfunction [By2, Az2, Q2A, Q3A, ...]. See PHYSICS.md §9.
+**kz=3**: co-growth at γ≈0.222 TU⁻¹ with Az2/By2≈100 approximately constant from t=29–49 TU. Genuine eigenmode. In C16, this mode was entirely masked by cascade.
+
+**Comparison across campaigns**:
+
+| kz | γ_WKB | C16 (By2 seed) | C17 (α=0.5) | C18 (Az2 seed) | C18/WKB |
+|----|-------|----------------|-------------|----------------|---------|
+| 1 | 0.553 | 0.281 (eigenmode) | 0.119 (eigenmode) | **0.283** | **0.51** |
+| 2 | 0.436 | ≤0.20 (cascade) | 0.126 (cascade) | **~0.20** | **~0.47** |
+| 3 | 0.362 | ≤0.23 (cascade) | 0.113 (cascade) | **0.222** | **0.61** |
+| 4–6 | 0.315–0.258 | ≤0.24 (cascade) | 0.053–0.091 (cascade) | (running) | — |
+
+**Option 1 verdict**: The Gaussian Az2 seed eliminates the initial cascade build-up delay and delivers clean KH growth rates for kz=1,2,3 — the first direct measurements at kz≥2. sim/WKB ratios (0.47–0.61) are consistent with the factor-2 log-cosh vs step-potential well-depth discrepancy identified in C16. The WKB systematically overestimates growth rates by ~2× across all measured kz.
+
+**Next step (Option 2)**: Write `ym_eigenmode.py` — 1D scipy eigenvalue solver for the full linearized YM+fluid system, giving exact multi-component eigenfunctions [By2, Az2, Q2A, Q3A, ...] and growth rates. See PHYSICS.md §9.
 
 ---
 
