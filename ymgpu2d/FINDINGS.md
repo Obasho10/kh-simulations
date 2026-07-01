@@ -507,46 +507,62 @@ The effective cascade rate in Mode 1 is NOT simply α×V0 = 0.05 TU⁻¹. The me
 
 ---
 
-## Campaign 18 — NAB_CIRC_AZ2 (Mode 6), Gaussian Az2 seed (queued for t136)
+## Campaign 18 — NAB_CIRC_AZ2 (Mode 6), Gaussian Az2 seed (t136)
 
-**Status**: Running on t136 (RTX A5000). kz=1,2,3 complete; kz=4 in progress. Script: `run_campaign18_t136.sh`.
+**Status**: COMPLETE kz=1..5 (t136 RTX A5000). kz=6 completing. Script: `run_campaign18_t136.sh`.
 
-**Setup**: Mode 6 (NAB_CIRC_AZ2), `alpha=2.0`, `V0=0.1`, `EPS=0.15`, `xi_sponge=10.0`, `suppress_kz0=1`, `hyp_diff=5e-5`, `BP=14`, kz=1..6. Sequential (single GPU).
+**Setup**: Mode 6 (NAB_CIRC_AZ2), `alpha=2.0`, `V0=0.1`, `EPS=0.15`, `xi_sponge=10.0`, `sigma_sponge=5.0`, `suppress_kz0=1`, `hyp_diff=5e-5`, `BP=14`, kz=1..6. Sequential (single GPU).
 
 **Key change — run_mode=6 (NAB_CIRC_AZ2)**:
 - Seeds `Az2/Az3` with WKB n=0 Gaussian: `A₀·exp(−ξ²/2ξ_char²)·(cos,sin)(kz·z)`
 - `ξ_char = 1/sqrt(α·kz·V0)` (computed in init kernel using `alpha_YM`)
-- `By2=By3=0` at t=0 — they grow from Az2 via the KH chain (no By2 seed decay transient)
+- `By2=By3=0` at t=0 — they grow from Az2 via the KH chain
 - `Az1 = −V0·log(cosh(ξ))` (same as Mode 1, frozen)
 
-**Results (kz=1,2,3 complete)**:
+**Results (corrected weight — sech centred at LX/2 with width EPS·ξ_char)**:
 
-| kz | halt (TU) | snaps | window | γ_By2 | γ_Az2 | Az2/By2 (end) | trend | γ_WKB | sim/WKB |
-|----|-----------|-------|--------|-------|-------|--------------|-------|-------|---------|
-| 1 | 49.1 (NaN) | 11 | 29–39 TU | **+0.283** | +0.293 | 5.6 | co-grow (eigenmode) | 0.553 | 0.51 |
-| 2 | 68.7 (NaN) | 15 | 29–64 TU | **+0.206** | +0.183 | 24 | By2>Az2 **(KH signal)** | 0.436 | 0.47 |
-| 3 | 54.0 (NaN) | 12 | 29–49 TU | **+0.222** | +0.226 | 100 | co-grow (eigenmode) | 0.362 | 0.61 |
+⚠️ **Note**: `dispersion_ym.py` default (xi_cut=-1 uniform weight) gives WRONG growth rates for NAB_CIRC runs because the sponge zeros all fields at |ξ|>10 (|x−LX/2|>1.5), leaving only numerical noise at LX/3 and 2·LX/3 where the script peaks. All C18 rates below use corrected sech weight.
 
-**Key findings**:
+| kz | halt (TU) | γ_By(corr) | γ_Az(corr) | γ_WKB | γ_exact(solver) | Az/By(eig) | sim_Az/exact |
+|----|-----------|-----------|-----------|-------|-----------------|-----------|-------------|
+| 1 | 49.1 (NaN) | **0.279** | 0.296 | 0.553 | **0.267** | 6.6 | 1.11 |
+| 2 | 68.7 (NaN) | 0.138† | **0.173** | 0.436 | **0.199** | 45.8 | 0.87 |
+| 3 | 54.0 (NaN) | **0.212** | 0.212 | 0.362 | **0.237** | 74.6 | 0.90 |
+| 4 | 54.0 (NaN) | **0.218** | 0.220 | 0.309 | **0.248** | 109.7 | 0.89 |
+| 5 | 68.7 (NaN) | 0.146† | **0.175** | 0.278 | **0.211** | 122.7 | 0.83 |
 
-**kz=1**: γ=0.283 TU⁻¹ — identical to C16 (0.281), confirming the Az2 seed reproduces the same eigenmode. By2 grows from t=0 with NO initial decay (unlike C16 where By2 decayed from 1e-4 to 1e-6 before growing). Az2/By2 converges to ~5-6 (eigenmode ratio) from above by t≈20 TU.
+†γ_By biased low for large Az/By eigenmodes (By builds from zero while Az is seeded directly; γ_Az is the correct measure).
 
-**kz=2**: First clean KH measurement. By2 grows FASTER than Az2 (γ_By2=0.206 > γ_Az2=0.183): the eigenmode is not yet fully settled (ratio dropping from 66→24), but By2 is already outpacing the cascade. γ_KH ≈ 0.19–0.21 TU⁻¹. In C16, this mode was entirely masked by cascade.
+**γ_exact** from `ym_eigenmode.py` (scipy shift-invert, xi_sponge=10, sigma_sponge=5, NX=384).
 
-**kz=3**: co-growth at γ≈0.222 TU⁻¹ with Az2/By2≈100 approximately constant from t=29–49 TU. Genuine eigenmode. In C16, this mode was entirely masked by cascade.
+**Physics interpretation**:
+
+The instability in NAB_CIRC is **not** a classical KH mode at the shear centre (ξ=0). It is a **non-Abelian EM instability** that peaks at the outer region where Ω_A = kz + αAz1 approaches zero:
+
+- **Transition radius**: ξ_crit = kz/(αV0). For kz=1: ξ_crit=5 (inside sponge at 10); for kz≥3: ξ_crit≥15 (outside sponge).
+- **kz=1** (ξ_crit=5): eigenmode peaks at ξ=9.49 (outer EM instability within sponge). Eigenvalue solver finds this cleanly at γ=0.267. Simulation matches within 5%.
+- **kz≥3** (ξ_crit≥15): outer EM mode fully killed by sponge. Solver finds sponge-boundary modes (ξ=10.14) — these modes are partially damped by the sponge, so simulation grows ~10% slower than solver predicts.
+- **Az/By ratio** grows with kz (6.6 → 122.7), reflecting increasing importance of the Az2 precession loop relative to Faraday back-reaction.
+
+**WKB comparison** (γ_WKB from eq. 33, wkb.pdf, n=0):
+- All kz: γ_exact/γ_WKB = 0.48–0.80 (WKB overestimates by 25–110%)
+- The WKB assumes a parabolic harmonic trap at ξ=0 — the log-cosh potential is shallower there, AND the actual mode lives in the outer region (not at ξ=0), compounding the discrepancy.
+
+**1D eigenvalue solver** (`ym_eigenmode.py`, added 2026-07-01):
+- 6N×6N complex sparse matrix: [b, ex, ez, a, qA, qB] blocks
+- Includes Doppler-shifted precession: (γ ± ikzVz)·q = iαVz·a (Doppler shift was missing in initial derivation, adds ikzVz·q term)
+- Shift-invert ARPACK via scipy; sponge matching simulation (xi_sponge=10, σ=5)
+- Matches simulation γ to within 5–20%; locates mode peaks and Az/By ratio
 
 **Comparison across campaigns**:
 
-| kz | γ_WKB | C16 (By2 seed) | C17 (α=0.5) | C18 (Az2 seed) | C18/WKB |
-|----|-------|----------------|-------------|----------------|---------|
-| 1 | 0.553 | 0.281 (eigenmode) | 0.119 (eigenmode) | **0.283** | **0.51** |
-| 2 | 0.436 | ≤0.20 (cascade) | 0.126 (cascade) | **~0.20** | **~0.47** |
-| 3 | 0.362 | ≤0.23 (cascade) | 0.113 (cascade) | **0.222** | **0.61** |
-| 4–6 | 0.315–0.258 | ≤0.24 (cascade) | 0.053–0.091 (cascade) | (running) | — |
-
-**Option 1 verdict**: The Gaussian Az2 seed eliminates the initial cascade build-up delay and delivers clean KH growth rates for kz=1,2,3 — the first direct measurements at kz≥2. sim/WKB ratios (0.47–0.61) are consistent with the factor-2 log-cosh vs step-potential well-depth discrepancy identified in C16. The WKB systematically overestimates growth rates by ~2× across all measured kz.
-
-**Next step (Option 2)**: Write `ym_eigenmode.py` — 1D scipy eigenvalue solver for the full linearized YM+fluid system, giving exact multi-component eigenfunctions [By2, Az2, Q2A, Q3A, ...] and growth rates. See PHYSICS.md §9.
+| kz | γ_WKB | C16 (By2 seed) | C17 (α=0.5) | C18 γ_Az (Az2 seed) | C18/WKB |
+|----|-------|----------------|-------------|---------------------|---------|
+| 1 | 0.553 | 0.281 (eigenmode) | 0.119 (eigenmode) | **0.296** | **0.54** |
+| 2 | 0.436 | ≤0.20 (cascade) | 0.126 (cascade) | **0.173** | **0.40** |
+| 3 | 0.362 | ≤0.23 (cascade) | 0.113 (cascade) | **0.212** | **0.59** |
+| 4 | 0.309 | ≤0.24 (cascade) | 0.053–0.091 (cascade) | **0.220** | **0.71** |
+| 5 | 0.278 | ≤0.24 (cascade) | 0.053–0.091 (cascade) | **0.175** | **0.63** |
 
 ---
 
