@@ -85,15 +85,24 @@ int main(int argc, char* argv[]) {
               << "================================================================\n";
 
     // Periodic box: Lx=6π, Lz=2π (physical domain is fixed regardless of resolution).
-    // Default resolution NX=3*NZ=768, dx=dz=2π/256, dt=0.01*dx — overridable for the
-    // resolution/timestep convergence study.
-    const int NZ = (nz_override > 0) ? nz_override : 256;
-    const int NX = (nx_override > 0) ? nx_override : 3 * NZ;
+    // Default resolution NZ=64, NX=768 (dz/dx≈4, anisotropic — NOT NX=3*NZ), dt=0.1*dx.
+    // Validated in RESOLUTION_FINDINGS.md ("Follow-up: how far can NZ/Courant be pushed
+    // for speed?"): NZ=64/courant=0.8/NX=768 measured gamma(kz=1)=0.09558 vs the
+    // NZ=256/courant=0.01 baseline's 0.09375 (R²=0.999, E_ratio_max=1.000000 for both) —
+    // fully converged. courant=0.1 here (not the tested-safe ceiling of 0.8) leaves an
+    // 8x safety margin for physics configs with a different alpha/V0 stability boundary.
+    // NX intentionally does NOT default to 3*NZ any more: NX=192 (3*64) was never tested
+    // and would put DX≈0.098 back in the underresolved regime (DX≲0.025 needed at
+    // EPS=0.15, per the aspect-ratio results) — NX defaults to a fixed 768 instead,
+    // independent of NZ. Override nz_override=256/nx_override=768(unchanged)/
+    // courant_override=0.01 to reproduce the pre-2026-07-02 default grid exactly.
+    const int NZ = (nz_override > 0) ? nz_override : 64;
+    const int NX = (nx_override > 0) ? nx_override : 768;
     const fct_real_t LX = (fct_real_t)(6.0 * M_PI);
     const fct_real_t LZ = (fct_real_t)(2.0 * M_PI);
     const fct_real_t DX = LX / NX;
     const fct_real_t DZ = LZ / NZ;
-    const fct_real_t COURANT = (courant_override > 0.0f) ? courant_override : 0.01f;
+    const fct_real_t COURANT = (courant_override > 0.0f) ? courant_override : 0.1f;
     const fct_real_t DT = COURANT * DX;
     const int NX_PAD_RT = NX + 2 * FCT_HALO;
     const fct_real_t V0 = V0_arg;
