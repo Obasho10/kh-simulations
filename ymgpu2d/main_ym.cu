@@ -9,6 +9,8 @@
 #include <cmath>
 #include <thread>
 #include <deque>
+#include <algorithm>
+#include <string>
 
 namespace fs = std::filesystem;
 
@@ -40,6 +42,25 @@ int main(int argc, char* argv[]) {
     // eps_override: shear half-width (physical units). -1 = use mode default (Lx/6=π).
     // Reduce below 0.64/kz to activate KH; mode 5 (NAB_TANH_COSAZ) is designed for thin EPS.
     fct_real_t eps_override = (argc > 12) ? std::atof(argv[12]) : -1.0f;
+    // --- Resolution/timestep convergence-study overrides (all optional, backward compatible) ---
+    // nz_override: grid points in z (-1 = default 256). Must be a power of 2 if suppress_kz0
+    // is used, and a multiple of 32 if the kz-bandpass filters are used (see validation below).
+    int nz_override         = (argc > 14) ? std::atoi(argv[14]) : -1;
+    // nx_override: grid points in x (-1 = default 3*NZ, preserving the usual aspect ratio).
+    int nx_override         = (argc > 15) ? std::atoi(argv[15]) : -1;
+    // courant_override: DT = courant * DX (-1 = default 0.01).
+    fct_real_t courant_override = (argc > 16) ? std::atof(argv[16]) : -1.0f;
+    // target_tu: halt after this many time-units instead of the default fixed step count
+    // (-1 = old behavior, total_steps=2000000). Also drives export/energy-check cadence in
+    // physical time units so runs at different DT remain directly comparable.
+    fct_real_t target_tu     = (argc > 17) ? std::atof(argv[17]) : -1.0f;
+    // run_tag: appended to the output directory name (keeps resolution-study runs from
+    // colliding with each other or with existing campaign directories at the same k/alpha).
+    std::string run_tag      = (argc > 18) ? argv[18] : "";
+    // seed_profile_file: path to raw float32 eigenfunction file produced by
+    // "ym_eigenmode.py --export-seed".  Empty = use WKB Gaussian (default).
+    // Only used in Mode 6 (NAB_CIRC_AZ2); ignored in all other modes.
+    std::string seed_profile_file = (argc > 19) ? argv[19] : "";
     const char* mode_names[] = {"NAB_LINEAR", "NAB_CIRC", "EMHD_KH", "NAB_DTANH", "NAB_STEP",
                                 "NAB_TANH_COSAZ", "NAB_CIRC_AZ2"};
     const char* mode_tag     = (run_mode == 1) ? "_circ"
@@ -63,15 +84,36 @@ int main(int argc, char* argv[]) {
               << "  eps_override=" << eps_override << "\n"
               << "================================================================\n";
 
-    // Periodic box: Lx=6π, Lz=2π, NX=3*NZ, dx=dz=2π/NZ, dt=0.01*dx
-    const int NZ = 256;
-    const int NX = 3 * NZ;
+    // Periodic box: Lx=6π, Lz=2π (physical domain is fixed regardless of resolution).
+    // Default resolution NX=3*NZ=768, dx=dz=2π/256, dt=0.01*dx — overridable for the
+    // resolution/timestep convergence study.
+    const int NZ = (nz_override > 0) ? nz_override : 256;
+    const int NX = (nx_override > 0) ? nx_override : 3 * NZ;
     const fct_real_t LX = (fct_real_t)(6.0 * M_PI);
     const fct_real_t LZ = (fct_real_t)(2.0 * M_PI);
-    const fct_real_t DX = LX / NX;           // = 2π/NZ
-    const fct_real_t DZ = LZ / NZ;           // = 2π/NZ
-    const fct_real_t DT = 0.01 * DX;
+    const fct_real_t DX = LX / NX;
+    const fct_real_t DZ = LZ / NZ;
+    const fct_real_t COURANT = (courant_override > 0.0f) ? courant_override : 0.01f;
+    const fct_real_t DT = COURANT * DX;
+    const int NX_PAD_RT = NX + 2 * FCT_HALO;
     const fct_real_t V0 = V0_arg;
+
+    // Validation: kz-domain kernels below require these constraints on NZ.
+    if (suppress_kz0 && (NZ & (NZ - 1)) != 0) {
+        std::cerr << "ERROR: suppress_kz0=1 requires NZ to be a power of 2 (got NZ="
+                  << NZ << ") — kernel_ym_subtract_zmean uses a binary-tree reduction.\n";
+        return 1;
+    }
+    if ((kz_suppress_max >= 1 || kz_suppress_hi > 0) && (NZ % 32 != 0)) {
+        std::cerr << "ERROR: kz_suppress_max/kz_suppress_hi require NZ to be a multiple of 32 "
+                  << "(got NZ=" << NZ << ") — kz-range kernels use warp-shuffle reduction.\n";
+        return 1;
+    }
+
+    std::cout << " NX=" << NX << "  NZ=" << NZ << "  DX=" << DX << "  DZ=" << DZ
+              << "  courant=" << COURANT << "  DT=" << DT
+              << "  target_tu=" << target_tu << "  run_tag=" << run_tag << "\n"
+              << "================================================================\n";
     const fct_real_t EPS = (eps_override > 0.0f) ? eps_override
                                                    : LX / (fct_real_t)6.0;  // default = π
 
@@ -120,7 +162,7 @@ int main(int argc, char* argv[]) {
     fct_real_t *d_pad_var = nullptr, *d_pad_new = nullptr;
     fct_real_t *d_pad_src = nullptr, *d_pad_eth = nullptr;
     if (params.periodic_x) {
-        size_t pad_bytes = (size_t)NX_PAD * NZ * sizeof(fct_real_t);
+        size_t pad_bytes = (size_t)NX_PAD_RT * NZ * sizeof(fct_real_t);
         CUDA_CHECK(cudaMalloc(&d_pad_n,   pad_bytes));
         CUDA_CHECK(cudaMalloc(&d_pad_ux,  pad_bytes));
         CUDA_CHECK(cudaMalloc(&d_pad_var, pad_bytes));
@@ -160,6 +202,8 @@ int main(int argc, char* argv[]) {
         dir_ss << "_bp" << kz_suppress_hi;
     if (hyp_diff > 0.0)
         dir_ss << "_hd" << std::scientific << std::setprecision(0) << hyp_diff;
+    if (!run_tag.empty())
+        dir_ss << "_" << run_tag;
     std::string out_dir = dir_ss.str();
     fs::create_directories(out_dir);
     for (auto& e : fs::directory_iterator(out_dir)) {
@@ -168,12 +212,40 @@ int main(int argc, char* argv[]) {
             fs::remove(e.path());
     }
 
+    // ── Eigenfunction seed (Mode 6 only) ──
+    // File: raw float32 array, N values, no header.  Produced by ym_eigenmode.py --export-seed.
+    // If N != NX the profile is linearly interpolated to NX points.
+    fct_real_t* d_seed_az = nullptr;
+    if (!seed_profile_file.empty()) {
+        std::ifstream sf(seed_profile_file, std::ios::binary | std::ios::ate);
+        if (!sf) {
+            std::cerr << "ERROR: cannot open seed profile: " << seed_profile_file << "\n";
+            return 1;
+        }
+        int n_file = (int)(sf.tellg() / (std::streampos)sizeof(float));
+        sf.seekg(0);
+        std::vector<float> h_file(n_file);
+        sf.read(reinterpret_cast<char*>(h_file.data()), n_file * sizeof(float));
+        std::vector<fct_real_t> h_seed(NX);
+        for (int i = 0; i < NX; ++i) {
+            float t   = i * (float)(n_file - 1) / (float)(NX - 1);
+            int   j   = std::min((int)t, n_file - 2);
+            float frc = t - j;
+            h_seed[i] = h_file[j] * (1.0f - frc) + h_file[j + 1] * frc;
+        }
+        CUDA_CHECK(cudaMalloc(&d_seed_az, NX * sizeof(fct_real_t)));
+        CUDA_CHECK(cudaMemcpy(d_seed_az, h_seed.data(), NX * sizeof(fct_real_t), cudaMemcpyHostToDevice));
+        std::cout << " Eigenfunction seed: " << seed_profile_file
+                  << " (" << n_file << " → " << NX << " points)\n";
+    }
+
     // ── Initialize ──
     dim3 threads2d(16, 16);
     dim3 blocks2d((NX + 15) / 16, (NZ + 15) / 16);
 
     kernel_ym_init<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB,
-                                             NX, NZ, DX, DZ, k_mode, p_amp, V0, EPS, run_mode, (float)aYM);
+                                             NX, NZ, DX, DZ, k_mode, p_amp, V0, EPS, run_mode, (float)aYM,
+                                             d_seed_az);
     cudaDeviceSynchronize();
 
     // Derive velocities and precompute initial sources
@@ -187,9 +259,12 @@ int main(int argc, char* argv[]) {
 
     // Step mode: DT=0.01*DX≈2.45e-4, so 1 TU≈4082 steps.
     // 2M steps ≈ 490 TU; snapshot every 20k steps ≈ every 4.9 TU → 100 snapshots.
-    const int total_steps   = 2000000;
-    const int export_stride = 20000;
-    const int energy_stride = 10000;
+    // If target_tu is given, recompute all three from fixed *physical-time* cadences so
+    // runs at different DT (different resolution/Courant number) stay directly comparable
+    // (export every 1.0 TU, energy-check every 0.5 TU) instead of a fixed step count.
+    const int total_steps   = (target_tu > 0.0f) ? (int)(target_tu / DT) : 2000000;
+    const int export_stride = (target_tu > 0.0f) ? std::max(1, (int)(1.0 / DT)) : 20000;
+    const int energy_stride = (target_tu > 0.0f) ? std::max(1, (int)(0.5 / DT)) : 10000;
     // Periodic domain has no outer blowup; energy grows only from the instability.
     // Use 100× for step/dtanh modes, 5× for wall-BC modes.
     const double energy_thresh = (run_mode >= 3 || xi_sponge > 0.0) ? 100.0 : 5.0;
@@ -253,14 +328,14 @@ int main(int argc, char* argv[]) {
         // 2. FCT x-sweep — fluid A
         copy_ym_fluid(d_flA_old, d_flA, bytes);
         if (params.periodic_x)
-            ym_fct_x_sweep_periodic(d_flA_old, d_flA, d_srcA, d_sQ1A, d_sQ2A, d_sQ3A, grid, DT,
+            ym_fct_x_sweep_periodic(d_flA_old, d_flA, d_srcA, d_sQ1A, d_sQ2A, d_sQ3A, grid, DT, NX_PAD_RT,
                                      d_pad_n, d_pad_ux, d_pad_var, d_pad_new, d_pad_src, d_pad_eth);
         else
             ym_fct_x_sweep(d_flA_old, d_flA, d_srcA, d_sQ1A, d_sQ2A, d_sQ3A, grid, DT);
         // fluid B
         copy_ym_fluid(d_flB_old, d_flB, bytes);
         if (params.periodic_x)
-            ym_fct_x_sweep_periodic(d_flB_old, d_flB, d_srcB, d_sQ1B, d_sQ2B, d_sQ3B, grid, DT,
+            ym_fct_x_sweep_periodic(d_flB_old, d_flB, d_srcB, d_sQ1B, d_sQ2B, d_sQ3B, grid, DT, NX_PAD_RT,
                                      d_pad_n, d_pad_ux, d_pad_var, d_pad_new, d_pad_src, d_pad_eth);
         else
             ym_fct_x_sweep(d_flB_old, d_flB, d_srcB, d_sQ1B, d_sQ2B, d_sQ3B, grid, DT);
@@ -399,6 +474,7 @@ int main(int argc, char* argv[]) {
     for (auto& t : export_threads) if (t.joinable()) t.join();
     efile.close();
     cudaFree(d_ebuf);
+    if (d_seed_az) cudaFree(d_seed_az);
     for (auto p : { d_sQ1A, d_sQ2A, d_sQ3A, d_sQ1A_t, d_sQ2A_t, d_sQ3A_t,
                     d_sQ1B, d_sQ2B, d_sQ3B, d_sQ1B_t, d_sQ2B_t, d_sQ3B_t })
         cudaFree(p);

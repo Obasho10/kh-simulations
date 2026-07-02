@@ -289,6 +289,10 @@ def main():
                         help='Save eigenvector profile plot')
     parser.add_argument('--save-profiles', action='store_true',
                         help='Save eigenvector arrays to .npz files')
+    parser.add_argument('--export-seed', action='store_true',
+                        help='Export normalized Re(Az) profile as raw float32 binary '
+                             '(eigenmode_seed_kz{k}_a{a}_V{v}_sp{sp}.bin) for use as '
+                             'simulation seed via ./ym_coupled arg[19]')
     args = parser.parse_args()
 
     alpha = args.alpha
@@ -384,6 +388,17 @@ def main():
             np.savez(fname, x=x, b=b, ex=ex, ez=ez, a=a, qA=qA, qB=qB,
                      gamma=best_gam, gamma_wkb=gw, alpha=alpha, V0=V0, EPS=EPS, kz=kz)
             print(f"       → saved {fname}")
+
+        if args.export_seed:
+            # Phase-align: rotate so the peak of |a| is real and positive
+            i_peak = np.argmax(np.abs(a))
+            phi_a  = np.angle(a[i_peak])
+            a_real = (a * np.exp(-1j * phi_a)).real
+            a_norm = a_real / np.max(np.abs(a_real))
+            seed_fname = (f'eigenmode_seed_kz{kz}_a{alpha:.2f}'
+                          f'_V{V0:.3f}_sp{args.xi_sponge:.1f}.bin')
+            a_norm.astype(np.float32).tofile(seed_fname)
+            print(f"       → seed profile saved to {seed_fname} ({len(a_norm)} floats)")
 
     # Summary table
     if results:

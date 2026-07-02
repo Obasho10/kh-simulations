@@ -18,7 +18,8 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
                                 fct_real_t dx, fct_real_t dz,
                                 int k_mode, fct_real_t perturb_amp,
                                 fct_real_t V0, fct_real_t epsilon,
-                                int run_mode, fct_real_t alpha_YM) {
+                                int run_mode, fct_real_t alpha_YM,
+                                const fct_real_t* d_seed_az) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int z = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= nx || z >= nz) return;
@@ -68,11 +69,18 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
         // By2/By3 left at zero — they grow naturally from Az2 via the KH chain
         // (Az2 → Q3 → Q2 → Lorentz → By2) once the eigenmode is excited.
         az1_init = az1_eq;
-        fct_real_t xi_char = 1.0f / sqrtf(alpha_YM * (fct_real_t)k_mode * V0 + 1e-12f);
-        fct_real_t gauss   = expf(-0.5f * xi * xi / (xi_char * xi_char));
-        fct_real_t az_seed = perturb_amp * V0 * gauss;
-        az2_init = az_seed * cosf(k_z * z_val);
-        az3_init = az_seed * sinf(k_z * z_val);
+        fct_real_t az_amp;
+        if (d_seed_az) {
+            // Eigenfunction seed: profile pre-computed by ym_eigenmode.py --export-seed,
+            // normalized to max|profile|=1.  Gives exact mode projection, bypassing
+            // the WKB Gaussian's poor overlap with outer-peaked modes.
+            az_amp = perturb_amp * V0 * d_seed_az[x];
+        } else {
+            fct_real_t xi_char = 1.0f / sqrtf(alpha_YM * (fct_real_t)k_mode * V0 + 1e-12f);
+            az_amp = perturb_amp * V0 * expf(-0.5f * xi * xi / (xi_char * xi_char));
+        }
+        az2_init = az_amp * cosf(k_z * z_val);
+        az3_init = az_amp * sinf(k_z * z_val);
 
     } else if (run_mode == 2) {
         // EMHD_KH: color-1 Kelvin-Helmholtz; no Az1 coupling
