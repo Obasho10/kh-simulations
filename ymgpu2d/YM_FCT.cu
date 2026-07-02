@@ -47,14 +47,14 @@ void ym_fct_x_sweep(YMFluidPtrs& d_old, YMFluidPtrs& d_new,
 void ym_fct_x_sweep_periodic(
     YMFluidPtrs& d_old, YMFluidPtrs& d_new, YMFluidPtrs& d_src,
     fct_real_t* d_srcQ1, fct_real_t* d_srcQ2, fct_real_t* d_srcQ3,
-    GridParams grid, fct_real_t dt,
+    GridParams grid, fct_real_t dt, int nx_pad,
     fct_real_t* p_n, fct_real_t* p_ux,
     fct_real_t* p_var, fct_real_t* p_new,
     fct_real_t* p_src, fct_real_t* p_eth)
 {
     const int nx   = grid.nx;
     const int nz   = grid.ny;
-    const int np   = NX_PAD;
+    const int np   = nx_pad;
     const int halo = FCT_HALO;
 
     dim3 pk_threads(64, 4);

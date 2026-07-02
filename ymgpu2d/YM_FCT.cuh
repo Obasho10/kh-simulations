@@ -10,7 +10,6 @@ static constexpr int BLOCK_R2  = 8;
 // Ghost-cell padding for periodic x-BC in FCT.
 // FCT_Sweeps.cu uses HALO=3 for its stencil; must match that value.
 static constexpr int FCT_HALO = 3;
-static constexpr int NX_PAD   = 768 + 2 * FCT_HALO;  // 774 — sized for NX=3*NZ=768
 
 void ym_fct_x_sweep(YMFluidPtrs& d_old, YMFluidPtrs& d_new,
                     YMFluidPtrs& d_src,
@@ -18,11 +17,13 @@ void ym_fct_x_sweep(YMFluidPtrs& d_old, YMFluidPtrs& d_new,
                     GridParams grid, fct_real_t dt);
 
 // Periodic-x FCT x-sweep using ghost-cell padding.
-// Six pre-allocated padded scratch buffers are passed in (each NX_PAD*NZ elements).
+// Six pre-allocated padded scratch buffers are passed in, each sized nx_pad*NZ
+// elements where nx_pad = grid.nx + 2*FCT_HALO (caller must allocate accordingly —
+// nx_pad is NOT a compile-time constant since grid.nx is runtime-configurable).
 void ym_fct_x_sweep_periodic(
     YMFluidPtrs& d_old, YMFluidPtrs& d_new, YMFluidPtrs& d_src,
     fct_real_t* d_srcQ1, fct_real_t* d_srcQ2, fct_real_t* d_srcQ3,
-    GridParams grid, fct_real_t dt,
+    GridParams grid, fct_real_t dt, int nx_pad,
     fct_real_t* p_n, fct_real_t* p_ux,
     fct_real_t* p_var, fct_real_t* p_new,
     fct_real_t* p_src, fct_real_t* p_eth);
