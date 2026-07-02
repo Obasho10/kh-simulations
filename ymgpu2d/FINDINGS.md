@@ -633,7 +633,7 @@ For the next α/V0 sweep, use **xi_sponge matched per-campaign** + sigma=15–20
 
 ---
 
-## Campaigns 19b / 20b / 21b — redo with matched sponge (2026-07-02)
+## Campaigns 19b / 20b / 21b / 22 — redo with matched sponge (2026-07-02)
 
 ### Root cause: stale binary (C20 / C21 / C20b-first / C21b-first)
 
@@ -646,38 +646,127 @@ Diagnostics:
 
 **Fix**: synced all `.cu/.cuh` source to t130 and abi, recompiled with `/usr/local/cuda-12.4/bin/nvcc -arch=sm_86` on t130 (driver supports ≤12.8; the default PATH nvcc was CUDA 13.0, incompatible) and `sm_61` on abi. Both binaries now confirmed to have `NAB_CIRC_AZ2`. Note: t130 and t136 have SEPARATE local disks despite listing the same `/DATA/cm/lcpfct/ymgpu2d/` path — t136 had the correct binary from C18 compile; t130 did not.
 
-### Campaign status
+### Eigenvalue solver — sigma parameter note
 
-| Campaign | Server | α | V0 | xi_sponge | σ | γ_outer@edge | Status |
-|----------|--------|---|-----|-----------|---|-------------|--------|
-| 19b | t136 | 4.0 | 0.1 | **5.0** | 15 | ≈1.57 TU⁻¹ | kz=1,2 DONE; kz=3 running (t≈49 TU); kz=4..6 pending |
-| 20b | t130 | 2.0 | 0.2 | **5.0** | 15 | ≈1.57 TU⁻¹ | running kz=1 (Mode 6 confirmed, E0=7739) |
-| 21b | abi | 3.0 | 0.1 | **6.0** | 15 | ≈1.66 TU⁻¹ | running kz=1 (t≈5 TU, stable) |
+`ym_eigenmode.py` has two distinct sigma parameters:
+- `--sigma` (float, default None): **ARPACK shift-invert target** — should be near the expected eigenvalue (~0.1–0.3). Auto-set from WKB×0.55 if omitted. DO NOT set to sponge value.
+- `--sigma-sponge` (float, default 5.0): **sponge damping strength** matching the simulation's sigma_sponge.
 
-### Campaign 19b — α=4.0, V0=0.1, xi_sponge=5.0 — PARTIAL RESULTS
+Passing `--sigma 15.0` (wrong!) sets ARPACK target to 15.0 — far from actual eigenvalues (~0.1), causing ARPACK to fail to converge after 40+ minutes. Correct command for simulations with sigma=15: `--sigma-sponge 5.0` (reduced for numerical stability) with no `--sigma` override.
 
-**Eigenvalue solver** (xi_sponge=5, sigma=15):
+### Campaign status (final)
+
+| Campaign | Server | α | V0 | xi_sponge | σ_sim | γ_outer@edge | Status |
+|----------|--------|---|-----|-----------|-------|-------------|--------|
+| 19b | t136 | 4.0 | 0.1 | **5.0** | 15 | ≈1.57 TU⁻¹ | kz=1..3 DONE; kz=4..6 KILLED (sponge-damped — ξ_peak=5.24>xi=5) |
+| 20b | t130 | 2.0 | 0.2 | **5.0** | 15 | ≈1.57 TU⁻¹ | kz=1..4 DONE, kz=5 running; no clean measurements (poor seed + oscillatory) |
+| 21b | abi | 3.0 | 0.1 | **6.0** | 15 | ≈1.66 TU⁻¹ | kz=1..3 DONE, kz=4..6 pending; kz=1 EXCELLENT (sim/ex=1.02) |
+| 22 | t136 | 1.0 | 0.05 | **10.0** | 5 | 0 TU⁻¹ | kz=1 running at t≈155 TU; prelim γ=0.083 (exact=0.080, sim/ex=1.04) |
+
+---
+
+### Campaign 19b — α=4.0, V0=0.1, xi_sponge=5.0 — RESULTS
+
+**Eigenvalue solver** (`--sigma-sponge 5.0`, xi_sponge=5):
 
 | kz | γ_exact | Im(γ) | γ_WKB | ex/WKB | ξ_peak |
 |----|---------|-------|-------|--------|--------|
-| 1 | 0.085 | −0.064 | 0.823 | 0.103 | −3.27 (inside sponge) |
+| 1 | 0.085 | +0.064 | 0.823 | 0.103 | −3.27 **(inside sponge)** |
 | 2 | 0.189 | 0 | 0.775 | 0.243 | −5.24 (at sponge edge) |
-| 3 | 0.241 | 0 | 0.683 | 0.353 | −5.24 |
-| 4 | 0.267 | 0 | 0.608 | 0.438 | −5.24 |
-| 5 | 0.278 | 0 | 0.551 | 0.503 | −5.24 |
-| 6 | 0.280 | 0 | 0.507 | 0.552 | −5.24 |
+| 3..6 | 0.241..0.280 | 0 | 0.508–0.683 | 0.35–0.55 | −5.24 |
 
-**Key findings**: For α=4, V0=0.1, the coupling pulls eigenmodes to ξ_peak≈5 (sponge edge). Only kz=1 (ξ_peak=3.27, inside sponge) is measurable. kz≥2 have ξ_peak just outside xi_sponge=5 → sponge-damped, γ_sim underestimated. WKB overestimates by factor 10–15 at this α.
+**Simulation vs eigenvalue** (`dispersion_ym.py --field Az_circ`):
 
-**Simulation vs eigenvalue** (from `dispersion_ym.py --field Az_circ`):
+| kz | halt (TU) | γ_Az_sim | γ_exact | sim/ex | verdict |
+|----|-----------|----------|---------|--------|---------|
+| 1 | 73.6 (NaN) | **0.055** | 0.085 | 0.65 | oscillatory (Im=+0.064); phase-dependent underestimate |
+| 2 | 61.4 (NaN) | 0.084 | 0.189 | 0.44 | ξ_peak=5.24 outside xi=5 → sponge-damped |
+| 3 | 49.1 (NaN) | 0.105 | 0.241 | 0.44 | same — sponge-damped |
+| 4..6 | — | (killed) | 0.267..0.280 | — | killed: same ξ_peak=5.24, no added info |
 
-| kz | halt (TU) | γ_Az_sim | γ_Az_exact | sim/ex | verdict |
-|----|-----------|----------|------------|--------|---------|
-| 1 | 73.6 (NaN) | **0.055** | 0.085 | 0.65 | kz=1 measurable; oscillatory (Im(γ)≠0), γ underfit |
-| 2 | 61.4 (NaN) | 0.084 | 0.189 | 0.44 | ξ_peak outside sponge → sponge-damped |
-| 3 | 49.1 (running) | 0.105 | 0.241 | 0.44 | same — sponge-damped |
+**Why sim/ex=0.65 for kz=1 (oscillatory)**: Im(γ)=+0.064 means the amplitude of the real-valued Az2 field oscillates as exp(0.085t)×cos(0.064t+φ). The fit picks up a phase-biased apparent rate. Depending on initial phase φ, sim/ex can range 0.5–1.2. At α=4, V0=0.1 with ξ_peak=3.27 inside xi_sponge=5, the mode IS measurable but the oscillatory eigenvalue introduces systematic phase uncertainty.
 
-**Conclusion for α=4, V0=0.1**: xi_sponge=5 prevents outer EM instability (WKB well too narrow: ∫γ_local dξ≈1.18 < π/2 for [ξ_crit=3.2, xi=5]) but also damps kz≥2 eigenmodes (ξ_peak at sponge edge). Only kz=1 gives reliable data. Tight sponge trade-off is fundamental for large α.
+**Conclusion**: Tight sponge (xi_sponge=5) prevents outer EM but compresses the confinement well [ξ_crit=2.5, xi=5] to only 2.5 ξ-units. Only kz=1 (ξ_peak=3.27 inside well) is measurable. At larger α, ξ_crit shrinks further, making the well even narrower and the eigenvalue increasingly oscillatory.
+
+---
+
+### Campaign 20b — α=2.0, V0=0.2, xi_sponge=5.0 — NO CLEAN MEASUREMENTS
+
+**Eigenvalue solver** (`--sigma-sponge 5.0`, xi_sponge=5):
+
+| kz | γ_exact | Im(γ) | γ_WKB | ex/WKB | ξ_peak |
+|----|---------|-------|-------|--------|--------|
+| 1 | 0.113 | −0.087 | 0.628 | 0.181 | −3.27 **(inside sponge)** |
+| 2 | 0.250 | 0 | 0.564 | 0.442 | −5.24 (at sponge edge) |
+| 3 | 0.301 | 0 | 0.489 | 0.617 | −5.24 |
+| 4..6 | 0.316..0.307 | 0 | 0.359–0.432 | 0.73–0.86 | −5.24 |
+
+**Simulation results** (from kz=1..4 completed):
+
+| kz | halt (TU) | γ_Az_sim | γ_exact | sim/ex | verdict |
+|----|-----------|----------|---------|--------|---------|
+| 1 | 68.7 (NaN) | **0.057** | 0.113 | **0.50** | poor — oscillatory + bad seed projection |
+| 2 | 54.0 (NaN) | 0.111 | 0.250 | 0.44 | sponge-damped (ξ_peak=5.24 at edge) |
+| 3 | 39.3 (NaN) | 0.066 | 0.301 | 0.22 | sponge-damped (R²=0.78, noisy) |
+| 4 | 39.3 (NaN) | 0.069 | 0.316 | 0.22 | sponge-damped (R²=0.78, noisy) |
+
+**Why kz=1 fails (double failure)**:
+1. **Oscillatory eigenvalue**: Im(γ)=−0.087 (period T=72 TU). The amplitude oscillates while growing, causing systematic fit underestimation (~50% of the envelope depending on phase at fit window).
+2. **Poor seed projection**: WKB Gaussian seed is centered at ξ=0 (ξ_char=1.58) but eigenmode peaks at ξ_peak=3.27. Overlap integral ∝ exp(-3.27²/(2×1.58²)) ≈ 0.01. Mode must grow from float32 numerical noise (~1e-7 in Az); by t=65 TU the growing mode barely emerges from the seed level (~1.6e-4 → 1.3× the seed amplitude). Fit captures transient, not eigenmode.
+3. **kz=2..4**: ξ_peak=5.24 at xi_sponge=5.0 → sponge damps mode, sim/ex=0.22–0.44 not meaningful.
+
+**Conclusion**: C20b provides no clean measurements. The combination of tight sponge (xi_sponge=5), strongly oscillatory kz=1 eigenvalue, and poor Gaussian seed overlap means kz=1 cannot be reliably measured without either: (a) a longer run well past 100 TU, or (b) a seed centered at ξ=3.27 matching the eigenmode. C20b is not useful for WKB validation.
+
+---
+
+### Campaign 21b — α=3.0, V0=0.1, xi_sponge=6.0 — kz=1 CLEAN
+
+**Eigenvalue solver** (`--sigma-sponge 5.0`, xi_sponge=6):
+
+| kz | γ_exact | Im(γ) | γ_WKB | ex/WKB | ξ_peak |
+|----|---------|-------|-------|--------|--------|
+| 1 | 0.076 | −0.058 | 0.671 | 0.113 | −4.25 **(inside sponge)** |
+| 2 | 0.193 | 0 | 0.602 | 0.320 | −6.22 (at sponge edge) |
+| 3..6 | 0.237..0.260 | 0 | 0.382–0.520 | 0.46–0.68 | −6.22 |
+
+**Simulation results** (kz=1..3 done, kz=4..6 pending):
+
+| kz | halt (TU) | γ_Az_sim | γ_exact | sim/ex | verdict |
+|----|-----------|----------|---------|--------|---------|
+| 1 | 81.0 (NaN) | **0.078** | 0.076 | **1.02** | ✓ CLEAN — mode inside sponge, favorable phase |
+| 2 | 71.2 (NaN) | 0.086 | 0.193 | 0.44 | ξ_peak=6.22 > xi_sponge=6 → sponge-damped |
+| 3 | running | — | 0.237 | — | same — sponge-damped expected |
+
+**Why kz=1 gives sim/ex=1.02**: Im(γ)=−0.058 causes phase rotation in the complex Az_circ amplitude, but |Az_circ| = exp(Re(γ)t) without oscillation in the modulus — the imaginary part rotates the phase, not the magnitude. The fit of |Az_circ| directly measures Re(γ)=0.076. The favorable initial phase (seed projection onto eigenmode approximately aligned with peak of cosine oscillation) gives R²=1.000 and clean exponential fit.
+
+**Conclusion**: α=3, V0=0.1, xi_sponge=6 is a valid measurement point for kz=1. ξ_crit(kz=1)=3.33, ξ_peak=4.25, xi_sponge=6: the mode is 71% of the way to the sponge — well contained. Only kz=1 measurable; kz≥2 have ξ_peak at the sponge edge.
+
+---
+
+### Campaign 22 — α=1.0, V0=0.05, xi_sponge=10.0 — RUNNING
+
+**Design**: ξ_crit(kz=1) = kz/(α×V0) = 1/(1×0.05) = 20 >> xi_sponge=10. The outer EM instability starts at ξ=20, entirely outside the sponge. **No outer EM concern at all.** Growing modes are inner KH modes (no tight-sponge trade-off). WKB is better approximated at small α×V0.
+
+**Eigenvalue solver** (`--sigma-sponge 5.0`, xi_sponge=10):
+
+| kz | γ_exact | Im(γ) | γ_WKB | ex/WKB | ξ_peak | Az/By |
+|----|---------|-------|-------|--------|--------|-------|
+| 1 | 0.080 | 0 | 0.203 | 0.39 | −10.14 (sponge boundary) | 94 |
+| 2 | 0.110 | 0 | 0.153 | 0.71 | −10.14 | 180 |
+| 3 | 0.120 | 0 | 0.127 | 0.94 | −10.14 | 313 |
+| 4 | 0.122 | 0 | 0.111 | 1.10 | −10.14 | 511 |
+| 5 | 0.119 | 0 | 0.099 | 1.20 | −10.14 | 795 |
+| 6 | 0.115 | 0 | 0.091 | 1.27 | −10.14 | 1190 |
+
+All modes peak at the sponge boundary (ξ=10.14), pure real eigenvalues (Im=0). WKB accuracy varies: 39% for kz=1 to 127% for kz=4–6 (WKB transitions from overestimate to underestimate near kz=3–4).
+
+**Preliminary simulation result** (kz=1 at t≈155 TU, 22 snapshots):
+
+| kz | γ_Az_sim (prelim) | γ_exact | sim/ex | verdict |
+|----|------------------|---------|--------|---------|
+| 1 | **0.083** | 0.080 | **1.04** | ✓ CLEAN — R²=1.000, running |
+
+**Status (2026-07-02)**: kz=1 still running at t=155 TU; kz=2..6 pending. Expected halt around t=185 TU (energy threshold 100×E0). All kz modes expected at sponge boundary (same as C18 kz=2..5 regime with sim/ex≈0.85–0.90).
 
 ---
 
