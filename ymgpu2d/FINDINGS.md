@@ -509,7 +509,7 @@ The effective cascade rate in Mode 1 is NOT simply α×V0 = 0.05 TU⁻¹. The me
 
 ## Campaign 18 — NAB_CIRC_AZ2 (Mode 6), Gaussian Az2 seed (t136)
 
-**Status**: COMPLETE kz=1..5 (t136 RTX A5000). kz=6 completing. Script: `run_campaign18_t136.sh`.
+**Status**: COMPLETE kz=1..6 (t136 RTX A5000). kz=6 halted at t=58.9 TU (NaN). Script: `run_campaign18_t136.sh`.
 
 **Setup**: Mode 6 (NAB_CIRC_AZ2), `alpha=2.0`, `V0=0.1`, `EPS=0.15`, `xi_sponge=10.0`, `sigma_sponge=5.0`, `suppress_kz0=1`, `hyp_diff=5e-5`, `BP=14`, kz=1..6. Sequential (single GPU).
 
@@ -633,6 +633,18 @@ For the next α/V0 sweep, use **xi_sponge matched per-campaign** + sigma=15–20
 
 ---
 
+## Campaigns 19b / 20b / 21b — redo with matched sponge (running, 2026-07-02)
+
+| Campaign | Server | α | V0 | xi_sponge | sigma | γ_outer@edge | Status |
+|----------|--------|---|-----|-----------|-------|-------------|--------|
+| 19b | t136 | 4.0 | 0.1 | **5.0** | 15 | ≈1.57 TU⁻¹ | running kz=1..6 |
+| 20b | t130 | 2.0 | 0.2 | **5.0** | 15 | ≈1.57 TU⁻¹ | running kz=1..6 |
+| 21b | abi | 3.0 | 0.1 | **6.0** | 15 | ≈1.66 TU⁻¹ | running kz=1..6 |
+
+All use xi_sponge = 2·ξ_crit(kz=1) = 2/(α·V0) — the design rule derived from C19/C20/C21 failures. Eigenvalue solver predictions (xi_sponge=5/6, sigma=15) will be computed post-run.
+
+---
+
 ## Known Issues / Unresolved
 
 | Issue | Status |
@@ -643,9 +655,10 @@ For the next α/V0 sweep, use **xi_sponge matched per-campaign** + sigma=15–20
 | Color-1 EM instability (all kz incl. k_mode) | Fixed in Campaign 15 by cudaMemset By1/Ex1/Ez1=0 each step. |
 | Color-1 fluid two-stream (kz=1..14) | Fixed in Campaign 12 by fluid pz bandpass (BP=14). |
 | NAB_STEP ruled out | Confirmed fatal (Campaigns 7 and 9). |
-| WKB dispersion comparison | Campaign 15 (Mode 5): γ_meas(kz=1)=0.090, ratio 0.16. Campaign 16 (Mode 1, log-cosh Az1): γ_meas(kz=1)=0.281, ratio 0.51 — 3× improvement. Remaining 2× gap is the step-potential vs log-cosh well shape. kz=2..6 still masked by cascade in both modes. |
-| Precession cascade contamination | In Mode 1: cascade is suppressed for kz=1 when α=2 (narrow mode, ξ_char=2.24; γ_cascade≈0). At α=0.5 (C17), mode widens (ξ_char=4.47) → outer-region Az1 coupling drives cascade at γ_Az2≈0.11–0.14 for ALL kz regardless of kz. Effective cascade floor in Mode 1 ≈ 0.10–0.14 TU⁻¹, not simply α×V0. Solution: eigenmode seed (Campaign 18, Mode 6). |
-| WKB geometry mismatch (Mode 5) | Resolved by Campaign 16: Mode 1 (log-cosh Az1) gives 3× better match. The WKB requires Az1=0 at shear centre — satisfied by log-cosh (Mode 1), violated by cosine (Mode 5). |
+| WKB dispersion comparison | C15 (Mode 5): γ(kz=1)=0.090, ratio 0.16. C16 (Mode 1): γ(kz=1)=0.281, ratio 0.51. C18 (Mode 6, Az2 seed): γ_Az(kz=1..5)=0.296/0.173/0.212/0.220/0.175. Eigenvalue solver (ym_eigenmode.py) matches C18 to 5–20% (sim/ex=0.83–1.11). WKB overestimates by 25–110%; outer-region EM mode (not classical KH) dominates. |
+| Precession cascade contamination | Resolved in C18 by seeding Az2 directly (Mode 6) instead of By2 — bypasses cascade build-up. kz=2..5 now measurable for first time. |
+| WKB geometry mismatch (Mode 5) | Resolved by C16: log-cosh Az1 (Mode 1) gives 3× better WKB match. |
+| Outer-region EM instability at higher α/V0 | New (C19/C20/C21): growing faster than sponge can damp for α≥3 or V0≥0.2 at xi_sponge=10. Fix: xi_sponge=2/(α·V0), sigma=15. C19b/C20b/C21b redo campaigns launched 2026-07-02 with corrected sponge. |
 
 ---
 
