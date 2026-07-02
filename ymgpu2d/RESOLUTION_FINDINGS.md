@@ -188,3 +188,73 @@ for kz=1 measurements at EPS=0.15.** No numerical-resolution artifact explains a
 the discrepancies from WKB documented in `FINDINGS.md` — those are genuine physics
 (cascade masking, WKB step-potential approximation error, etc.), not grid-resolution
 error.
+
+## Follow-up: how far can NZ/Courant be pushed for speed?
+
+The main sweep above always scaled `NX=3·NZ` together on the spatial axis, so it
+never isolated whether z-resolution *alone* matters once x-resolution (DX, the axis
+shown to matter in §3 above) is held fixed at a converged value. This follow-up fixes
+`NX=1536` (DX=0.01227, deep in the converged regime — see aspect-ratio table above)
+and independently pushes `NZ` down and Courant number up, past the previously-tested
+bounds, specifically to find where things actually break rather than just re-confirm
+safety.
+
+### NZ floor (NX=1536, courant=0.01 fixed)
+
+| NZ | γ (kz=1) | R² | E_ratio_max | Verdict |
+|---|---|---|---|---|
+| 256 (anchor, = res_nx1536 above) | 0.09375 | 0.999 | 1.000000 | converged |
+| 128 | 0.09378 | 0.999 | 1.000000 | converged |
+| 64 | 0.09382 | 0.999 | 1.000000 | converged |
+| 32 | **0.03400** | 0.998 | 1.000000 | **broken — 63% low** |
+
+z-resolution genuinely doesn't matter for kz=1 down to NZ=64 — completely flat γ.
+**NZ=32 is a real cliff, not a gradual degradation**: energy is still perfectly
+conserved (no instability/blowup), but the measured growth rate collapses to 37% of
+the converged value. This is likely the DFT bandpass filter apparatus (kz_suppress_hi
+needs to sit right at Nyquist=16 when NZ=32, leaving essentially no clean margin
+between the target kz=1 mode and the filtered band) rather than a basic
+resolution-of-the-wavelength problem. **Practical floor: NZ=64.**
+
+### Courant ceiling (NZ=256, NX=1536 fixed)
+
+| Courant | DT | γ (kz=1) | R² | E_ratio_max | Verdict |
+|---|---|---|---|---|---|
+| 0.01 (anchor) | 1.227e-4 | 0.09375 | 0.999 | 1.000000 | converged |
+| 0.08 | 9.817e-4 | 0.09381 | 0.999 | 1.000000 | converged |
+| 0.16 | 1.963e-3 | 0.09378 | 0.999 | 1.000000 | converged |
+| 0.32 | 3.927e-3 | 0.09394 | 0.999 | 1.000000 | converged |
+| 0.64 | 7.854e-3 | 0.09389 | 0.999 | 1.000000 | converged |
+| 0.8 | 9.817e-3 | 0.09448 | 0.999 | 1.000000 | converged |
+| 1.0 | 1.227e-2 | — | — | NaN at t≈1.0 | **unstable** |
+
+Timestep has essentially zero effect on accuracy all the way up to Courant=0.8 (80x
+the campaign default of 0.01) — γ stays within 1% of the converged value throughout.
+The actual CFL-type stability cliff sits **between 0.8 and 1.0**, i.e. right around
+`DT≈DX` (Courant=1 in the naive single-direction sense), which is a sensible place
+for an explicit FCT+leapfrog EM scheme to break. **Practical ceiling: courant=0.8.**
+
+### Combined fast config
+
+| Config | NX | NZ | Courant | γ (kz=1) | R² | E_ratio_max | Cost vs. original baseline |
+|---|---|---|---|---|---|---|---|
+| Original baseline | 768 | 256 | 0.01 | 0.09375 | 0.999 | 1.000000 | 1x |
+| NZ=64 + courant=0.08 (NX=1536) | 1536 | 64 | 0.08 | 0.09389 | 0.999 | 1.000000 | 4x *(NX=1536 not needed)* |
+| **NX=768, NZ=64, courant=0.8** | **768** | **64** | **0.8** | **0.09558** | **0.999** | **1.000000** | **~1/320x (320x faster)** |
+
+Stacking the two independent floors (z-resolution and timestep) together, on top of
+the *already-sufficient* baseline x-resolution (NX=768 — no need to pay for NX=1536),
+gives a config that is still fully converged (γ within 2% of the whole cluster,
+R²=0.999, perfect energy conservation) and runs a full 25 TU in seconds rather than
+~27 minutes.
+
+**Recommendation for future campaigns needing many runs (parameter sweeps, kz scans):
+`NZ=64, NX=192 (=3·NZ), courant≤0.8` is a strong candidate for a fast screening grid**
+— NX=192 wasn't directly tested here (this follow-up used NX=768 fixed to isolate NZ
+alone), so before adopting `NX=3·NZ=192` specifically, either verify DX=6π/192≈0.098
+isn't too coarse (it's above the DX≲0.025 threshold from §3, so it likely underestimates
+γ — use `NX=768` fixed with `NZ=64` instead, i.e. an anisotropic dz/dx≈4 grid, exactly
+as tested above) or re-derive EPS/DX at whatever EPS the target physics config uses.
+Leave a safety margin below the courant=0.8/1.0 cliff (e.g. courant=0.5) for physics
+configs with different α/V0 that may have a different stability boundary than this
+one (α=1.0, V0=0.05).
