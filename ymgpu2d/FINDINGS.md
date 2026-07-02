@@ -1,8 +1,10 @@
 # YM KH Simulation — Findings Tracker
 
-## Current Code State (2026-07-01)
+## Current Code State (2026-07-02)
 
-**Architecture**: Periodic domain, `Lx=6π`, `Lz=2π`, `NX=3*NZ=768`, `NZ=256`, `DX=DZ=2π/NZ≈0.0245`, `DT=0.01*DX≈2.45e-4`. 1 TU ≈ 4082 steps; 2M steps ≈ 490 TU (runs halt early from energy threshold at ~50–100 TU).
+**Architecture**: Periodic domain, `Lx=6π`, `Lz=2π`, `NX=768`, `NZ=64`, `DX=Lx/NX≈0.02454`, `DZ=Lz/NZ≈0.09817`, `DT=0.1*DX≈2.454e-3`. 1 TU ≈ 407 steps; 40748 steps ≈ 100 TU. (Previous: NZ=256, courant=0.01, 1 TU≈4082 steps — 40× slower. NZ=64/courant=0.1 validated as numerically converged in C25 resolution study, γ within 4.4% of NZ=256.)
+
+**Fast grid defaults (active from Campaign 25)**: NZ=64, NX=768, courant=0.1, target_tu=100, export every 1 TU (407 steps). Energy check every 0.5 TU (203 steps). energy.csv DT inferred from slope (step vs time) to avoid hardcoded courant dependence.
 
 **Latest active mode**: `NAB_CIRC_AZ2` (run_mode=6, Campaign 18) — same log-cosh Az1 as Mode 1 but seeds **Az2/Az3** with the WKB Gaussian profile instead of By2/By3. Parallel: Campaign 17 (Mode 1, α=0.5, reduced cascade) on abi.
 
@@ -891,3 +893,99 @@ Growing root: `γ = C^(1/3)·sin(π/3) = (√(α³/2)·V₀)^(1/3)·(√3/2)`
 This is the n=0 quantization of the color-mixing instability: background Az1 causes color-2,3 fields to mix through non-Abelian Ampere (∂Ex2/∂t term −α·Az1·By3) and Faraday (∂By2/∂t term +α·Az1·Ex3), generating exponentially growing color-2,3 electromagnetic fields that are uniform in z.
 
 The kz=0 WKB match (to 0.5%) confirms the polynomial is correct. The next step is to validate γ(kz=0) vs α and determine whether the KH mode at kz≥1 requires a single-layer geometry to be observable.
+
+---
+
+## Campaign 23 — NAB_CIRC_AZ2, α=1.0, V0=0.05, xi_sponge=20, Az-only seed (t130/t136, 2026-07-02)
+
+**Setup**: Mode 6, `alpha=1.0`, `V0=0.05`, `xi_sponge=20.0`, `sigma=5.0`, kz=1..6. Single Az2 Gaussian seed (old format, 1-field binary). NZ=256, courant=0.01 (old defaults — before fast-grid commit).
+
+**Key finding — kz=2 stray mode**:
+
+Az-only seeding for kz=2 caused the simulation to converge to the WRONG eigenmode:
+- **Mode 1** (target, γ=0.122): By2 peaks at ξ≈1.64, Az2 peaks at ξ≈7.85 — spatially separated.
+- **Mode 6** (stray, γ=0.060): Az2 and Q2A both peak at ξ≈1.31 — co-located.
+- Az-only seed drives Q2A at ξ≈7.85 (wrong location). Mode 6 grows faster from that initial condition.
+- Measured γ≈0.060 instead of 0.122 → sim/ex=0.49 (50% error).
+
+**Root cause**: The activation chain `Az2 → Q2A → By2` requires Q2A to be co-located with the target mode's By2 peak. An Az2-only seed misplaces Q2A at the Az2 node (ξ≈7.85) rather than the By2 node (ξ≈1.64) for mode 1. Mode 6 (whose Az2 and By2 ARE co-located at ξ≈1.31) builds up preferentially.
+
+---
+
+## Campaign 24 — NAB_CIRC_AZ2, 6-field seed design (t140, 2026-07-02)
+
+**Setup**: Mode 6, `alpha=1.0`, `V0=0.05`, `xi_sponge=20.0`, `sigma=5.0`, kz=1..6. First attempt at 6-field eigenfunction seeding (By2, Ex2, Ez2, Az2, Q2A, Q2B) computed from the 1D eigenvalue solver. NZ=256, courant=0.01.
+
+**Result**: Identified the stray-mode problem analytically (C23 above). Designed the `YMSeedProfiles` struct, updated `kernel_ym_init` (Mode 6 block), updated `main_ym.cu` to read 6-field binary files (n_fields header), updated `ym_eigenmode.py --export-seed` to write 6-field format. Binary: `[int32 n_fields=6][int32 NX][n_fields*NX float32 values]` normalized to max|Az|=1.
+
+**kz=2 eigenmode properties (α=1.0, V0=0.05, xi_sponge=20)**:
+- Mode 1 target: by/az=0.003, qA/az=0.190
+- Seed establishes Q2A at ξ≈1.64 (By2 peak) from t=0 → activates the KH chain correctly
+
+---
+
+## Campaign 25 — 6-field eigenfunction seeding, NZ=64, courant=0.1 (t136, 2026-07-02) ✓ COMPLETE
+
+**Setup**: Mode 6 (NAB_CIRC_AZ2), `alpha=1.0`, `V0=0.05`, `xi_sponge=20.0`, `sigma=5.0`, kz=1..6. **Full 6-field eigenfunction seed** (By2, Ex2, Ez2, Az2, Q2A, Q2B from 1D solver, normalized to max|Az|=1). **New fast grid**: NZ=64, NX=768, courant=0.1 (validated safe — γ within 4.4% of NZ=256 baseline). kz_suppress_max=kz-1, BP=14, suppress_kz0=1, hyp_diff=5e-5, target_tu=100.
+
+Run time per kz: **87 sec** (RTX A5000, 407 steps/TU × 100 TU ÷ 9200 steps/min). Full 6-kz sweep in **8.7 min** (vs 44 min/kz at NZ=256, courant=0.01).
+
+**Results — kz=2 stray mode FIXED**:
+
+| kz | γ_sim (TU⁻¹) | γ_exact (solver) | sim/ex | γ_WKB | ex/WKB |
+|----|--------------|-----------------|--------|-------|--------|
+| 1 | **0.0889** | 0.0897 | **0.991** | 0.274 | 0.327 |
+| 2 | **0.1211** | 0.1220 | **0.992** | 0.214 | 0.570 |
+| 3 | **0.0927** | 0.0933 | **0.994** | 0.178 | 0.524 |
+| 4 | **0.0810** | 0.0819 | **0.988** | 0.156 | 0.525 |
+| 5 | **0.0643** | 0.0667 | **0.964** | 0.140 | 0.476 |
+| 6 | **0.0566** | 0.0607 | **0.933** | 0.128 | 0.474 |
+
+**sim/ex = 0.933–0.994**: All six kz values measured within 1–7% of the exact eigenvalue.
+
+**kz=2 fix confirmed**: Old Az-only seed → γ=0.060 (sim/ex=0.49, stray mode 6). New 6-field seed → γ=0.121 (sim/ex=0.992, correct mode 1). Factor of 2× improvement.
+
+**WKB comparison** (eq. 33, wkb.pdf, n=0): WKB overestimates exact by 2.1–3.1×. The log-cosh Az1 potential is shallower than the WKB parabolic well → smaller eigenvalue.
+
+**Non-monotonic dispersion**: γ peaks at kz=2 (0.121) rather than kz=1 (0.089). The WKB prediction is monotonically decreasing from kz=1. This kink at kz=2 is reproduced by the exact eigenvalue solver → it's real physics, not numerical artifact.
+
+**6-field seeding implementation** (main_ym.cu + YM_Init.cu + YM_Init.cuh):
+```
+YMSeedProfiles struct: { by, ex, ez, az, qA, qB }  (6 device float* pointers)
+Binary format: [n_fields:int32][NX:int32][n_fields*NX float32]
+kernel_ym_init Mode 6: seeds By2/By3 from seed.by; seeds Az2/Az3 from seed.az;
+  seeds flA.Q2/Q3 from seed.qA; seeds flB.Q2/Q3 from seed.qB (all with cos/sin kz z)
+main_ym.cu: reads binary, interpolates nx_file→NX, cudaMalloc + cudaMemcpy per field
+```
+
+**dispersion_ym.py fixes** (for NZ=64 and variable courant):
+- `load_snapshot`: nz inferred from row count ÷ NX (was hardcoded 256)
+- `extract_mode_amplitude/circ_amplitude`: nz from `field_2d.shape[0]`
+- `growth_rate_from_dir`: DT inferred from energy.csv slope (last/first entries), not hardcoded
+
+---
+
+## Campaign 26-31 — Massive α-V0 Parameter Sweep (2026-07-02) [RUNNING]
+
+**Goal**: Map γ(kz, α, V0) across 7 parameter points for WKB validation and presentation. All campaigns use Mode 6, 6-field eigenfunction seeding, NZ=64, courant=0.1, target_tu=100, BP=14.
+
+**Exact eigenvalues** (from 1D solver, used for sim/ex comparison):
+
+| Campaign | α | V0 | xi_sponge | Server | kz=1 | kz=2 | kz=3 | kz=4 | kz=5 | kz=6 |
+|----------|---|----|-----------|--------|------|------|------|------|------|------|
+| C25 ✓ | 1.0 | 0.05 | 20 | t136 | 0.0897 | 0.1220 | 0.0933 | 0.0819 | 0.0667 | 0.0607 |
+| C26 | 1.0 | 0.10 | 10 | t136 | 0.1191 | 0.1737 | 0.1444 | 0.1206 | 0.1037 | 0.0917 |
+| C27 | 1.5 | 0.05 | 14 | t130 | 0.0886 | 0.1302 | 0.1444 | 0.1321 | 0.1049 | 0.0961 |
+| C28 | 1.5 | 0.10 | 10 | t140 | 0.0970 | 0.1919 | 0.2171 | 0.1818 | 0.1530 | 0.1553 |
+| C29 | 2.0 | 0.05 | 10 | t136 | 0.0861 | 0.1321 | 0.1507 | 0.1576 | 0.1584 | 0.1381 |
+| C30 | 2.0 | 0.10 | 10 | t130 | 0.2665 | 0.1990 | 0.2366 | 0.2475 | 0.2106 | 0.2100 |
+| C31 | 0.5 | 0.10 | 20 | abi | 0.1229 | 0.0802 | 0.0649 | 0.0547 | 0.0453 | 0.0414 |
+
+**xi_sponge design rule**: xi_sponge ≥ ξ_crit(kz=1) = 1/(α·V0) to avoid exposing outer EM instability within the sponge-free region. Check: γ_outer(xi_sponge) = √(|Ω_A|·Ω_F) < 1.5 TU⁻¹. All campaigns above satisfy this.
+
+**Notable physics** (from solver pre-analysis):
+- **Non-monotonic γ(kz)**: C27,C28,C29 show γ peaking at kz=3–5 rather than kz=1. WKB predicts monotonic decrease. This is a genuine non-Abelian effect.
+- **C30 kz=1 exceptionally high**: γ=0.267 vs 0.090 in C25 at same α but V0=0.05. Strong V0 dependence.
+- **C31 (α=0.5) best WKB match**: ex/WKB=0.72–0.85 (closest to 1 of any campaign). Weaker coupling → WKB parabolic approximation more accurate.
+
+**Analysis**: Run `python3 dispersion_ym.py --dirs ym_k*_a{alpha}*_circ* --alpha {alpha} --field Az_circ --plot-dispersion` per campaign after syncing data.
