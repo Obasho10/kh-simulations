@@ -566,6 +566,73 @@ The instability in NAB_CIRC is **not** a classical KH mode at the shear centre (
 
 ---
 
+## Campaign 19 — α=4.0, V0=0.1, Mode 6 (t136, 2026-07-02)
+
+**Setup**: Same as C18 but `alpha=4.0`. `xi_sponge=10.0`, `sigma=5.0`, kz=1..6.
+
+**Outer-region EM instability rate** at ξ=10 (sponge edge, inner boundary of sponge-free unstable region):
+- Ω_A(ξ=10) = kz + α·Az1(10) = kz - 4.0·V0·log(cosh(10)) ≈ kz − 3.72
+- kz=1: Ω_A = −2.72, γ_outer ≈ √(2.72×4.72) ≈ **3.6 TU⁻¹** (vs ~1.6 TU⁻¹ for C18)
+
+**Results**:
+
+| kz | halt (TU) | γ_By | γ_Az | γ_WKB | γ_exact(solver) | Az/By | sim/ex | verdict |
+|----|-----------|------|------|-------|-----------------|-------|--------|---------|
+| 1 | 9.8 | **2.03** | 1.12 | 0.823 | 0.213 | 0.3 | 5.25 | outer EM dominated — By>Az, γ>>prediction |
+| 2 | 14.7 | **1.31** | 0.25 | 0.775 | 0.198 | 0.8 | 1.27 | outer EM dominated |
+| 3 | 29.5 | 0.16 | **0.18** | 0.683 | 0.252 | 55 | 0.71 | partial KH signal |
+| 4 | 29.5 | 0.22 | **0.20** | 0.608 | 0.301 | 60 | 0.65 | partial KH signal |
+| 5 | 29.5 | 0.23 | **0.19** | 0.551 | 0.317 | 87 | 0.60 | partial KH signal |
+| 6 | 29.5 | 0.23 | **0.18** | 0.507 | 0.322 | 119 | 0.56 | partial KH signal |
+
+**Verdict**: α=4.0 with xi_sponge=10 is too aggressive. The outer EM instability at kz=1,2 grows at γ≈3-4 TU⁻¹ and dominates before KH can establish. kz=3..6 survive to 29.5 TU, giving partial data, but sim/ex=0.56-0.71 (worse than C18 at 0.83-1.11) because: (a) the strong outer EM instability contaminates the field even at kz=3 where ξ_crit=7.5 ≈ ξ_sponge/1.33, and (b) only 7 snapshots provide a noisy fit.
+
+**Rule**: xi_sponge must satisfy ξ_crit(kz_min)/xi_sponge ≥ 0.45 to keep γ_outer manageable. For α=4, kz=1: ξ_crit=2.5 → safe xi_sponge ≤ 5.5. C19 used xi_sponge=10, violating this by 2×.
+
+---
+
+## Campaign 20 — α=2.0, V0=0.2, Mode 6 (t130, 2026-07-02) — FAILED
+
+**Setup**: Same as C18 but `V0=0.2`. `xi_sponge=10.0`, `sigma=5.0`, kz=1..6.
+
+**Failure**: ALL kz NaN at t=2.45 TU (only the initial snapshot captured). With V0=0.2:
+- Az1(ξ=10) = −0.2·log(cosh(10)) ≈ −1.861 → Ω_A(kz=1) = 1 − 2×1.861 = −2.72
+- γ_outer(kz=1) ≈ √(2.72×4.72) ≈ **3.6 TU⁻¹** (same as C19 kz=1 — same αAz1 product)
+- At γ=3.6 TU⁻¹ growing from seed A0=0.001: hits 100×E0 in ~2-3 TU. Confirmed.
+
+**Fix for redo**: Use xi_sponge ≤ 5 matched to ξ_crit(kz=1)=2.5, with sigma=15.
+
+---
+
+## Campaign 21 — α=3.0, V0=0.1, Mode 6 (abi, 2026-07-02) — FAILED
+
+**Setup**: Same as C18 but `alpha=3.0`, compiled for sm_61. `xi_sponge=10.0`, `sigma=5.0`, kz=1..6.
+
+**Failure**: ALL kz NaN at t=2.45 TU. With α=3.0:
+- Ω_A(kz=1, ξ=10) = 1 − 3×0.1×9.307 ≈ −1.79 → γ_outer ≈ **2.9 TU⁻¹**
+- Note: abi binary compiled fresh for sm_61 (GTX 1080 Ti), worked correctly.
+
+**Fix for redo**: xi_sponge=6.0, sigma=15 — sponge below ξ_crit(kz=1)=3.3 is impossible, but xi_sponge=6 reduces the free-growth region to ξ_crit→6, where γ_outer(ξ=6) is manageable.
+
+---
+
+## Outer-region EM instability — sponge design rule (2026-07-02)
+
+The outer-region EM instability grows at `γ_outer(ξ) ≈ √(|Ω_A(ξ)|·Ω_F(ξ))` throughout the unstable region ξ_crit < |ξ| < ξ_sponge. The sponge boundary controls the maximum exposed region. Key:
+
+- **C18 (α=2, V0=0.1)**: γ_outer(ξ=8) ≈ 1.1 TU⁻¹ → run lasts 50 TU ✓
+- **C19 (α=4, V0=0.1)**: γ_outer(ξ=8) ≈ 2.7 TU⁻¹ → kz=1,2 dominated in 10-15 TU ✗
+- **C20 (α=2, V0=0.2)**: γ_outer(ξ=8) ≈ 2.7 TU⁻¹ → NaN at 2.45 TU ✗
+- **C21 (α=3, V0=0.1)**: γ_outer(ξ=8) ≈ 2.0 TU⁻¹ → NaN at 2.45 TU ✗
+
+**Design rule**: for a stable run at higher α or V0, xi_sponge must satisfy
+`γ_outer(xi_sponge) ≤ 1.5 TU⁻¹` (empirically safe from C18).
+This means: **xi_sponge ≤ ξ where |Ω_A(ξ)| = (1.5)²/Ω_F(ξ)**.
+
+For the next α/V0 sweep, use **xi_sponge matched per-campaign** + sigma=15–20.
+
+---
+
 ## Known Issues / Unresolved
 
 | Issue | Status |
