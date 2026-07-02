@@ -24,15 +24,15 @@ import argparse
 from scipy.optimize import brentq
 
 # ── Simulation parameters (must match main_ym.cu) ────────────────────
-# Periodic box: Lx=6π, Lz=2π, NX=3*NZ, dx=dz=2π/NZ, dt=0.01*dx
-NZ = 256
-NX = 3 * NZ                       # 768
+# Periodic box: Lx=6π, Lz=2π.  NX=768 is fixed; NZ is detected from CSV row count.
+NX = 768
+NZ = 256                          # default; overridden per-snapshot by load_snapshot
 LZ = 2.0 * np.pi
 LX = 6.0 * np.pi
-DZ = LZ / NZ                      # = 2π/NZ
-DX = LX / NX                      # = 2π/NZ  (same as DZ)
-DT = 0.01 * DX                    # 1 TU = 4082 steps; code: DT=0.01*DX
-EXPORT_DT = 20000 * DT            # snapshot every 20000 steps
+DZ = LZ / NZ
+DX = LX / NX
+DT = 0.01 * DX
+EXPORT_DT = 20000 * DT
 V0        = 0.1
 EPSILON   = LX / 6.0              # = π, scale for tanh modes
 
@@ -48,11 +48,13 @@ def k_of_mode(n):
 
 def load_snapshot(path):
     df = pd.read_csv(path)
-    By1 = df['By1'].values.reshape(NZ, NX)
-    By2 = df['By2'].values.reshape(NZ, NX)
-    By3 = df['By3'].values.reshape(NZ, NX)
-    Az2 = df['Az2'].values.reshape(NZ, NX) if 'Az2' in df.columns else np.zeros((NZ, NX))
-    Az3 = df['Az3'].values.reshape(NZ, NX) if 'Az3' in df.columns else np.zeros((NZ, NX))
+    n_rows = len(df)
+    nz = n_rows // NX          # detect NZ from row count (NX=768 is fixed)
+    By1 = df['By1'].values.reshape(nz, NX)
+    By2 = df['By2'].values.reshape(nz, NX)
+    By3 = df['By3'].values.reshape(nz, NX)
+    Az2 = df['Az2'].values.reshape(nz, NX) if 'Az2' in df.columns else np.zeros((nz, NX))
+    Az3 = df['Az3'].values.reshape(nz, NX) if 'Az3' in df.columns else np.zeros((nz, NX))
     return By1, By2, By3, Az2, Az3
 
 
@@ -81,16 +83,18 @@ def _xi_weight(xi_cut):
 
 def extract_mode_amplitude(field_2d, k_mode, weight):
     """FFT in z, weighted average over x.
-    field_2d shape: (NZ, NX) real.  Returns scalar amplitude."""
+    field_2d shape: (nz, NX) real.  Returns scalar amplitude."""
+    nz  = field_2d.shape[0]
     Fk  = np.fft.rfft(field_2d, axis=0)
-    amp = np.abs(Fk[k_mode, :]) / NZ
+    amp = np.abs(Fk[k_mode, :]) / nz
     return float(np.dot(amp, weight))
 
 
 def extract_circ_amplitude(field_re, field_im, k_mode, weight):
     """Complex amplitude |F_re + i*F_im| for the circularly polarized mode."""
-    Fre = np.fft.rfft(field_re, axis=0)[k_mode, :] / NZ
-    Fim = np.fft.rfft(field_im, axis=0)[k_mode, :] / NZ
+    nz  = field_re.shape[0]
+    Fre = np.fft.rfft(field_re, axis=0)[k_mode, :] / nz
+    Fim = np.fft.rfft(field_im, axis=0)[k_mode, :] / nz
     amp = np.abs(Fre + 1j * Fim)
     return float(np.dot(amp, weight))
 
@@ -161,6 +165,19 @@ def growth_rate_from_dir(run_dir, k_mode, field='By2', xi_cut=2.0, t_min=None, t
     if not files:
         raise FileNotFoundError(f"No CSV files in {run_dir}")
 
+    # Infer DT from energy.csv slope (step 0→N) so time is correct for any courant.
+    # Falls back to module-level DT if energy.csv is absent or has only one row.
+    dt_run = DT
+    energy_path = run_dir / 'energy.csv'
+    if energy_path.exists():
+        try:
+            edf = pd.read_csv(energy_path)
+            if len(edf) >= 2:
+                dt_run = float(edf['time'].iloc[-1] - edf['time'].iloc[0]) / \
+                         float(edf['step'].iloc[-1] - edf['step'].iloc[0])
+        except Exception:
+            pass
+
     weight = _xi_weight(xi_cut)
     times, amps = [], []
 
@@ -181,7 +198,7 @@ def growth_rate_from_dir(run_dir, k_mode, field='By2', xi_cut=2.0, t_min=None, t
         else:
             raise ValueError(f"Unknown field '{field}'")
 
-        times.append(step * DT)
+        times.append(step * dt_run)
         amps.append(a)
 
     times = np.array(times)
