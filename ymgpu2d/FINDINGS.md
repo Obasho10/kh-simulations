@@ -965,7 +965,7 @@ main_ym.cu: reads binary, interpolates nx_file→NX, cudaMalloc + cudaMemcpy per
 
 ---
 
-## Campaign 26-31 — Massive α-V0 Parameter Sweep (2026-07-02) [RUNNING]
+## Campaign 26-31 — Massive α-V0 Parameter Sweep (2026-07-02) [DONE on all servers]
 
 **Goal**: Map γ(kz, α, V0) across 7 parameter points for WKB validation and presentation. All campaigns use Mode 6, 6-field eigenfunction seeding, NZ=64, courant=0.1, target_tu=100, BP=14.
 
@@ -989,3 +989,62 @@ main_ym.cu: reads binary, interpolates nx_file→NX, cudaMalloc + cudaMemcpy per
 - **C31 (α=0.5) best WKB match**: ex/WKB=0.72–0.85 (closest to 1 of any campaign). Weaker coupling → WKB parabolic approximation more accurate.
 
 **Analysis**: Run `python3 dispersion_ym.py --dirs ym_k*_a{alpha}*_circ* --alpha {alpha} --field Az_circ --plot-dispersion` per campaign after syncing data.
+
+**C31 confirmed results** (abi, α=0.5, V0=0.10, xi_sponge=20, 63-70 pts per kz):
+
+| kz | γ_sim | γ_exact | sim/ex | ex/WKB |
+|----|-------|---------|--------|--------|
+| 1  | 0.1217 | 0.1229 | 0.990 | 0.849 |
+| 2  | 0.0707 | 0.0802 | 0.882 | 0.738 |
+| 3  | 0.0550 | 0.0649 | 0.847 | 0.722 |
+| 4  | 0.0425 | 0.0547 | 0.777 | 0.699 |
+| 5  | 0.0280 | 0.0453 | 0.618 | 0.645 |
+| 6  | 0.0175 | 0.0414 | 0.423 | 0.645 |
+
+kz=1 agrees to 1%. kz=2-4 degrade because ξ_peak(kz=2-4)≈−20 is right at xi_sponge=20 (sponge clips the eigenmode). kz=5-6 additionally suffer from short runs (energy threshold at t≈63 TU).
+
+**Key finding**: xi_sponge must be comfortably larger than ξ_peak for all target kz. For C31, kz=1 (ξ_peak=−16) has best agreement; kz=2+ (ξ_peak=−20) are sponge-clipped.
+
+---
+
+## Campaign 32 — α=2.5, V0=0.05, xi_sponge=9 (2026-07-03) [RUNNING on abi]
+
+**Goal**: Extend α-V0 grid to higher coupling at V0=0.05 (αV0=0.125). Teaching nodes t130/t136/t140 are down; abi only.
+
+**Parameters**: α=2.5, V0=0.05, EPS=0.15, xi_sponge=9, σ=5, NZ=64, courant=0.1, target_tu=100, 6-field seed.
+
+**Outer EM safety**: ξ_crit(kz=1)≈8.7 (where Ω_A changes sign). Sponge at xi_sponge=9 → outer EM strip=[8.7, 9] only 0.3 ξ-units wide, γ_outer<0.13 TU⁻¹. Safe.
+
+**Exact eigenvalues** (1D solver, xi_sponge=9):
+
+| kz | γ_exact | γ_WKB | ex/WKB |
+|----|---------|-------|--------|
+| 1  | 0.0837  | 0.4543 | 0.184 |
+| 2  | 0.1359  | 0.3721 | 0.365 |
+| 3  | 0.1579  | 0.3134 | 0.504 |
+| 4  | 0.1674  | 0.2745 | 0.610 |
+| 5  | 0.1701  | 0.2469 | 0.689 |
+| 6  | 0.1687  | 0.2261 | 0.746 |
+
+**Notable**: γ(kz) peaks at kz=5 (anti-monotonic — non-Abelian effect). WKB strongly overestimates (ex/WKB=0.18-0.75) because the parabolic-well approximation breaks down at large α. Seed files: `eigenmode_seed_kz{k}_a2.50_V0.050_sp9.0.bin`.
+
+---
+
+## Campaign 33 — α=3.0, V0=0.05, xi_sponge=8 (READY, pending t136 recovery)
+
+**Goal**: Highest α in V0=0.05 series. αV0=0.15.
+
+**Outer EM safety**: ξ_crit(kz=1)≈7.4, outer EM strip=[7.4, 8] only 0.6 ξ-units, γ_outer<0.13 TU⁻¹. Safe.
+
+**Exact eigenvalues** (xi_sponge=8):
+
+| kz | γ_exact | γ_WKB | ex/WKB |
+|----|---------|-------|--------|
+| 1  | 0.0808  | 0.5261 | 0.154 |
+| 2  | 0.1374  | 0.4418 | 0.311 |
+| 3  | 0.1625  | 0.3744 | 0.434 |
+| 4  | 0.1743  | 0.3286 | 0.530 |
+| 5  | 0.1787  | 0.2958 | 0.604 |
+| 6  | 0.1786  | 0.2710 | 0.659 |
+
+Script: `run_campaign33_t136.sh`. Seeds: `eigenmode_seed_kz{k}_a3.00_V0.050_sp8.0.bin`.
