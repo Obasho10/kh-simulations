@@ -390,15 +390,29 @@ def main():
             print(f"       → saved {fname}")
 
         if args.export_seed:
-            # Phase-align: rotate so the peak of |a| is real and positive
+            # Phase-align all 6 fields: rotate so peak of |Az| is real and positive.
+            # All profiles normalized to max|Az|=1 so amplitudes are comparable to Az seed.
             i_peak = np.argmax(np.abs(a))
-            phi_a  = np.angle(a[i_peak])
-            a_real = (a * np.exp(-1j * phi_a)).real
-            a_norm = a_real / np.max(np.abs(a_real))
+            phase  = np.exp(-1j * np.angle(a[i_peak]))
+            scale  = np.max(np.abs(a))
+            profiles = np.stack([
+                (b  * phase).real / scale,   # field 0: By2
+                (ex * phase).real / scale,   # field 1: Ex2
+                (ez * phase).real / scale,   # field 2: Ez2
+                (a  * phase).real / scale,   # field 3: Az2
+                (qA * phase).real / scale,   # field 4: Q2A (color-2, beam A)
+                (qB * phase).real / scale,   # field 5: Q2B (color-2, beam B)
+            ]).astype(np.float32)            # shape (6, NX)
             seed_fname = (f'eigenmode_seed_kz{kz}_a{alpha:.2f}'
                           f'_V{V0:.3f}_sp{args.xi_sponge:.1f}.bin')
-            a_norm.astype(np.float32).tofile(seed_fname)
-            print(f"       → seed profile saved to {seed_fname} ({len(a_norm)} floats)")
+            header = np.array([6, args.NX], dtype=np.int32)
+            with open(seed_fname, 'wb') as sf:
+                header.tofile(sf)
+                profiles.tofile(sf)
+            amp_by = np.max(np.abs(profiles[0]))
+            amp_qA = np.max(np.abs(profiles[4]))
+            print(f"       → 6-field seed saved to {seed_fname} "
+                  f"(by/az={amp_by:.3f}  qA/az={amp_qA:.3f})")
 
     # Summary table
     if results:

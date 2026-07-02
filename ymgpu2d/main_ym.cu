@@ -213,30 +213,44 @@ int main(int argc, char* argv[]) {
     }
 
     // ── Eigenfunction seed (Mode 6 only) ──
-    // File: raw float32 array, N values, no header.  Produced by ym_eigenmode.py --export-seed.
-    // If N != NX the profile is linearly interpolated to NX points.
-    fct_real_t* d_seed_az = nullptr;
+    // File format: [n_fields:int32][nx_file:int32][n_fields*nx_file float32 values]
+    // Fields in order: by, ex, ez, az, qA, qB — all normalized to max|az|=1.
+    // Produced by: python3 ym_eigenmode.py --export-seed
+    YMSeedProfiles h_seed = {};
+    std::vector<fct_real_t*> d_seed_ptrs;
     if (!seed_profile_file.empty()) {
-        std::ifstream sf(seed_profile_file, std::ios::binary | std::ios::ate);
+        std::ifstream sf(seed_profile_file, std::ios::binary);
         if (!sf) {
             std::cerr << "ERROR: cannot open seed profile: " << seed_profile_file << "\n";
             return 1;
         }
-        int n_file = (int)(sf.tellg() / (std::streampos)sizeof(float));
-        sf.seekg(0);
-        std::vector<float> h_file(n_file);
-        sf.read(reinterpret_cast<char*>(h_file.data()), n_file * sizeof(float));
-        std::vector<fct_real_t> h_seed(NX);
-        for (int i = 0; i < NX; ++i) {
-            float t   = i * (float)(n_file - 1) / (float)(NX - 1);
-            int   j   = std::min((int)t, n_file - 2);
-            float frc = t - j;
-            h_seed[i] = h_file[j] * (1.0f - frc) + h_file[j + 1] * frc;
+        int32_t n_fields_file = 0, nx_file = 0;
+        sf.read(reinterpret_cast<char*>(&n_fields_file), sizeof(int32_t));
+        sf.read(reinterpret_cast<char*>(&nx_file), sizeof(int32_t));
+        const fct_real_t** field_ptrs[6] = {
+            &h_seed.by, &h_seed.ex, &h_seed.ez, &h_seed.az, &h_seed.qA, &h_seed.qB
+        };
+        int n_load = std::min((int)n_fields_file, 6);
+        for (int f = 0; f < n_load; ++f) {
+            std::vector<float> h_file(nx_file);
+            sf.read(reinterpret_cast<char*>(h_file.data()), nx_file * sizeof(float));
+            std::vector<fct_real_t> h_interp(NX);
+            for (int i = 0; i < NX; ++i) {
+                float t   = i * (float)(nx_file - 1) / (float)(NX - 1);
+                int   j   = std::min((int)t, nx_file - 2);
+                float frc = t - j;
+                h_interp[i] = h_file[j] * (1.0f - frc) + h_file[j + 1] * frc;
+            }
+            fct_real_t* d_ptr = nullptr;
+            CUDA_CHECK(cudaMalloc(&d_ptr, NX * sizeof(fct_real_t)));
+            CUDA_CHECK(cudaMemcpy(d_ptr, h_interp.data(), NX * sizeof(fct_real_t),
+                                  cudaMemcpyHostToDevice));
+            *field_ptrs[f] = d_ptr;
+            d_seed_ptrs.push_back(d_ptr);
         }
-        CUDA_CHECK(cudaMalloc(&d_seed_az, NX * sizeof(fct_real_t)));
-        CUDA_CHECK(cudaMemcpy(d_seed_az, h_seed.data(), NX * sizeof(fct_real_t), cudaMemcpyHostToDevice));
         std::cout << " Eigenfunction seed: " << seed_profile_file
-                  << " (" << n_file << " → " << NX << " points)\n";
+                  << " (" << n_fields_file << " fields, " << nx_file
+                  << "→" << NX << " points)\n";
     }
 
     // ── Initialize ──
@@ -245,7 +259,7 @@ int main(int argc, char* argv[]) {
 
     kernel_ym_init<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB,
                                              NX, NZ, DX, DZ, k_mode, p_amp, V0, EPS, run_mode, (float)aYM,
-                                             d_seed_az);
+                                             h_seed);
     cudaDeviceSynchronize();
 
     // Derive velocities and precompute initial sources
@@ -474,7 +488,7 @@ int main(int argc, char* argv[]) {
     for (auto& t : export_threads) if (t.joinable()) t.join();
     efile.close();
     cudaFree(d_ebuf);
-    if (d_seed_az) cudaFree(d_seed_az);
+    for (auto p : d_seed_ptrs) cudaFree(p);
     for (auto p : { d_sQ1A, d_sQ2A, d_sQ3A, d_sQ1A_t, d_sQ2A_t, d_sQ3A_t,
                     d_sQ1B, d_sQ2B, d_sQ3B, d_sQ1B_t, d_sQ2B_t, d_sQ3B_t })
         cudaFree(p);

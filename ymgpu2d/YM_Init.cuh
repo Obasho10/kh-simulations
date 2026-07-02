@@ -3,16 +3,19 @@
 
 #include "YM_Common.cuh"
 
-// run_mode controls the seed and equilibrium:
-//   0 = NAB_LINEAR:  By2 sin(kz), Az1≠0  (non-Abelian, linearly polarized)
-//   1 = NAB_CIRC:    By2 cos(kz) + By3 sin(kz), Az1≠0, freeze_az1=1 (circularly polarized)
-//   2 = EMHD_KH:     By1 sin(kz) seed, Az1=0  (Abelian Kelvin-Helmholtz)
-//   3 = NAB_DTANH:   double-tanh periodic domain, circularly polarized seed,
-//                    freeze_az1=1, periodic_x=1
-// d_seed_az: optional device array of NX normalized float32 values for Mode 6 Az2 seeding.
-//   nullptr  → WKB Gaussian (default).
-//   non-null → use profile[x] as the x-amplitude (profile must be normalized to max|value|=1).
-//   Produced by: python3 ym_eigenmode.py --export-seed <file>
+// Full 6-field eigenfunction seed for Mode 6 (NAB_CIRC_AZ2).
+// All x-profiles normalized relative to max|Az|=1.
+// nullptr on any field → that field is not seeded (stays at its equilibrium value).
+// Produced by: python3 ym_eigenmode.py --export-seed
+struct YMSeedProfiles {
+    const fct_real_t* by = nullptr;   // By2 x-amplitude
+    const fct_real_t* ex = nullptr;   // Ex2 x-amplitude (reserved; not yet used)
+    const fct_real_t* ez = nullptr;   // Ez2 x-amplitude (reserved; not yet used)
+    const fct_real_t* az = nullptr;   // Az2 x-amplitude
+    const fct_real_t* qA = nullptr;   // Q2 color charge, beam A
+    const fct_real_t* qB = nullptr;   // Q2 color charge, beam B
+};
+
 __global__ void kernel_ym_init(YMFieldPtrs f,
                                 YMFluidPtrs flA, YMFluidPtrs flB,
                                 int nx, int nz,
@@ -20,6 +23,6 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
                                 int k_mode, fct_real_t perturb_amp,
                                 fct_real_t V0, fct_real_t epsilon,
                                 int run_mode, fct_real_t alpha_YM,
-                                const fct_real_t* d_seed_az = nullptr);
+                                YMSeedProfiles seed = YMSeedProfiles{});
 
 #endif // YM_INIT_CUH

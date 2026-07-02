@@ -19,7 +19,7 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
                                 int k_mode, fct_real_t perturb_amp,
                                 fct_real_t V0, fct_real_t epsilon,
                                 int run_mode, fct_real_t alpha_YM,
-                                const fct_real_t* d_seed_az) {
+                                YMSeedProfiles seed) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int z = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= nx || z >= nz) return;
@@ -44,6 +44,7 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
     fct_real_t by1_init = 0.0f, by2_init = 0.0f, by3_init = 0.0f;
     fct_real_t az1_init = 0.0f, az2_init = 0.0f, az3_init = 0.0f;
     fct_real_t vz_A = +V0 * tanhf(xi);   // single-tanh shear (overridden in mode 3)
+    fct_real_t qA_amp = 0.0f, qB_amp = 0.0f;  // color-2 charge seeds (Mode 6 only)
 
     if (run_mode == 0) {
         // NAB_LINEAR: linearly polarized By2 seed
@@ -69,12 +70,16 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
         // By2/By3 left at zero — they grow naturally from Az2 via the KH chain
         // (Az2 → Q3 → Q2 → Lorentz → By2) once the eigenmode is excited.
         az1_init = az1_eq;
-        fct_real_t az_amp;
-        if (d_seed_az) {
-            // Eigenfunction seed: profile pre-computed by ym_eigenmode.py --export-seed,
-            // normalized to max|profile|=1.  Gives exact mode projection, bypassing
-            // the WKB Gaussian's poor overlap with outer-peaked modes.
-            az_amp = perturb_amp * V0 * d_seed_az[x];
+        fct_real_t az_amp = 0.0f;
+        if (seed.az) {
+            // Full eigenfunction seed: all x-profiles from ym_eigenmode.py --export-seed,
+            // normalized to max|Az|=1.  Seeding By, Az, and Q simultaneously projects
+            // cleanly onto the target eigenmode and suppresses competing stray modes.
+            az_amp  = perturb_amp * V0 * seed.az[x];
+            if (seed.by) by2_init = perturb_amp * V0 * seed.by[x] * cosf(k_z * z_val);
+            if (seed.by) by3_init = perturb_amp * V0 * seed.by[x] * sinf(k_z * z_val);
+            if (seed.qA) qA_amp   = perturb_amp * V0 * seed.qA[x];
+            if (seed.qB) qB_amp   = perturb_amp * V0 * seed.qB[x];
         } else {
             fct_real_t xi_char = 1.0f / sqrtf(alpha_YM * (fct_real_t)k_mode * V0 + 1e-12f);
             az_amp = perturb_amp * V0 * expf(-0.5f * xi * xi / (xi_char * xi_char));
@@ -181,14 +186,14 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
     flA.px[idx] = 0.0f;
     flA.pz[idx] = vz_A;
     flA.Q1[idx] = +1.0f;
-    flA.Q2[idx] = 0.0f;
-    flA.Q3[idx] = 0.0f;
+    flA.Q2[idx] = qA_amp * cosf(k_z * z_val);
+    flA.Q3[idx] = qA_amp * sinf(k_z * z_val);
 
     // ── Fluid B: anti-aligned ──
     flB.n[idx]  = 1.0f;
     flB.px[idx] = 0.0f;
     flB.pz[idx] = -vz_A;
     flB.Q1[idx] = -1.0f;
-    flB.Q2[idx] = 0.0f;
-    flB.Q3[idx] = 0.0f;
+    flB.Q2[idx] = qB_amp * cosf(k_z * z_val);
+    flB.Q3[idx] = qB_amp * sinf(k_z * z_val);
 }
