@@ -1048,3 +1048,24 @@ kz=1 agrees to 1%. kz=2-4 degrade because ξ_peak(kz=2-4)≈−20 is right at xi
 | 6  | 0.1786  | 0.2710 | 0.659 |
 
 Script: `run_campaign33_t136.sh`. Seeds: `eigenmode_seed_kz{k}_a3.00_V0.050_sp8.0.bin`.
+
+---
+
+## Campaign 32 — CONFIRMED RESULTS (2026-07-03)
+
+**α=2.5, V0=0.05, xi_sponge=9, abi. All kz R²=1.0000 — perfect exponential growth.**
+
+| kz | γ_sim  | γ_exact | sim/ex | ex/WKB |
+|----|--------|---------|--------|--------|
+| 1  | 0.0823 | 0.0837  | 0.983  | 0.184  |
+| 2  | 0.1345 | 0.1359  | 0.990  | 0.365  |
+| 3  | 0.1557 | 0.1579  | 0.986  | 0.504  |
+| 4  | 0.1641 | 0.1674  | 0.980  | 0.610  |
+| 5  | 0.1642 | 0.1701  | 0.965  | 0.689  |
+| 6  | 0.1594 | 0.1687  | 0.945  | 0.746  |
+
+**Best campaign so far across all kz simultaneously** (sim/ex = 0.945–0.990 for kz=1..6). This is because ξ_peak(kz=2-6)=−9.2 is comfortably inside xi_sponge=9.
+
+**Key physics**: γ(kz) peaks at kz=4–5 — **non-monotonic dispersion**, a genuine non-Abelian effect. The WKB polynomial predicts monotonic decrease; the simulation (and exact 1D eigenvalue) shows a maximum at intermediate kz. The WKB overestimates by 2–5× (ex/WKB = 0.18–0.75) because the parabolic-well approximation breaks down at large α.
+
+**C33 launched on abi immediately after** (teaching nodes still down): α=3.0, V0=0.05, xi_sponge=8. Expected ~12 min runtime.
