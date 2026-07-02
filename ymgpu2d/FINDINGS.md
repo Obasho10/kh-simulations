@@ -633,15 +633,51 @@ For the next α/V0 sweep, use **xi_sponge matched per-campaign** + sigma=15–20
 
 ---
 
-## Campaigns 19b / 20b / 21b — redo with matched sponge (running, 2026-07-02)
+## Campaigns 19b / 20b / 21b — redo with matched sponge (2026-07-02)
 
-| Campaign | Server | α | V0 | xi_sponge | sigma | γ_outer@edge | Status |
-|----------|--------|---|-----|-----------|-------|-------------|--------|
-| 19b | t136 | 4.0 | 0.1 | **5.0** | 15 | ≈1.57 TU⁻¹ | running kz=1..6 |
-| 20b | t130 | 2.0 | 0.2 | **5.0** | 15 | ≈1.57 TU⁻¹ | running kz=1..6 |
-| 21b | abi | 3.0 | 0.1 | **6.0** | 15 | ≈1.66 TU⁻¹ | running kz=1..6 |
+### Root cause: stale binary (C20 / C21 / C20b-first / C21b-first)
 
-All use xi_sponge = 2·ξ_crit(kz=1) = 2/(α·V0) — the design rule derived from C19/C20/C21 failures. Eigenvalue solver predictions (xi_sponge=5/6, sigma=15) will be computed post-run.
+C20, C21, and the FIRST attempts at C20b and C21b ALL failed at t=2.45 TU **not** because of physics but because **t130 and abi had stale binaries** compiled before Mode 6 (NAB_CIRC_AZ2) was added to the source. The binary treated `run_mode=6` as mode 0 (NAB_LINEAR), running a wall-BC simulation with evolving Az1 and By2 seed — incompatible initialisation that NaN'd in the first 10000 steps.
+
+Diagnostics:
+- Run log showed `mode=NAB_LINEAR` instead of `mode=NAB_CIRC_AZ2` for run_mode=6
+- E0=351576 (C20b) and E0=87894 (C21b) — far above the expected 7864 and 1935 from fluid KE alone, consistent with Mode 0 including By1 energy from its gauge initialisation
+- `strings ym_coupled | grep NAB_` on t130/abi showed no `NAB_CIRC_AZ2` string
+
+**Fix**: synced all `.cu/.cuh` source to t130 and abi, recompiled with `/usr/local/cuda-12.4/bin/nvcc -arch=sm_86` on t130 (driver supports ≤12.8; the default PATH nvcc was CUDA 13.0, incompatible) and `sm_61` on abi. Both binaries now confirmed to have `NAB_CIRC_AZ2`. Note: t130 and t136 have SEPARATE local disks despite listing the same `/DATA/cm/lcpfct/ymgpu2d/` path — t136 had the correct binary from C18 compile; t130 did not.
+
+### Campaign status
+
+| Campaign | Server | α | V0 | xi_sponge | σ | γ_outer@edge | Status |
+|----------|--------|---|-----|-----------|---|-------------|--------|
+| 19b | t136 | 4.0 | 0.1 | **5.0** | 15 | ≈1.57 TU⁻¹ | kz=1,2 DONE; kz=3 running (t≈49 TU); kz=4..6 pending |
+| 20b | t130 | 2.0 | 0.2 | **5.0** | 15 | ≈1.57 TU⁻¹ | running kz=1 (Mode 6 confirmed, E0=7739) |
+| 21b | abi | 3.0 | 0.1 | **6.0** | 15 | ≈1.66 TU⁻¹ | running kz=1 (t≈5 TU, stable) |
+
+### Campaign 19b — α=4.0, V0=0.1, xi_sponge=5.0 — PARTIAL RESULTS
+
+**Eigenvalue solver** (xi_sponge=5, sigma=15):
+
+| kz | γ_exact | Im(γ) | γ_WKB | ex/WKB | ξ_peak |
+|----|---------|-------|-------|--------|--------|
+| 1 | 0.085 | −0.064 | 0.823 | 0.103 | −3.27 (inside sponge) |
+| 2 | 0.189 | 0 | 0.775 | 0.243 | −5.24 (at sponge edge) |
+| 3 | 0.241 | 0 | 0.683 | 0.353 | −5.24 |
+| 4 | 0.267 | 0 | 0.608 | 0.438 | −5.24 |
+| 5 | 0.278 | 0 | 0.551 | 0.503 | −5.24 |
+| 6 | 0.280 | 0 | 0.507 | 0.552 | −5.24 |
+
+**Key findings**: For α=4, V0=0.1, the coupling pulls eigenmodes to ξ_peak≈5 (sponge edge). Only kz=1 (ξ_peak=3.27, inside sponge) is measurable. kz≥2 have ξ_peak just outside xi_sponge=5 → sponge-damped, γ_sim underestimated. WKB overestimates by factor 10–15 at this α.
+
+**Simulation vs eigenvalue** (from `dispersion_ym.py --field Az_circ`):
+
+| kz | halt (TU) | γ_Az_sim | γ_Az_exact | sim/ex | verdict |
+|----|-----------|----------|------------|--------|---------|
+| 1 | 73.6 (NaN) | **0.055** | 0.085 | 0.65 | kz=1 measurable; oscillatory (Im(γ)≠0), γ underfit |
+| 2 | 61.4 (NaN) | 0.084 | 0.189 | 0.44 | ξ_peak outside sponge → sponge-damped |
+| 3 | 49.1 (running) | 0.105 | 0.241 | 0.44 | same — sponge-damped |
+
+**Conclusion for α=4, V0=0.1**: xi_sponge=5 prevents outer EM instability (WKB well too narrow: ∫γ_local dξ≈1.18 < π/2 for [ξ_crit=3.2, xi=5]) but also damps kz≥2 eigenmodes (ξ_peak at sponge edge). Only kz=1 gives reliable data. Tight sponge trade-off is fundamental for large α.
 
 ---
 
@@ -658,7 +694,9 @@ All use xi_sponge = 2·ξ_crit(kz=1) = 2/(α·V0) — the design rule derived fr
 | WKB dispersion comparison | C15 (Mode 5): γ(kz=1)=0.090, ratio 0.16. C16 (Mode 1): γ(kz=1)=0.281, ratio 0.51. C18 (Mode 6, Az2 seed): γ_Az(kz=1..5)=0.296/0.173/0.212/0.220/0.175. Eigenvalue solver (ym_eigenmode.py) matches C18 to 5–20% (sim/ex=0.83–1.11). WKB overestimates by 25–110%; outer-region EM mode (not classical KH) dominates. |
 | Precession cascade contamination | Resolved in C18 by seeding Az2 directly (Mode 6) instead of By2 — bypasses cascade build-up. kz=2..5 now measurable for first time. |
 | WKB geometry mismatch (Mode 5) | Resolved by C16: log-cosh Az1 (Mode 1) gives 3× better WKB match. |
-| Outer-region EM instability at higher α/V0 | New (C19/C20/C21): growing faster than sponge can damp for α≥3 or V0≥0.2 at xi_sponge=10. Fix: xi_sponge=2/(α·V0), sigma=15. C19b/C20b/C21b redo campaigns launched 2026-07-02 with corrected sponge. |
+| Outer-region EM instability at higher α/V0 | C19/C20/C21 failures: growing faster than sponge can damp for α≥3 or V0≥0.2 at xi_sponge=10. Fix: xi_sponge=2/(α·V0), sigma=15. C19b/C20b/C21b running with corrected sponge + corrected binary. |
+| Stale binary on t130/abi | C20b-first and C21b-first also failed because t130 and abi had binaries compiled before Mode 6. Fix: scp all source + recompile with cuda-12.4 (t130 driver=12.8, not 13.0) and sm_61 (abi). C20b now shows E0=7739 (correct). |
+| Tight sponge trade-off for large α | At α=4, xi_sponge=5 prevents outer EM but also damps kz≥2 (ξ_peak≈5.24 at sponge edge). Only kz=1 clean for α=4, V0=0.1. WKB overestimates by factor 10–15 at large α. |
 
 ---
 
