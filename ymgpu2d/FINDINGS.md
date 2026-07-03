@@ -1494,6 +1494,33 @@ kz_peak drops from 5→3-4 as V0 increases from 0.10→0.20. This suggests V0 br
 
 ---
 
+### Campaign 57 — α=2.5, V0=0.10, xi_sponge=10, kz=1..7 (abi, 2026-07-03)
+
+αV0=0.25. Sponge ξ_crit(kz=1)=1/(2.5×0.10)=4 < xi_sp=10. kz=2,3 anomalously low ratio.
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.7544 | 2.5417  | 0.297 | (!) |
+| 2  | 0.1657 | 2.2506  | 0.074 | (!) |
+| 3  | 0.1908 | 0.7530  | 0.253 | borderline |
+| 4  | 0.1739 | 0.3933  | 0.442 | reliable |
+| 5  | 0.2413 | 0.3526  | 0.684 | reliable |
+| 6  | 0.2132 | 0.3223  | 0.662 | reliable |
+| 7  | 0.1783 | 0.2985  | 0.597 | reliable |
+
+**kz_peak (reliable kz≥4) = 5** (γ=0.241). Same as C32 (α=2.5, V0=0.05, kz_peak=5). **kz_peak invariant under V0** at α=2.5.
+
+**V0 scaling at α=2.5:**
+| V0   | γ_peak | kz_peak |
+|------|--------|---------|
+| 0.03 | 0.095  | 4 (C56) |
+| 0.05 | 0.166  | 5 (C32) |
+| 0.10 | 0.241  | 5 (C57) |
+
+γ_peak scaling: 0.095→0.166→0.241 for V0 = 0.03→0.05→0.10. Ratio V0=0.10/0.05 = 1.45 (expected 2.0 for linear). Sub-linear again at high V0/αV0.
+
+---
+
 ### Master kz_peak Table (all campaigns, 2026-07-03)
 
 Growth peak from simulation (best sponge, reliable kz only):
@@ -1513,6 +1540,7 @@ Growth peak from simulation (best sponge, reliable kz only):
 | 2.0 | 0.20 | 0.40  | 4             | 0.310        | C52      |
 | 2.5 | 0.03 | 0.075 | 4†            | 0.095        | C56      |
 | 2.5 | 0.05 | 0.125 | 5†            | 0.166        | C32      |
+| 2.5 | 0.10 | 0.25  | 5†            | 0.241        | C57      |
 | 3.0 | 0.03 | 0.09  | 5†            | 0.111        | C36      |
 | 3.0 | 0.05 | 0.15  | 5†            | 0.174        | C33      |
 | 3.0 | 0.10 | 0.30  | 5             | 0.256        | C21b     |
