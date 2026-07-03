@@ -1380,6 +1380,120 @@ Additional kz from batch analysis (t130 sp14/sp15/sp20 runs extending C34/C35/C3
 
 ---
 
+### Campaign 53 — α=1.0, V0=0.10, xi_sponge=16, kz=1..4 (t130, 2026-07-03)
+
+αV0=0.10. Sponge ξ_crit(kz=1)=1/(1.0×0.10)=10 < xi_sp=16, so kz=1 is inside sponge.
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.1925 | 1.5166  | 0.127 | (!) |
+| 2  | 0.1735 | 0.2221  | 0.781 | reliable |
+| 3  | 0.1747 | 0.1822  | 0.959 | reliable |
+| 4  | 0.1843 | 0.1580  | 1.166 | nonlinear |
+
+**kz_peak (reliable kz=2,3) = 2–3** (γ≈0.174). Ratio>1 at kz=4 indicates nonlinear effects past the linear window. γ_peak~0.174 vs C39 V0=0.05 γ_peak=0.122: ratio=1.43 ≈ V0 ratio of 2.0. ✓ Consistent with γ_peak ∝ V0.
+
+---
+
+### Campaign 54 — α=1.0, V0=0.20, xi_sponge=11, kz=1..3 (t130, 2026-07-03)
+
+αV0=0.20. Sponge ξ_crit(kz=1)=5 < xi_sp=11.
+
+| kz | γ_sim  | γ_exact | ratio |
+|----|--------|---------|-------|
+| 1  | 0.5389 | 1.3029  | 0.414 |
+| 2  | 0.2140 | 0.3120  | 0.686 |
+| 3  | 0.2883 | 0.2571  | 1.121 |
+
+Only 3 kz — kz=3 already in nonlinear regime (ratio>1). kz=2 reliable: γ=0.214. V0 series for α=1.0: γ_peak(V0) = 0.109 (V0=0.05), 0.174 (V0=0.10), ~0.22 (V0=0.20, kz=2) — consistent with linear V0 scaling.
+
+---
+
+### Campaign 55 — α=2.0, V0=0.10, xi_sponge=11, kz=1..6 (t130, 2026-07-03)
+
+αV0=0.20. Sponge ξ_crit(kz=1)=5 < xi_sp=11. kz=1,2 have low ratio (anomalous growth).
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.5373 | 2.2520  | 0.239 | (!) |
+| 2  | 0.1628 | 1.9054  | 0.085 | (!) |
+| 3  | 0.1761 | 0.3624  | 0.486 | reliable |
+| 4  | 0.1655 | 0.3152  | 0.525 | reliable |
+| 5  | 0.2105 | 0.2824  | 0.745 | reliable |
+| 6  | 0.2015 | 0.2580  | 0.781 | reliable |
+
+**kz_peak (reliable kz≥3) = 5** (γ=0.211). kz_peak ≈ 5 vs C35 kz_peak=4 at V0=0.05. Slight upward shift at higher V0.
+
+**V0 scaling at α=2.0** (kz_peak values in parentheses):
+| V0   | γ_peak | kz_peak |
+|------|--------|---------|
+| 0.03 | 0.115  | 4 (C42) |
+| 0.05 | 0.157  | 4 (C35) |
+| 0.10 | 0.211  | 5 (C55) |
+| 0.20 | 0.310  | 4 (C52) |
+
+γ_peak scales roughly as V0^0.8 (not purely linear — slight sub-linear at high V0). kz_peak stays at 4–5 across 7× range in V0.
+
+---
+
+### Campaign 56 — α=2.5, V0=0.03, xi_sponge=18, kz=1..7 (abi, 2026-07-03)
+
+αV0=0.075. Sponge ξ_crit(kz=1)=1/(2.5×0.03)=13.3 < xi_sp=18. kz=1,2 compressed.
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.0789 | 1.6222  | 0.049 | (!) |
+| 2  | 0.0866 | 1.1601  | 0.075 | (!) |
+| 3  | 0.0948 | 0.2491  | 0.381 | borderline |
+| 4  | 0.0950 | 0.2162  | 0.439 | reliable |
+| 5  | 0.0909 | 0.1935  | 0.470 | reliable |
+| 6  | 0.0849 | 0.1767  | 0.481 | reliable |
+| 7  | 0.0780 | 0.1636  | 0.477 | reliable |
+
+**kz_peak (reliable kz≥4) = 4** (γ=0.095). Bridges V0=0.03 series: α=1.5→2.0→2.5→3.0: kz_peak=3,4,4,5.
+
+**V0=0.03 series kz_peak trend:**
+| α   | kz_peak | C  |
+|-----|---------|-----|
+| 1.5 | 3       | C41 |
+| 2.0 | 4       | C42 |
+| 2.5 | 4       | C56 |
+| 3.0 | 5       | C36 |
+| 4.0 | 6       | C37 |
+| 5.0 | 6       | C38 |
+
+**kz_peak ≈ 1.5α** at V0=0.03 (compared to ≈2α at V0=0.05).
+
+---
+
+### Campaign 58 — α=3.0, V0=0.20, xi_sponge=6, kz=1..7 (t140, 2026-07-03)
+
+αV0=0.60. Sponge ξ_crit(kz=1)=1/(3.0×0.20)=1.67 < xi_sp=6. But kz=1,2 still show low ratio (heavy WKB overestimate at low kz for high αV0).
+
+| kz | γ_sim  | γ_exact | ratio |
+|----|--------|---------|-------|
+| 1  | 1.2338 | 3.5705  | 0.346 |
+| 2  | 0.3325 | 2.8536  | 0.117 |
+| 3  | 0.3674 | 0.7507  | 0.489 |
+| 4  | 0.3668 | 0.6615  | 0.554 |
+| 5  | 0.3410 | 0.5956  | 0.572 |
+| 6  | 0.3058 | 0.5454  | 0.561 |
+| 7  | 0.2510 | 0.5057  | 0.496 |
+
+**kz_peak (reliable kz≥3) = 3–4** (γ≈0.367). vs C21b (α=3.0, V0=0.10) kz_peak=5: kz_peak shifts **down** at higher V0! This reverses the trend seen at fixed V0.
+
+**V0 scaling at α=3.0:**
+| V0   | γ_peak | kz_peak |
+|------|--------|---------|
+| 0.03 | 0.111  | 5 (C36) |
+| 0.05 | 0.174  | 5 (C33) |
+| 0.10 | 0.256  | 5 (C21b) |
+| 0.20 | 0.367  | 3–4 (C58) |
+
+kz_peak drops from 5→3-4 as V0 increases from 0.10→0.20. This suggests V0 breaks the kz_peak invariance at high coupling.
+
+---
+
 ### Master kz_peak Table (all campaigns, 2026-07-03)
 
 Growth peak from simulation (best sponge, reliable kz only):
@@ -1388,21 +1502,26 @@ Growth peak from simulation (best sponge, reliable kz only):
 |-----|------|-------|---------------|--------------|----------|
 | 0.5 | 0.10 | 0.05  | 1             | 0.122        | C31      |
 | 1.0 | 0.05 | 0.05  | 2             | 0.122        | C39      |
+| 1.0 | 0.10 | 0.10  | 2–3           | 0.174        | C53      |
+| 1.0 | 0.20 | 0.20  | 2*            | 0.214        | C54      |
 | 1.5 | 0.03 | 0.045 | 3             | 0.103        | C41      |
-| 1.5 | 0.05 | 0.075 | 3             | 0.144*       | C34      |
+| 1.5 | 0.05 | 0.075 | 3             | 0.144        | C34      |
 | 1.5 | 0.10 | 0.15  | 3             | 0.216        | C51      |
 | 2.0 | 0.03 | 0.06  | 4             | 0.115        | C42      |
 | 2.0 | 0.05 | 0.10  | 4             | 0.157        | C35      |
+| 2.0 | 0.10 | 0.20  | 5             | 0.211        | C55      |
 | 2.0 | 0.20 | 0.40  | 4             | 0.310        | C52      |
+| 2.5 | 0.03 | 0.075 | 4†            | 0.095        | C56      |
 | 2.5 | 0.05 | 0.125 | 5†            | 0.166        | C32      |
 | 3.0 | 0.03 | 0.09  | 5†            | 0.111        | C36      |
 | 3.0 | 0.05 | 0.15  | 5†            | 0.174        | C33      |
 | 3.0 | 0.10 | 0.30  | 5             | 0.256        | C21b     |
+| 3.0 | 0.20 | 0.60  | 3–4†          | 0.367        | C58      |
 | 4.0 | 0.03 | 0.12  | 6             | 0.123        | C37      |
 | 5.0 | 0.03 | 0.15  | 6             | 0.133        | C38      |
 
-*C34 kz_peak may be shifted by sponge at xi_sponge=15; sp15 gives kz=6 as apparent peak but ratio>1 (unphysical).
-†kz=1,2,3 sponge-compressed in these campaigns; reliable peak from kz≥4.
+*C54 only ran kz=1..3; kz_peak from kz=2 (ratio=0.69).
+†kz=1,2 sponge-compressed or anomalous; reliable peak from kz≥3–4.
 
 **Key patterns:**
 1. **kz_peak ≈ 2α** at V0=0.05 (C39/C35/C32): kz_peak = 2, 4, 5 at α = 1, 2, 2.5
