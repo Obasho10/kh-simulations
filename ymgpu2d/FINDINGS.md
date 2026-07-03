@@ -1248,3 +1248,40 @@ WKB dramatically overestimates by 4–11× (ex/WKB=0.09–0.47) — non-Abelian 
 At fixed αV0, V0=0.03 (higher α) gives higher kz_peak than V0=0.05 — the peak position depends on α and V0 separately, not just their product. This is consistent with the WKB polynomial where α and V0 enter through different combinations (α²V0 and kz²V0²/α).
 
 **Plot**: `ym_dispersion_allcampaigns.png` — 3-panel: V0=0.05 dispersion (top-left), V0=0.03 dispersion (top-right), kz_peak migration vs αV0 (bottom).
+
+---
+
+## Campaign 39: α=1.0, V0=0.05, xi_sponge=25, kz=1..8
+
+**Parameters**: Mode 6, EPS=0.15, suppress_kz0=1, hyp_diff=5e-5, BP=14, target_tu=100.
+**Date**: 2026-07-03, abi (GTX 1080 Ti, sm_61).
+
+| kz | γ_sim | γ_exact | sim/exact | R²   |
+|----|-------|---------|-----------|------|
+| 1  | 0.0747 | 0.0883 | 0.846 | 0.985 |
+| 2  | 0.1087 | 0.1232 | 0.882 | 0.990 |
+| 3  | 0.0683 | 0.0929 | 0.735 | 0.974 |
+| 4  | 0.0531 | 0.0790 | 0.672 | 0.966 |
+| 5  | 0.0350 | 0.0682 | 0.513 | 0.949 |
+| 6  | 0.0223 | 0.0603 | 0.370 | 0.929 |
+| 7  | 0.0235 | 0.0545 | 0.431 | 0.934 |
+| 8  | 0.0145 | 0.0500 | 0.290 | 0.882 |
+
+Peak (sim): kz=2 (γ=0.109). Peak (exact): kz=2 (γ=0.123). **kz_peak correctly identified.**
+
+**Note on sponge compression**: At low coupling (α=1.0), the WKB turning point ξ_crit = acosh(exp(kz/(αV0))) becomes very large — for kz=3: ξ_crit ≈ 60. The sponge at xi_sponge=25 cuts off the mode at ~42% of ξ_crit. This causes increasing underestimation at higher kz (sim/exact drops from 0.88 at kz=2 to 0.29 at kz=8). The kz=1,2 values (sim/exact≈0.85-0.88) are reliable; kz≥3 are lower bounds. The kz_peak location is still correctly recovered.
+
+Extends V0=0.05 series to lower coupling. Combined with C34 (α=1.5):
+
+| α   | αV0   | kz_peak (exact) |
+|-----|-------|-----------------|
+| 0.5* | 0.025 | 1 (predicted)  |
+| 1.0 | 0.050 | 2 (C39)        |
+| 1.5 | 0.075 | 3 (C34)        |
+| 2.0 | 0.100 | 4 (C35)        |
+| 2.5 | 0.125 | 5 (C32)        |
+| 3.0 | 0.150 | 5 (C33)        |
+
+*α=0.5 predicted: kz_peak=1 from eigenmode solver. To see kz_peak < 1 (below kz=1) requires Lz > 2π.
+
+**kz_peak trend (V0=0.05)**: kz_peak ≈ 2α → falls below 1 at α < 0.5. This is the motivation for the planned Lz=4π extension.
