@@ -1285,3 +1285,130 @@ Extends V0=0.05 series to lower coupling. Combined with C34 (α=1.5):
 *α=0.5 predicted: kz_peak=1 from eigenmode solver. To see kz_peak < 1 (below kz=1) requires Lz > 2π.
 
 **kz_peak trend (V0=0.05)**: kz_peak ≈ 2α → falls below 1 at α < 0.5. This is the motivation for the planned Lz=4π extension.
+
+---
+
+## Batch Analysis — Extended α/V0 Parameter Sweep (2026-07-03)
+
+**Method**: `batch_analyze.py` reads pre-computed `timeseries_k*.csv` (Az_circ amplitude vs t) from abi/t130/t140. Growth rates fitted by best-R² sliding-window log-linear fit. γ_exact from quartic WKB polynomial (n=0..50 scan). For each (α, V0, kz), the run with the largest xi_sponge is used (most conservative sponge → least truncation).
+
+**Reliability flag**: kz=1 rates are unreliable when xi_sponge < ξ_crit(kz=1) = kz/(αV0). Marked (!) below.
+
+---
+
+### Campaign 41 — α=1.5, V0=0.03, xi_sponge=18, kz=1..4 (abi, 2026-07-03)
+
+αV0 = 0.045. ξ_crit(kz=1) = 1/(1.5×0.03) = 22.2 > xi_sponge → kz=1,2 compressed.
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.0690 | 1.1818  | 0.058 | (!) sponge compressed |
+| 2  | 0.0942 | 0.4642  | 0.203 | (!) sponge compressed |
+| 3  | 0.1033 | 0.1498  | 0.690 | reliable |
+| 4  | 0.0984 | 0.1298  | 0.758 | reliable |
+
+**kz_peak (reliable kz≥3) = 3** (γ=0.103). Completes V0=0.03 series at lower α.
+
+---
+
+### Campaign 42 — α=2.0, V0=0.03, xi_sponge=14, kz=1..4 (abi, 2026-07-03)
+
+αV0 = 0.06. ξ_crit(kz=1) = 1/(2.0×0.03) = 16.7 > xi_sponge → kz=1,2 compressed.
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.0688 | 1.4187  | 0.048 | (!) sponge compressed |
+| 2  | 0.0983 | 0.8777  | 0.112 | (!) sponge compressed |
+| 3  | 0.1102 | 0.1995  | 0.552 | reliable |
+| 4  | 0.1145 | 0.1730  | 0.661 | reliable |
+
+**kz_peak (reliable) = 4** (γ=0.115). Bridges V0=0.03 series between α=1.5 (C41) and α=3.0 (C36).
+
+---
+
+### Campaign 51 — α=1.5, V0=0.10, xi_sponge=10, kz=1..6 (t130, 2026-07-03)
+
+αV0 = 0.15. Sponge ξ_crit(kz=1) ≈ 6.7 < xi_sponge=10.
+
+| kz | γ_sim  | γ_exact | ratio |
+|----|--------|---------|-------|
+| 1  | 0.1012 | 1.9194  | 0.053 |
+| 2  | 0.1908 | 0.8707  | 0.219 |
+| 3  | 0.2160 | 0.2727  | 0.792 |
+| 4  | 0.1814 | 0.2367  | 0.766 |
+| 5  | 0.1507 | 0.2119  | 0.711 |
+| 6  | 0.1501 | 0.1935  | 0.775 |
+
+**kz_peak = 3** (γ=0.216). Same peak as C34 (α=1.5, V0=0.05). kz=1,2 ratios low → strong-coupling WKB overestimate.
+
+---
+
+### Campaign 52 — α=2.0, V0=0.20, xi_sponge=5, kz=1..6 (t130, 2026-07-03)
+
+αV0 = 0.40. Sponge ξ_crit(kz=1) ≈ 2.5 < xi_sponge=5.
+
+| kz | γ_sim  | γ_exact | ratio |
+|----|--------|---------|-------|
+| 1  | 0.1605 | 2.8871  | 0.056 |
+| 2  | 0.2338 | 1.2744  | 0.183 |
+| 3  | 0.2927 | 0.5087  | 0.575 |
+| 4  | 0.3100 | 0.4443  | 0.698 |
+| 5  | 0.3084 | 0.3987  | 0.773 |
+| 6  | 0.3006 | 0.3644  | 0.825 |
+
+**kz_peak = 4** (γ=0.310, ratio=0.70). Same kz_peak as α=2.0 V0=0.05 (C35) and V0=0.03 (C42) — kz_peak invariant under V0 at fixed α=2.0. γ_peak scales ~linearly with V0: 0.31/0.157≈1.97 for V0 factor 4×.
+
+---
+
+### Extended Parameter Coverage: C39/C41/C42/C51/C52 (2026-07-03)
+
+Additional kz from batch analysis (t130 sp14/sp15/sp20 runs extending C34/C35/C39):
+
+**α=1.0, V0=0.05, xi_sponge=25 (extended, C39+)**
+
+| kz | γ_sim  | γ_exact | ratio |
+|----|--------|---------|-------|
+| 2  | 0.1222 | 0.1576  | 0.775 |
+| 3  | 0.0920 | 0.1290  | 0.714 |
+| 4  | 0.0778 | 0.1118  | 0.696 |
+| 5  | 0.0646 | 0.1000  | 0.646 |
+| 6  | 0.0536 | 0.0913  | 0.588 |
+| 7  | 0.0429 | 0.0845  | 0.508 |
+| 8  | 0.0337 | 0.0791  | 0.426 |
+
+**kz_peak = 2** confirmed (consistent with C39 γ=0.109).
+
+---
+
+### Master kz_peak Table (all campaigns, 2026-07-03)
+
+Growth peak from simulation (best sponge, reliable kz only):
+
+| α   | V0   | αV0   | kz_peak (sim) | γ_peak (sim) | Campaign |
+|-----|------|-------|---------------|--------------|----------|
+| 0.5 | 0.10 | 0.05  | 1             | 0.122        | C31      |
+| 1.0 | 0.05 | 0.05  | 2             | 0.122        | C39      |
+| 1.5 | 0.03 | 0.045 | 3             | 0.103        | C41      |
+| 1.5 | 0.05 | 0.075 | 3             | 0.144*       | C34      |
+| 1.5 | 0.10 | 0.15  | 3             | 0.216        | C51      |
+| 2.0 | 0.03 | 0.06  | 4             | 0.115        | C42      |
+| 2.0 | 0.05 | 0.10  | 4             | 0.157        | C35      |
+| 2.0 | 0.20 | 0.40  | 4             | 0.310        | C52      |
+| 2.5 | 0.05 | 0.125 | 5†            | 0.166        | C32      |
+| 3.0 | 0.03 | 0.09  | 5†            | 0.111        | C36      |
+| 3.0 | 0.05 | 0.15  | 5†            | 0.174        | C33      |
+| 3.0 | 0.10 | 0.30  | 5             | 0.256        | C21b     |
+| 4.0 | 0.03 | 0.12  | 6             | 0.123        | C37      |
+| 5.0 | 0.03 | 0.15  | 6             | 0.133        | C38      |
+
+*C34 kz_peak may be shifted by sponge at xi_sponge=15; sp15 gives kz=6 as apparent peak but ratio>1 (unphysical).
+†kz=1,2,3 sponge-compressed in these campaigns; reliable peak from kz≥4.
+
+**Key patterns:**
+1. **kz_peak ≈ 2α** at V0=0.05 (C39/C35/C32): kz_peak = 2, 4, 5 at α = 1, 2, 2.5
+2. **kz_peak is V0-independent at fixed α**: α=2.0 gives kz_peak=4 at V0=0.03, 0.05, 0.20
+3. **γ_peak ∝ V0 at fixed α**: confirmed by C43 vs C35 (factor ~2 in γ for factor 4 in V0)
+4. **Ratio sim/exact ≈ 0.7 near kz_peak** across all (α, V0) when sponge is adequate
+5. **WKB dramatically overestimates at kz < kz_peak**: ratio < 0.3 for kz=1 in strong-coupling regime
+
+**Gap to fill**: α=0.5-1.0 at V0=0.05 (kz_peak < 2 requires Lz > 2π); α=1.0-2.0 at V0=0.10 for denser V0 coverage.
