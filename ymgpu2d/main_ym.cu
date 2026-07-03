@@ -190,6 +190,14 @@ int main(int argc, char* argv[]) {
     std::vector<fct_real_t> h_Az2(num_cells), h_Az3(num_cells);
     std::vector<fct_real_t> h_pzA(num_cells), h_pxA(num_cells), h_Q1A(num_cells);
     std::vector<fct_real_t> h_pzB(num_cells), h_pxB(num_cells), h_Q1B(num_cells);
+    // Electric field (all 3 colors) + fluid density/charge-2/3 — needed to check
+    // Gauss's law (D_i E_i^a = rho^a/eps0) in post-processing; not evolved-state
+    // otherwise, so must be exported explicitly.
+    std::vector<fct_real_t> h_Ex1(num_cells), h_Ex2(num_cells), h_Ex3(num_cells);
+    std::vector<fct_real_t> h_Ez1(num_cells), h_Ez2(num_cells), h_Ez3(num_cells);
+    std::vector<fct_real_t> h_nA(num_cells), h_nB(num_cells);
+    std::vector<fct_real_t> h_Q2A(num_cells), h_Q3A(num_cells);
+    std::vector<fct_real_t> h_Q2B(num_cells), h_Q3B(num_cells);
 
     // ── Output directory ──
     std::ostringstream dir_ss;
@@ -314,11 +322,25 @@ int main(int argc, char* argv[]) {
         CUDA_CHECK(cudaMemcpy(h_pxB.data(), d_flB.px,    bytes, cudaMemcpyDeviceToHost));
         CUDA_CHECK(cudaMemcpy(h_Q1B.data(), d_flB.Q1,    bytes, cudaMemcpyDeviceToHost));
 
+        CUDA_CHECK(cudaMemcpy(h_Ex1.data(), d_fields.Ex1, bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_Ex2.data(), d_fields.Ex2, bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_Ex3.data(), d_fields.Ex3, bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_Ez1.data(), d_fields.Ez1, bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_Ez2.data(), d_fields.Ez2, bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_Ez3.data(), d_fields.Ez3, bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_nA.data(),  d_flA.n,      bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_nB.data(),  d_flB.n,      bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_Q2A.data(), d_flA.Q2,     bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_Q3A.data(), d_flA.Q3,     bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_Q2B.data(), d_flB.Q2,     bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_Q3B.data(), d_flB.Q3,     bytes, cudaMemcpyDeviceToHost));
+
         std::thread t([=]() {
             std::ostringstream fn;
             fn << out_dir << "/ym_" << std::setfill('0') << std::setw(6) << step << ".csv";
             std::ofstream out(fn.str());
-            out << "X,Z,By1,By2,By3,Az2,Az3,PzA,PxA,Q1A,PzB,PxB,Q1B\n";
+            out << "X,Z,By1,By2,By3,Az2,Az3,PzA,PxA,Q1A,PzB,PxB,Q1B,"
+                   "Ex1,Ex2,Ex3,Ez1,Ez2,Ez3,nA,nB,Q2A,Q3A,Q2B,Q3B\n";
             for (int z = 0; z < NZ; ++z)
                 for (int x = 0; x < NX; ++x) {
                     int i = x + z * NX;
@@ -326,7 +348,12 @@ int main(int argc, char* argv[]) {
                         << h_By1[i] << ',' << h_By2[i] << ',' << h_By3[i] << ','
                         << h_Az2[i] << ',' << h_Az3[i] << ','
                         << h_pzA[i] << ',' << h_pxA[i] << ',' << h_Q1A[i] << ','
-                        << h_pzB[i] << ',' << h_pxB[i] << ',' << h_Q1B[i] << '\n';
+                        << h_pzB[i] << ',' << h_pxB[i] << ',' << h_Q1B[i] << ','
+                        << h_Ex1[i] << ',' << h_Ex2[i] << ',' << h_Ex3[i] << ','
+                        << h_Ez1[i] << ',' << h_Ez2[i] << ',' << h_Ez3[i] << ','
+                        << h_nA[i]  << ',' << h_nB[i]  << ','
+                        << h_Q2A[i] << ',' << h_Q3A[i] << ','
+                        << h_Q2B[i] << ',' << h_Q3B[i] << '\n';
                 }
         });
         export_threads.push_back(std::move(t));
