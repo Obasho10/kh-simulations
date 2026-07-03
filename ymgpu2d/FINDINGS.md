@@ -1657,14 +1657,50 @@ Growth peak from simulation (best sponge, reliable kz only):
 | 4.0 | 0.03 | 0.12  | 6             | 0.123        | C37      |
 | 5.0 | 0.03 | 0.15  | 6             | 0.133        | C38      |
 
+| 0.5 | 0.20 | 0.10  | ~1 (nonlin)   | —            | C66      |
+| 1.0 | 0.01 | 0.01  | 2–3           | 0.054        | C65      |
+
 *C54 only ran kz=1..3; kz_peak from kz=2 (ratio=0.69).
 †kz=1,2 sponge-compressed or anomalous; reliable peak from kz≥3–4.
 
-**Key patterns:**
-1. **kz_peak ≈ 2α** at V0=0.05 (C39/C35/C32): kz_peak = 2, 4, 5 at α = 1, 2, 2.5
-2. **kz_peak is V0-independent at fixed α**: α=2.0 gives kz_peak=4 at V0=0.03, 0.05, 0.20
-3. **γ_peak ∝ V0 at fixed α**: confirmed by C43 vs C35 (factor ~2 in γ for factor 4 in V0)
-4. **Ratio sim/exact ≈ 0.7 near kz_peak** across all (α, V0) when sponge is adequate
-5. **WKB dramatically overestimates at kz < kz_peak**: ratio < 0.3 for kz=1 in strong-coupling regime
+---
+
+### Campaign 65 — α=1.0, V0=0.01, xi_sponge=40, kz=1..4 (t130, 2026-07-03)
+
+αV0=0.01 (weakest coupling probed). ξ_crit(kz=1)=1/(1.0×0.01)=100 >> xi_sp=40 → kz=1 fully sponge-compressed. kz=3 borderline, kz=4 slightly nonlinear.
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.0414 | 0.4156  | 0.100 | (!) |
+| 2  | 0.0512 | 0.0707  | 0.725 | reliable |
+| 3  | 0.0556 | 0.0577  | 0.964 | borderline |
+| 4  | 0.0568 | 0.0500  | 1.136 | nonlinear |
+
+**kz_peak (reliable kz=2) = 2** (γ=0.051). V0=0.01 gives kz_peak=2, same as V0=0.05/0.10/0.20 for α=1.0 — consistent with kz_peak invariance. γ drops dramatically: 0.122→0.174→0.214→0.051 as V0 goes 0.05→0.10→0.20→0.01. V0=0.01 is well below the scaling trend — suggests non-perturbative threshold behavior near αV0~0.05.
+
+---
+
+### Campaign 66 — α=0.5, V0=0.20, xi_sponge=22, kz=1..4 (t140, 2026-07-03)
+
+αV0=0.10. All kz show ratio>1 (sim greatly exceeds WKB). System exits linear regime before 100 TU.
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.9670 | 0.2175  | 4.447 | nonlinear / parasitic |
+| 2  | 0.1988 | 0.1575  | 1.262 | nonlinear |
+| 3  | 0.2118 | 0.1290  | 1.643 | nonlinear |
+| 4  | 0.2020 | 0.1118  | 1.808 | nonlinear |
+
+kz=1 dominant at γ=0.967 — likely parasitic kz=0 contamination or rapid nonlinear cascade at α=0.5, V0=0.20 (αV0=0.10 is large relative to α=0.5). No reliable linear measurement. Need shorter target_tu or weaker perturbation_amp to catch linear window.
+
+---
+
+**Key patterns (updated 2026-07-03):**
+1. **kz_peak ≈ 2α** at moderate V0 (V0=0.03–0.10): kz_peak = 1, 2, 3, 4, 5, 6 at α = 0.5, 1, 1.5, 2, 2.5–3, 4–5
+2. **kz_peak is V0-independent at fixed α for V0≥0.02**: α=2.0 kz_peak=4 across V0=0.03–0.20; drops by 1 at V0=0.02
+3. **γ_peak ∝ V0^0.85–0.92 at fixed α** for V0≥0.03; saturates at αV0≳0.15 (low α) or continues scaling (high α)
+4. **Ratio sim/exact ≈ 0.5–0.7 near kz_peak** across all (α,V0) — systematic WKB overestimate of ~40–50%
+5. **WKB dramatically overestimates at kz < kz_peak**: ratio<0.1 for kz=1 in strong-coupling campaigns
+6. **Low-α high-V0 corner** (α=0.5, V0=0.20): all ratios>1, system nonlinear before 100 TU; boundary of accessible linear regime
 
 **Gap to fill**: α=0.5-1.0 at V0=0.05 (kz_peak < 2 requires Lz > 2π); α=1.0-2.0 at V0=0.10 for denser V0 coverage.
