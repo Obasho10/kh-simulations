@@ -1049,6 +1049,23 @@ kz=1 agrees to 1%. kz=2-4 degrade because ξ_peak(kz=2-4)≈−20 is right at xi
 
 Script: `run_campaign33_t136.sh`. Seeds: `eigenmode_seed_kz{k}_a3.00_V0.050_sp8.0.bin`.
 
+## Campaign 33 — CONFIRMED RESULTS (2026-07-03)
+
+**α=3.0, V0=0.05, xi_sponge=8, abi. All kz R²=1.0000.**
+
+| kz | γ_sim  | γ_exact | sim/ex | ex/WKB |
+|----|--------|---------|--------|--------|
+| 1  | 0.0790 | 0.0808  | 0.978  | 0.154  |
+| 2  | 0.1359 | 0.1374  | 0.989  | 0.311  |
+| 3  | 0.1599 | 0.1625  | 0.984  | 0.434  |
+| 4  | 0.1709 | 0.1743  | 0.980  | 0.530  |
+| 5  | 0.1727 | 0.1787  | 0.966  | 0.604  |
+| 6  | 0.1686 | 0.1786  | 0.944  | 0.659  |
+
+**Same non-monotonic dispersion as C32** (γ peaks at kz=5). WKB overestimates by 1.5–6.5× (ex/WKB=0.15–0.66). sim/exact=0.944–0.989.
+
+**V0=0.05 series summary** (C25 α=1.0, C32 α=2.5, C33 α=3.0): all R²≥0.999, sim/exact≥0.944. The non-Abelian dispersion peak migrates from kz=2 (α=1.0) to kz=5 (α=2.5,3.0) as coupling increases — a genuine non-Abelian effect.
+
 ---
 
 ## Campaign 32 — CONFIRMED RESULTS (2026-07-03)
