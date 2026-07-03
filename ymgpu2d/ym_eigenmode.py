@@ -424,8 +424,9 @@ def main():
                 (qA * phase).real / scale,   # field 4: Q2A (color-2, beam A)
                 (qB * phase).real / scale,   # field 5: Q2B (color-2, beam B)
             ]).astype(np.float32)            # shape (6, NX)
+            lz_tag = f'_lz{LZ:.4f}' if abs(LZ - 2.0*np.pi) > 1e-6 else ''
             seed_fname = (f'eigenmode_seed_kz{kz_int}_a{alpha:.2f}'
-                          f'_V{V0:.3f}_sp{args.xi_sponge:.1f}.bin')
+                          f'_V{V0:.3f}_sp{args.xi_sponge:.1f}{lz_tag}.bin')
             header = np.array([6, args.NX], dtype=np.int32)
             with open(seed_fname, 'wb') as sf:
                 header.tofile(sf)
