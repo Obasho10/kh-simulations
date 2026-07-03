@@ -1551,6 +1551,80 @@ True kz_peak likely kz=1 (consistent with C31 α=0.5 V0=0.10 kz_peak=1). Need la
 
 ---
 
+### Campaign 61 — α=2.0, V0=0.02, xi_sponge=25, kz=1..6 (abi, 2026-07-03)
+
+αV0=0.04 (very weak). ξ_crit(kz=1)=1/(2.0×0.02)=25 = xi_sp → kz=1,2 fully sponge-absorbed.
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.0653 | 1.1952  | 0.055 | (!) |
+| 2  | 0.0639 | 0.4900  | 0.130 | (!) |
+| 3  | 0.0678 | 0.1630  | 0.416 | reliable |
+| 4  | 0.0675 | 0.1413  | 0.478 | reliable |
+| 5  | 0.0646 | 0.1265  | 0.511 | reliable |
+| 6  | 0.0613 | 0.1154  | 0.531 | reliable |
+
+**kz_peak (reliable kz≥3) = 3** (γ=0.068). V0=0.02 series at α=2.0: kz_peak drops to 3 vs kz_peak=4 at V0=0.03–0.20. γ_peak=0.068 extrapolates from 0.115 at V0=0.03 as γ∝V0^0.85.
+
+---
+
+### Campaign 62 — α=3.0, V0=0.02, xi_sponge=20, kz=1..7 (abi, 2026-07-03)
+
+αV0=0.06. ξ_crit(kz=1)=1/(3.0×0.02)=16.7 < xi_sp=20. kz=1,2 compressed.
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.0643 | 1.5396  | 0.042 | (!) |
+| 2  | 0.0694 | 1.0477  | 0.066 | (!) |
+| 3  | 0.0761 | 0.2441  | 0.312 | borderline |
+| 4  | 0.0769 | 0.2118  | 0.363 | reliable |
+| 5  | 0.0747 | 0.1896  | 0.394 | reliable |
+| 6  | 0.0717 | 0.1731  | 0.414 | reliable |
+| 7  | 0.0660 | 0.1603  | 0.412 | reliable |
+
+**kz_peak (reliable kz≥4) = 4** (γ=0.077). V0=0.02 series at α=3.0: kz_peak=4 vs 5 at V0=0.03–0.10. Downward shift at very low V0.
+
+**V0=0.02 series summary** (extrapolates trend to very low coupling):
+| α   | kz_peak | γ_peak | C  |
+|-----|---------|--------|-----|
+| 2.0 | 3       | 0.068  | C61 |
+| 3.0 | 4       | 0.077  | C62 |
+
+---
+
+### Campaign 63 — α=2.5, V0=0.20, xi_sponge=7, kz=1..7 (t140, 2026-07-03)
+
+αV0=0.50. ξ_crit(kz=1)=1/(2.5×0.20)=2.0 < xi_sp=7. kz=2 anomalously low ratio (resonance/parasitic mode?).
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 1.2900 | 3.2468  | 0.397 | (!) |
+| 2  | 0.3669 | 2.0846  | 0.176 | (!) |
+| 3  | 0.2243 | 0.6311  | 0.355 | borderline |
+| 4  | 0.3570 | 0.5535  | 0.645 | reliable |
+| 5  | 0.3241 | 0.4974  | 0.652 | reliable |
+| 6  | 0.2838 | 0.4551  | 0.624 | reliable |
+| 7  | 0.2228 | 0.4218  | 0.528 | reliable |
+
+**kz_peak (reliable kz≥4) = 4** (γ=0.357). V0 series at α=2.5: kz_peak=4–5 across V0=0.03→0.20 (stable). γ_peak: 0.095→0.166→0.241→0.357 for V0=0.03→0.05→0.10→0.20. Linear scaling γ∝V0^0.92 (near-linear).
+
+---
+
+### Campaign 64 — α=0.5, V0=0.10, xi_sponge=22, kz=1..4 (t130, 2026-07-03)
+
+Repeat of C31-region but with extended sponge xi=22 (vs earlier sp=16). Confirms kz_peak.
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.1218 | 0.3421  | 0.356 | reliable |
+| 2  | 0.0801 | 0.1116  | 0.718 | reliable |
+| 3  | 0.0635 | 0.0912  | 0.697 | reliable |
+| 4  | 0.0530 | 0.0790  | 0.671 | reliable |
+
+**kz_peak = 1** (γ=0.122). Confirms C31. kz=1 is reliably measured at α=0.5. Monotonically decreasing γ(kz) at low α — no secondary peak.
+
+---
+
 ### Master kz_peak Table (all campaigns, 2026-07-03)
 
 Growth peak from simulation (best sponge, reliable kz only):
@@ -1558,7 +1632,7 @@ Growth peak from simulation (best sponge, reliable kz only):
 | α   | V0   | αV0   | kz_peak (sim) | γ_peak (sim) | Campaign |
 |-----|------|-------|---------------|--------------|----------|
 | 0.5 | 0.05 | 0.025 | ~1 (unclear)  | —            | C59      |
-| 0.5 | 0.10 | 0.05  | 1             | 0.122        | C31      |
+| 0.5 | 0.10 | 0.05  | 1             | 0.122        | C31/C64  |
 | 1.0 | 0.05 | 0.05  | 2             | 0.122        | C39      |
 | 1.0 | 0.10 | 0.10  | 2–3           | 0.174        | C53      |
 | 1.0 | 0.20 | 0.20  | 2*            | 0.214        | C54      |
@@ -1566,13 +1640,16 @@ Growth peak from simulation (best sponge, reliable kz only):
 | 1.5 | 0.05 | 0.075 | 3             | 0.144        | C34      |
 | 1.5 | 0.10 | 0.15  | 3             | 0.216        | C51      |
 | 1.5 | 0.20 | 0.30  | 2–3           | 0.216        | C60      |
+| 2.0 | 0.02 | 0.04  | 3             | 0.068        | C61      |
 | 2.0 | 0.03 | 0.06  | 4             | 0.115        | C42      |
 | 2.0 | 0.05 | 0.10  | 4             | 0.157        | C35      |
 | 2.0 | 0.10 | 0.20  | 5             | 0.211        | C55      |
 | 2.0 | 0.20 | 0.40  | 4             | 0.310        | C52      |
 | 2.5 | 0.03 | 0.075 | 4†            | 0.095        | C56      |
+| 2.5 | 0.20 | 0.50  | 4†            | 0.357        | C63      |
 | 2.5 | 0.05 | 0.125 | 5†            | 0.166        | C32      |
 | 2.5 | 0.10 | 0.25  | 5†            | 0.241        | C57      |
+| 3.0 | 0.02 | 0.06  | 4†            | 0.077        | C62      |
 | 3.0 | 0.03 | 0.09  | 5†            | 0.111        | C36      |
 | 3.0 | 0.05 | 0.15  | 5†            | 0.174        | C33      |
 | 3.0 | 0.10 | 0.30  | 5             | 0.256        | C21b     |
