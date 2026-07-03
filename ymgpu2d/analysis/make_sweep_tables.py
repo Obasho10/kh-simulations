@@ -10,7 +10,7 @@ Each file contains:
 
 Usage:
   python3 make_sweep_tables.py          # create/overwrite all files
-  python3 make_sweep_tables.py --fill   # fill sim values from batch_best.csv
+  python3 make_sweep_tables.py --fill   # fill sim values from batch_results.csv
 
 Files: sweep/v0p01.npz  v0p03.npz  v0p05.npz  v0p1.npz  v0p2.npz
 """
@@ -71,7 +71,7 @@ def make_file(V0, tag, outdir="sweep"):
           f"max_wkb={gamma_wkb.max():.4f}")
 
 
-def fill_from_csv(csv_path="batch_best.csv", outdir="sweep"):
+def fill_from_csv(csv_path="batch_results.csv", outdir="sweep"):
     """Fill gamma_sim and rel_error from batch_best.csv."""
     import pandas as pd
     df = pd.read_csv(csv_path)
@@ -100,7 +100,7 @@ def fill_from_csv(csv_path="batch_best.csv", outdir="sweep"):
 
 if __name__ == "__main__":
     if "--fill" in sys.argv:
-        print("Filling sim values from batch_best.csv ...")
+        print("Filling sim values from batch_results.csv ...")
         fill_from_csv()
     else:
         print(f"Building WKB tables: {len(ALPHA_VALS)} alpha × {len(KZ_VALS)} kz points each")
