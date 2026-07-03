@@ -1,3 +1,4 @@
+#include "YM_Config.cuh"
 #include "YM_Fluid.cuh"
 #include "YM_Init.cuh"
 #include "YM_Energy.cuh"
@@ -15,135 +16,47 @@
 namespace fs = std::filesystem;
 
 int main(int argc, char* argv[]) {
-    int k_mode        = (argc > 1) ? std::atoi(argv[1]) : 1;
-    fct_real_t aYM    = (argc > 2) ? std::atof(argv[2]) : 0.1;
-    fct_real_t p_amp  = (argc > 3) ? std::atof(argv[3]) : 0.05;
-    // run_mode: 0=NAB_LINEAR, 1=NAB_CIRC, 2=EMHD_KH, 3=NAB_DTANH, 4=NAB_STEP
-    int run_mode      = (argc > 4) ? std::atoi(argv[4]) : 3;
-    // V0: shear velocity
-    fct_real_t V0_arg = (argc > 5) ? std::atof(argv[5]) : 0.1;
-    // xi_sponge: |ξ| at which absorbing sponge begins on color-2/3 fields (0=disabled)
-    fct_real_t xi_sponge    = (argc > 6) ? std::atof(argv[6]) : 0.0;
-    // sigma_sponge: damping rate in sponge (TU⁻¹ per unit ξ beyond xi_sponge)
-    fct_real_t sigma_sponge = (argc > 7) ? std::atof(argv[7]) : 5.0;
-    // freeze_az1 override: -1=use run_mode default, 0=off, 1=on
-    int freeze_override     = (argc > 8) ? std::atoi(argv[8]) : -1;
-    // suppress_kz0: subtract z-mean of color-2/3 fields each step (1=on, 0=off)
-    int suppress_kz0        = (argc > 9) ? std::atoi(argv[9]) : 0;
-    // hyp_diff_coeff: 4th-order z-hyperdiffusion coefficient — kills kz>=74 numerical instability
-    // Use ~5e-5 to suppress kz≈110 while leaving kz=1..8 intact (<0.6% total attenuation)
-    fct_real_t hyp_diff     = (argc > 10) ? std::atof(argv[10]) : 0.0;
-    // kz_suppress_max: subtract DFT modes kz=1..N from color-2/3 fields each step (0=off)
-    // Use k_mode-1 to suppress all modes below the target, isolating mid-kz growth.
-    int kz_suppress_max     = (argc > 11) ? std::atoi(argv[11]) : 0;
-    // kz_suppress_hi: also subtract DFT modes kz=k_mode+1..N (bandpass: kills two-stream at kz~10-14)
-    // Use ~40 to cover the two-stream danger zone while leaving the target kz=k_mode alone.
-    int kz_suppress_hi      = (argc > 13) ? std::atoi(argv[13]) : 0;
-    // eps_override: shear half-width (physical units). -1 = use mode default (Lx/6=π).
-    // Reduce below 0.64/kz to activate KH; mode 5 (NAB_TANH_COSAZ) is designed for thin EPS.
-    fct_real_t eps_override = (argc > 12) ? std::atof(argv[12]) : -1.0f;
-    // --- Resolution/timestep convergence-study overrides (all optional, backward compatible) ---
-    // nz_override: grid points in z (-1 = default 256). Must be a power of 2 if suppress_kz0
-    // is used, and a multiple of 32 if the kz-bandpass filters are used (see validation below).
-    int nz_override         = (argc > 14) ? std::atoi(argv[14]) : -1;
-    // nx_override: grid points in x (-1 = default 3*NZ, preserving the usual aspect ratio).
-    int nx_override         = (argc > 15) ? std::atoi(argv[15]) : -1;
-    // courant_override: DT = courant * DX (-1 = default 0.01).
-    fct_real_t courant_override = (argc > 16) ? std::atof(argv[16]) : -1.0f;
-    // target_tu: halt after this many time-units instead of the default fixed step count
-    // (-1 = old behavior, total_steps=2000000). Also drives export/energy-check cadence in
-    // physical time units so runs at different DT remain directly comparable.
-    fct_real_t target_tu     = (argc > 17) ? std::atof(argv[17]) : -1.0f;
-    // run_tag: appended to the output directory name (keeps resolution-study runs from
-    // colliding with each other or with existing campaign directories at the same k/alpha).
-    std::string run_tag      = (argc > 18) ? argv[18] : "";
-    // seed_profile_file: path to raw float32 eigenfunction file produced by
-    // "ym_eigenmode.py --export-seed".  Empty = use WKB Gaussian (default).
-    // Only used in Mode 6 (NAB_CIRC_AZ2); ignored in all other modes.
-    std::string seed_profile_file = (argc > 19) ? argv[19] : "";
-    // lz_override: physical domain length in z (-1 = default 2π).
-    // When changing Lz, set nz_override proportionally to keep DZ constant:
-    //   Lz=4π → NZ=128,  Lz=8π → NZ=256  (same DZ≈0.098 as default Lz=2π/NZ=64).
-    // The DFT bandpass kernels work on grid mode indices regardless of Lz;
-    // kz_physical = k_mode * 2π / Lz is auto-computed from the updated DZ.
-    fct_real_t lz_override = (argc > 20) ? std::atof(argv[20]) : -1.0f;
-    // lx_override: physical domain length in x (-1 = default 6π).
-    // NX=768 is tied to EPS/DX≳6 at EPS=0.15; scale NX proportionally if Lx changes.
-    fct_real_t lx_override = (argc > 21) ? std::atof(argv[21]) : -1.0f;
-    const char* mode_names[] = {"NAB_LINEAR", "NAB_CIRC", "EMHD_KH", "NAB_DTANH", "NAB_STEP",
-                                "NAB_TANH_COSAZ", "NAB_CIRC_AZ2"};
-    const char* mode_tag     = (run_mode == 1) ? "_circ"
-                             : (run_mode == 2) ? "_emhd"
-                             : (run_mode == 3) ? "_dtanh"
-                             : (run_mode == 4) ? "_step"
-                             : (run_mode == 5) ? "_tanh"
-                             : (run_mode == 6) ? "_circ_az2seed" : "";
+    if (argc < 2) {
+        std::cerr << "Usage: ./ym_coupled <config.ini>\n"
+                  << "  Config is a key=value file; see ymgpu2d/example.ini for all keys.\n";
+        return 1;
+    }
+    const RunConfig cfg = load_config(argv[1]);
 
-    std::cout << "================================================================\n"
-              << " GPU SU(2) Yang-Mills KH Solver (two-beam)\n"
-              << " k_mode=" << k_mode << "  alpha_YM=" << aYM
-              << "  perturb_amp=" << p_amp << "  V0=" << V0_arg
-              << "  mode=" << mode_names[run_mode < 7 ? run_mode : 0] << "\n"
-              << " xi_sponge=" << xi_sponge << "  sigma_sponge=" << sigma_sponge
-              << "  freeze_az1_override=" << freeze_override
-              << "  suppress_kz0=" << suppress_kz0
-              << "  hyp_diff=" << hyp_diff
-              << "  kz_suppress_max=" << kz_suppress_max
-              << "  kz_suppress_hi=" << kz_suppress_hi
-              << "  eps_override=" << eps_override << "\n"
-              << "================================================================\n";
+    // ── Unpack config into local names used by the rest of main ──────────────
+    const int   k_mode            = cfg.k_mode;
+    const fct_real_t aYM          = cfg.alpha_YM;
+    const fct_real_t p_amp        = cfg.perturb_amp;
+    const int   run_mode          = cfg.run_mode;
+    const fct_real_t xi_sponge    = cfg.xi_sponge;
+    const fct_real_t sigma_sponge = cfg.sigma_sponge;
+    const int   freeze_override   = cfg.freeze_override;
+    const int   suppress_kz0      = cfg.suppress_kz0;
+    const fct_real_t hyp_diff     = cfg.hyp_diff;
+    const int   kz_suppress_max   = cfg.kz_suppress_max;
+    const int   kz_suppress_hi    = cfg.kz_suppress_hi;
+    const fct_real_t target_tu    = cfg.target_tu;
+    const std::string run_tag     = cfg.run_tag;
+    const std::string seed_profile_file = cfg.seed_profile_file;
 
-    // Periodic box: Lx=6π, Lz=2π (physical domain is fixed regardless of resolution).
-    // Default resolution NZ=64, NX=768 (dz/dx≈4, anisotropic — NOT NX=3*NZ), dt=0.1*dx.
-    // Validated in RESOLUTION_FINDINGS.md ("Follow-up: how far can NZ/Courant be pushed
-    // for speed?"): NZ=64/courant=0.8/NX=768 measured gamma(kz=1)=0.09558 vs the
-    // NZ=256/courant=0.01 baseline's 0.09375 (R²=0.999, E_ratio_max=1.000000 for both) —
-    // fully converged. courant=0.1 here (not the tested-safe ceiling of 0.8) leaves an
-    // 8x safety margin for physics configs with a different alpha/V0 stability boundary.
-    // NX intentionally does NOT default to 3*NZ any more: NX=192 (3*64) was never tested
-    // and would put DX≈0.098 back in the underresolved regime (DX≲0.025 needed at
-    // EPS=0.15, per the aspect-ratio results) — NX defaults to a fixed 768 instead,
-    // independent of NZ. Override nz_override=256/nx_override=768(unchanged)/
-    // courant_override=0.01 to reproduce the pre-2026-07-02 default grid exactly.
-    const int NZ = (nz_override > 0) ? nz_override : 64;
-    const int NX = (nx_override > 0) ? nx_override : 768;
-    const fct_real_t LX = (lx_override > 0.0f) ? lx_override : (fct_real_t)(6.0 * M_PI);
-    const fct_real_t LZ = (lz_override > 0.0f) ? lz_override : (fct_real_t)(2.0 * M_PI);
+    const char* mode_tag = (run_mode == 1) ? "_circ"
+                         : (run_mode == 2) ? "_emhd"
+                         : (run_mode == 3) ? "_dtanh"
+                         : (run_mode == 4) ? "_step"
+                         : (run_mode == 5) ? "_tanh"
+                         : (run_mode == 6) ? "_circ_az2seed" : "";
+
+    const int   NZ      = (cfg.nz_override > 0)   ? cfg.nz_override   : 64;
+    const int   NX      = (cfg.nx_override > 0)   ? cfg.nx_override   : 768;
+    const fct_real_t LX = (cfg.lx_override > 0.f) ? cfg.lx_override   : (fct_real_t)(6.0 * M_PI);
+    const fct_real_t LZ = (cfg.lz_override > 0.f) ? cfg.lz_override   : (fct_real_t)(2.0 * M_PI);
     const fct_real_t DX = LX / NX;
     const fct_real_t DZ = LZ / NZ;
-    const fct_real_t COURANT = (courant_override > 0.0f) ? courant_override : 0.1f;
+    const fct_real_t COURANT = (cfg.courant_override > 0.f) ? cfg.courant_override : 0.1f;
     const fct_real_t DT = COURANT * DX;
     const int NX_PAD_RT = NX + 2 * FCT_HALO;
-    const fct_real_t V0 = V0_arg;
-
-    // Validation: kz-domain kernels below require these constraints on NZ.
-    if (suppress_kz0 && (NZ & (NZ - 1)) != 0) {
-        std::cerr << "ERROR: suppress_kz0=1 requires NZ to be a power of 2 (got NZ="
-                  << NZ << ") — kernel_ym_subtract_zmean uses a binary-tree reduction.\n";
-        return 1;
-    }
-    if ((kz_suppress_max >= 1 || kz_suppress_hi > 0) && (NZ % 32 != 0)) {
-        std::cerr << "ERROR: kz_suppress_max/kz_suppress_hi require NZ to be a multiple of 32 "
-                  << "(got NZ=" << NZ << ") — kz-range kernels use warp-shuffle reduction.\n";
-        return 1;
-    }
-
-    std::cout << " NX=" << NX << "  NZ=" << NZ << "  LX=" << LX << "  LZ=" << LZ
-              << "  DX=" << DX << "  DZ=" << DZ
-              << "  courant=" << COURANT << "  DT=" << DT
-              << "  target_tu=" << target_tu << "  run_tag=" << run_tag << "\n"
-              << "================================================================\n";
-    // Warn if Lz or Lx was changed but NZ/NX were left at default — likely wrong DZ/DX.
-    if (lz_override > 0.0f && nz_override < 0)
-        std::cerr << "WARNING: lz_override=" << lz_override
-                  << " set but nz_override not set (NZ=" << NZ << ", DZ=" << DZ
-                  << "). Consider setting nz_override=NZ_default*(lz/2pi) to keep DZ≈0.098.\n";
-    if (lx_override > 0.0f && nx_override < 0)
-        std::cerr << "WARNING: lx_override=" << lx_override
-                  << " set but nx_override not set (NX=" << NX << ", DX=" << DX
-                  << "). Consider scaling NX to maintain EPS/DX≳6.\n";
-    const fct_real_t EPS = (eps_override > 0.0f) ? eps_override
-                                                   : LX / (fct_real_t)6.0;  // default = π
+    const fct_real_t V0  = cfg.V0;
+    const fct_real_t EPS = (cfg.eps_override > 0.f) ? cfg.eps_override : LX / (fct_real_t)6.0;
 
     GridParams grid{ NX, NZ, DX, DZ };
     size_t num_cells = (size_t)NX * NZ;
@@ -154,13 +67,12 @@ int main(int argc, char* argv[]) {
     params.c = 1.0; params.eps_0 = 1.0;
     params.alpha_YM = aYM;
     params.V0 = V0; params.epsilon = EPS;
-    // freeze Az1: static background for WKB theory (CIRC, DTANH, STEP, TANH_COSAZ)
-    params.freeze_az1 = (run_mode == 1 || run_mode == 3 || run_mode == 4 || run_mode == 5 || run_mode == 6) ? 1 : 0;
+    params.freeze_az1 = (run_mode == 1 || run_mode == 3 || run_mode == 4 ||
+                         run_mode == 5 || run_mode == 6) ? 1 : 0;
     if (freeze_override >= 0) params.freeze_az1 = freeze_override;
-    // periodic EM BC: all modes >=1 use periodic x (no walls)
-    params.periodic_x = (run_mode >= 1) ? 1 : 0;
-    params.xi_sponge    = xi_sponge;
-    params.sigma_sponge = sigma_sponge;
+    params.periodic_x    = (run_mode >= 1) ? 1 : 0;
+    params.xi_sponge     = xi_sponge;
+    params.sigma_sponge  = sigma_sponge;
     params.suppress_kz0    = suppress_kz0;
     params.hyp_diff_coeff  = hyp_diff;
     params.kz_suppress_max = kz_suppress_max;
@@ -228,8 +140,8 @@ int main(int argc, char* argv[]) {
         dir_ss << "_sp" << std::setprecision(1) << xi_sponge;
     if (params.freeze_az1 && run_mode == 0)
         dir_ss << "_frz";  // only tag when freeze is non-default for this run_mode
-    if (eps_override > 0.0f)
-        dir_ss << "_eps" << std::fixed << std::setprecision(2) << eps_override;
+    if (cfg.eps_override > 0.0f)
+        dir_ss << "_eps" << std::fixed << std::setprecision(2) << cfg.eps_override;
     if (suppress_kz0)
         dir_ss << "_nkz0";
     if (kz_suppress_max >= 1)
