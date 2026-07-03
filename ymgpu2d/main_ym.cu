@@ -61,6 +61,15 @@ int main(int argc, char* argv[]) {
     // "ym_eigenmode.py --export-seed".  Empty = use WKB Gaussian (default).
     // Only used in Mode 6 (NAB_CIRC_AZ2); ignored in all other modes.
     std::string seed_profile_file = (argc > 19) ? argv[19] : "";
+    // lz_override: physical domain length in z (-1 = default 2π).
+    // When changing Lz, set nz_override proportionally to keep DZ constant:
+    //   Lz=4π → NZ=128,  Lz=8π → NZ=256  (same DZ≈0.098 as default Lz=2π/NZ=64).
+    // The DFT bandpass kernels work on grid mode indices regardless of Lz;
+    // kz_physical = k_mode * 2π / Lz is auto-computed from the updated DZ.
+    fct_real_t lz_override = (argc > 20) ? std::atof(argv[20]) : -1.0f;
+    // lx_override: physical domain length in x (-1 = default 6π).
+    // NX=768 is tied to EPS/DX≳6 at EPS=0.15; scale NX proportionally if Lx changes.
+    fct_real_t lx_override = (argc > 21) ? std::atof(argv[21]) : -1.0f;
     const char* mode_names[] = {"NAB_LINEAR", "NAB_CIRC", "EMHD_KH", "NAB_DTANH", "NAB_STEP",
                                 "NAB_TANH_COSAZ", "NAB_CIRC_AZ2"};
     const char* mode_tag     = (run_mode == 1) ? "_circ"
@@ -98,8 +107,8 @@ int main(int argc, char* argv[]) {
     // courant_override=0.01 to reproduce the pre-2026-07-02 default grid exactly.
     const int NZ = (nz_override > 0) ? nz_override : 64;
     const int NX = (nx_override > 0) ? nx_override : 768;
-    const fct_real_t LX = (fct_real_t)(6.0 * M_PI);
-    const fct_real_t LZ = (fct_real_t)(2.0 * M_PI);
+    const fct_real_t LX = (lx_override > 0.0f) ? lx_override : (fct_real_t)(6.0 * M_PI);
+    const fct_real_t LZ = (lz_override > 0.0f) ? lz_override : (fct_real_t)(2.0 * M_PI);
     const fct_real_t DX = LX / NX;
     const fct_real_t DZ = LZ / NZ;
     const fct_real_t COURANT = (courant_override > 0.0f) ? courant_override : 0.1f;
@@ -119,10 +128,20 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << " NX=" << NX << "  NZ=" << NZ << "  DX=" << DX << "  DZ=" << DZ
+    std::cout << " NX=" << NX << "  NZ=" << NZ << "  LX=" << LX << "  LZ=" << LZ
+              << "  DX=" << DX << "  DZ=" << DZ
               << "  courant=" << COURANT << "  DT=" << DT
               << "  target_tu=" << target_tu << "  run_tag=" << run_tag << "\n"
               << "================================================================\n";
+    // Warn if Lz or Lx was changed but NZ/NX were left at default — likely wrong DZ/DX.
+    if (lz_override > 0.0f && nz_override < 0)
+        std::cerr << "WARNING: lz_override=" << lz_override
+                  << " set but nz_override not set (NZ=" << NZ << ", DZ=" << DZ
+                  << "). Consider setting nz_override=NZ_default*(lz/2pi) to keep DZ≈0.098.\n";
+    if (lx_override > 0.0f && nx_override < 0)
+        std::cerr << "WARNING: lx_override=" << lx_override
+                  << " set but nx_override not set (NX=" << NX << ", DX=" << DX
+                  << "). Consider scaling NX to maintain EPS/DX≳6.\n";
     const fct_real_t EPS = (eps_override > 0.0f) ? eps_override
                                                    : LX / (fct_real_t)6.0;  // default = π
 

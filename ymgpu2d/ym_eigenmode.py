@@ -276,6 +276,12 @@ def main():
                         help='z-wavenumber(s) to solve')
     parser.add_argument('--NX',   type=int,   default=NX_DEFAULT,
                         help='1-D grid points (default 384; 768 = full sim)')
+    parser.add_argument('--Lz',  type=float, default=2.0*np.pi,
+                        help='Physical domain length in z (default 2π). '
+                             'kz_physical = k_mode * 2π / Lz. '
+                             'For Lz=4π: k_mode=2 gives kz_phys=1, k_mode=1 gives kz_phys=0.5.')
+    parser.add_argument('--Lx',  type=float, default=6.0*np.pi,
+                        help='Physical domain length in x (default 6π).')
     parser.add_argument('--sigma', type=float, default=None,
                         help='Shift-invert target (default: 0.55 × γ_WKB)')
     parser.add_argument('--xi-sponge', type=float, default=10.0,
@@ -299,12 +305,19 @@ def main():
     V0    = args.V0
     EPS   = args.EPS
 
+    # Override module-level domain constants so build_matrix / is_localised pick them up
+    global LX, LZ
+    LZ = args.Lz
+    LX = args.Lx
+
     xi_char_k1 = 1.0 / np.sqrt(alpha * 1 * V0) if alpha * V0 > 0 else np.inf
     print(f"# SU(2) KH eigenmode solver")
-    print(f"#   α={alpha}, V0={V0}, EPS={EPS}, NX={args.NX}")
+    print(f"#   α={alpha}, V0={V0}, EPS={EPS}, NX={args.NX}, Lz={LZ:.4f}, Lx={LX:.4f}")
     print(f"#   Background: Az1=-V0·log(cosh(ξ)), vzA=+V0·tanh(ξ), ξ=(x-Lx/2)/EPS")
     print(f"#   ξ_char(kz=1) = 1/sqrt(α·V0) = {xi_char_k1:.3f}  [WKB mode width in ξ-units]")
     print(f"#   Physical mode width(kz=1) = EPS·ξ_char = {EPS*xi_char_k1:.4f}")
+    if abs(LZ - 2.0*np.pi) > 1e-6:
+        print(f"#   NOTE: Lz={LZ:.4f} (not 2π). k_mode=n → kz_physical=n*2π/Lz={2*np.pi/LZ:.4f}*n")
     print()
 
     # Campaign 18 γ_Az measurements (corrected weight, sech centred at LX/2)
@@ -317,7 +330,12 @@ def main():
     print("─" * 85)
 
     results = {}
-    for kz in args.kz:
+    for kz_int in args.kz:
+        # Physical wavenumber: kz_physical = k_mode * 2π / Lz
+        # When Lz=2π (default), kz_phys == kz_int. When Lz=4π, kz_phys = kz_int/2.
+        kz = kz_int * 2.0 * np.pi / LZ
+        kz_label = f"{kz_int}(kz={kz:.3f})" if abs(LZ - 2.0*np.pi) > 1e-6 else str(kz_int)
+
         gw = wkb_growth_rate(kz, alpha, V0)
         xi_char = 1.0 / np.sqrt(alpha * kz * V0) if alpha * kz * V0 > 0 else np.inf
 
@@ -328,7 +346,7 @@ def main():
                                            sigma_sponge=args.sigma_sponge,
                                            xi_cut=args.xi_cut)
         if eigvals is None:
-            print(f"{kz:>4}  FAILED")
+            print(f"{kz_label:>12}  FAILED")
             continue
 
         # xi_inner: modes within sponge boundary are "physical"
@@ -353,7 +371,7 @@ def main():
                 best_gam = eigvals[best_idx]
 
         if best_gam is None:
-            print(f"{kz:>4}  no growing mode  "
+            print(f"{kz_label:>12}  no growing mode  "
                   f"(all eigenvalues: {[f'{v.real:.3f}+{v.imag:.3f}i' for v in eigvals[:4]]})")
             continue
 
@@ -371,22 +389,25 @@ def main():
         localised = is_localised(eigvecs[:, best_idx], args.NX, EPS, xi_inner=xi_inner)
 
         ex_wkb  = best_gam.real / gw if np.isfinite(gw) and gw > 0 else np.nan
-        sim_val = C18.get(kz)
+        sim_val = C18.get(kz_int)
         sim_ex  = sim_val / best_gam.real if (sim_val and best_gam.real > 0) else np.nan
 
-        print(f"{kz:>4} {best_gam.real:>10.4f} {best_gam.imag:>10.4f} {gw:>10.4f} "
+        print(f"{kz_label:>12} {best_gam.real:>10.4f} {best_gam.imag:>10.4f} {gw:>10.4f} "
               f"{ex_wkb:>8.3f} {sim_ex:>8.3f} {az_by:>8.2f} "
               f"{xi_peak_b:>8.2f} {'yes' if localised else 'NO':>10}")
 
+        # Store by physical kz (float) as dict key so summary table works correctly
         results[kz] = dict(gamma=best_gam, gamma_wkb=gw,
+                           kz_int=kz_int, kz_phys=kz,
                            eigvec=eigvecs[:, best_idx],
                            all_eigvals=eigvals, xi_char=xi_char)
 
         if args.save_profiles:
             x    = np.arange(args.NX) * LX / args.NX
-            fname = f'eigenmode_kz{kz}_a{alpha:.2f}_V{V0:.2f}_EPS{EPS:.2f}.npz'
+            fname = f'eigenmode_kz{kz_int}_a{alpha:.2f}_V{V0:.2f}_EPS{EPS:.2f}.npz'
             np.savez(fname, x=x, b=b, ex=ex, ez=ez, a=a, qA=qA, qB=qB,
-                     gamma=best_gam, gamma_wkb=gw, alpha=alpha, V0=V0, EPS=EPS, kz=kz)
+                     gamma=best_gam, gamma_wkb=gw, alpha=alpha, V0=V0, EPS=EPS,
+                     kz_int=kz_int, kz_phys=kz, Lz=LZ)
             print(f"       → saved {fname}")
 
         if args.export_seed:
@@ -403,7 +424,7 @@ def main():
                 (qA * phase).real / scale,   # field 4: Q2A (color-2, beam A)
                 (qB * phase).real / scale,   # field 5: Q2B (color-2, beam B)
             ]).astype(np.float32)            # shape (6, NX)
-            seed_fname = (f'eigenmode_seed_kz{kz}_a{alpha:.2f}'
+            seed_fname = (f'eigenmode_seed_kz{kz_int}_a{alpha:.2f}'
                           f'_V{V0:.3f}_sp{args.xi_sponge:.1f}.bin')
             header = np.array([6, args.NX], dtype=np.int32)
             with open(seed_fname, 'wb') as sf:
@@ -421,12 +442,14 @@ def main():
         print(f"{'kz':>4} {'γ_exact':>10} {'γ_WKB':>10} {'γ_sim(C18)':>12} "
               f"{'ex/WKB':>8} {'sim/ex':>8} {'sim/WKB':>9}")
         print("─" * 65)
-        for kz in sorted(results.keys()):
-            r   = results[kz]
-            ge  = r['gamma'].real
-            gw  = r['gamma_wkb']
-            gs  = C18.get(kz, np.nan)
-            print(f"{kz:>4} {ge:>10.4f} {gw:>10.4f} {gs:>12.4f} "
+        for kz_phys in sorted(results.keys()):
+            r      = results[kz_phys]
+            ge     = r['gamma'].real
+            gw     = r['gamma_wkb']
+            ki     = r['kz_int']
+            gs     = C18.get(ki, np.nan)
+            klabel = f"{ki}(kz={kz_phys:.3f})" if abs(LZ - 2.0*np.pi) > 1e-6 else str(ki)
+            print(f"{klabel:>12} {ge:>10.4f} {gw:>10.4f} {gs:>12.4f} "
                   f"{ge/gw:>8.3f} {gs/ge:>8.3f} {gs/gw:>9.3f}")
 
     if args.plot and results:
