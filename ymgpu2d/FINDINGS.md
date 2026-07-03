@@ -1521,12 +1521,43 @@ kz_peak drops from 5→3-4 as V0 increases from 0.10→0.20. This suggests V0 br
 
 ---
 
+### Campaign 59 — α=0.5, V0=0.05, xi_sponge=22, kz=1..3 (t130, 2026-07-03)
+
+αV0=0.025 (very weak coupling). ξ_crit(kz=1)=1/(0.5×0.05)=40 >> xi_sp=22 → kz=1 heavily sponge-compressed. kz=2,3 show ratio>1 (WKB underestimates in weak-coupling limit).
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.0691 | 0.6486  | 0.107 | (!) sponge |
+| 2  | 0.0902 | 0.0790  | 1.142 | nonlinear |
+| 3  | 0.0981 | 0.0645  | 1.520 | nonlinear |
+
+True kz_peak likely kz=1 (consistent with C31 α=0.5 V0=0.10 kz_peak=1). Need larger xi_sponge or Lz to resolve kz=1.
+
+---
+
+### Campaign 60 — α=1.5, V0=0.20, xi_sponge=9, kz=1..5 (t130, 2026-07-03)
+
+αV0=0.30. ξ_crit(kz=1)=3.3 < xi_sp=9. kz=4,5 reach nonlinear saturation by 100 TU.
+
+| kz | γ_sim  | γ_exact | ratio | note |
+|----|--------|---------|-------|------|
+| 1  | 0.8571 | 2.4402  | 0.351 | (!) anomalous |
+| 2  | 0.2168 | 0.4614  | 0.470 | reliable |
+| 3  | 0.2096 | 0.3839  | 0.546 | reliable |
+| 4  | 0.2904 | 0.3342  | 0.869 | borderline |
+| 5  | 0.2894 | 0.2994  | 0.967 | nonlinear |
+
+**kz_peak (reliable kz=2,3) = 2–3** (γ≈0.22). γ_peak saturates: 0.103→0.144→0.216→0.216 for V0=0.03→0.05→0.10→0.20. Growth saturates at αV0≈0.15. kz_peak stays at 3.
+
+---
+
 ### Master kz_peak Table (all campaigns, 2026-07-03)
 
 Growth peak from simulation (best sponge, reliable kz only):
 
 | α   | V0   | αV0   | kz_peak (sim) | γ_peak (sim) | Campaign |
 |-----|------|-------|---------------|--------------|----------|
+| 0.5 | 0.05 | 0.025 | ~1 (unclear)  | —            | C59      |
 | 0.5 | 0.10 | 0.05  | 1             | 0.122        | C31      |
 | 1.0 | 0.05 | 0.05  | 2             | 0.122        | C39      |
 | 1.0 | 0.10 | 0.10  | 2–3           | 0.174        | C53      |
@@ -1534,6 +1565,7 @@ Growth peak from simulation (best sponge, reliable kz only):
 | 1.5 | 0.03 | 0.045 | 3             | 0.103        | C41      |
 | 1.5 | 0.05 | 0.075 | 3             | 0.144        | C34      |
 | 1.5 | 0.10 | 0.15  | 3             | 0.216        | C51      |
+| 1.5 | 0.20 | 0.30  | 2–3           | 0.216        | C60      |
 | 2.0 | 0.03 | 0.06  | 4             | 0.115        | C42      |
 | 2.0 | 0.05 | 0.10  | 4             | 0.157        | C35      |
 | 2.0 | 0.10 | 0.20  | 5             | 0.211        | C55      |
