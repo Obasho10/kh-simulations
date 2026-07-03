@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 # Physical parameters
 alpha = 2.0
-v = 0.01
+v = 0.1
 
 # kz_cutoff: WKB modes only exist below this (n_max >= 0 condition)
 #   n_max = 0.5 * (sqrt(2)*alpha^2.5 / (v^2 * kz^3) - 1) >= 0
