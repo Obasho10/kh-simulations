@@ -14,7 +14,7 @@
 
 **Energy threshold**: 100× E0 for modes 3/4/5/6 and for modes 0/1 with xi_sponge>0; 5× for modes 0/1 without sponge.
 
-**Snapshot columns**: `X,Z,By1,By2,By3,Az2,Az3,PzA,PxA,Q1A,PzB,PxB,Q1B`
+**Snapshot columns (updated 2026-07-03)**: `X,Z,By1,By2,By3,Az2,Az3,PzA,PxA,Q1A,PzB,PxB,Q1B,Ex1,Ex2,Ex3,Ez1,Ez2,Ez3,nA,nB,Q2A,Q3A,Q2B,Q3B` (25 cols; added Ex/Ez all colors, fluid density nA/nB, Q2/Q3 for Gauss's law verification)
 
 GPU servers: `t130`/`t136` (RTX A5000, sm_86) → `/DATA/cm/lcpfct/ymgpu2d/`, ~9200 steps/min.
 Backup: `abi` (farmerzone, 3× GTX 1080 Ti, sm_61) → `/DATA/s23103/lcpfct/ymgpu2d/`, ~4500 steps/min/GPU.
@@ -1086,3 +1086,165 @@ Script: `run_campaign33_t136.sh`. Seeds: `eigenmode_seed_kz{k}_a3.00_V0.050_sp8.
 **Key physics**: γ(kz) peaks at kz=4–5 — **non-monotonic dispersion**, a genuine non-Abelian effect. The WKB polynomial predicts monotonic decrease; the simulation (and exact 1D eigenvalue) shows a maximum at intermediate kz. The WKB overestimates by 2–5× (ex/WKB = 0.18–0.75) because the parabolic-well approximation breaks down at large α.
 
 **C33 launched on abi immediately after** (teaching nodes still down): α=3.0, V0=0.05, xi_sponge=8. Expected ~12 min runtime.
+
+---
+
+## Campaign 32 / 33 — kz=7,8 extensions (2026-07-03) [CONFIRMED]
+
+Extended C32 (α=2.5) and C33 (α=3.0) to kz=7,8 to map the post-peak rolloff at V0=0.05.
+All R²=1.0000. Runs stopped at 72–76 TU (energy threshold).
+
+**C32 extended (α=2.5, V0=0.05, xi_sponge=9):**
+
+| kz | γ_sim  | γ_exact | sim/ex |
+|----|--------|---------|--------|
+| 7  | 0.1493 | 0.1652  | 0.904  |
+| 8  | 0.1395 | 0.1605  | 0.869  |
+
+**C33 extended (α=3.0, V0=0.05, xi_sponge=8):**
+
+| kz | γ_sim  | γ_exact | sim/ex |
+|----|--------|---------|--------|
+| 7  | 0.1587 | 0.1760  | 0.902  |
+| 8  | 0.1485 | 0.1719  | 0.864  |
+
+**Observation**: sim/ex degrades at kz=7,8 (0.86–0.90 vs 0.945–0.990 at kz=1..6). This is expected — higher kz modes have ξ_peak slightly closer to the sponge boundary for the same xi_sponge, increasing sponge clipping. The post-peak rolloff is nonetheless clearly measured: γ decreases from the kz=5 peak by ≈10% at kz=7 and ≈15% at kz=8.
+
+---
+
+## Campaign 34 — α=1.5, V0=0.05, xi_sponge=12 (2026-07-03) [CONFIRMED]
+
+**Goal**: Fill gap between C25 (α=1.0) and C32 (α=2.5). γ peaks at kz=3 (low-coupling regime).
+
+| kz | γ_sim  | γ_exact | sim/ex |
+|----|--------|---------|--------|
+| 1  | 0.0871 | 0.0878  | 0.992  |
+| 2  | 0.1257 | 0.1274  | 0.987  |
+| 3  | 0.1397 | 0.1418  | 0.985  |
+| 4  | 0.1241 | 0.1261  | 0.984  |
+| 5  | 0.1087 | 0.1114  | 0.976  |
+| 6  | 0.0951 | 0.0992  | 0.959  |
+
+**Peak at kz=3 (γ_sim=0.140)**, clear unimodal shape with rolloff both sides. sim/ex=0.959–0.992 — excellent across all kz.
+
+---
+
+## Campaign 35 — α=2.0, V0=0.05, xi_sponge=11 (2026-07-03) [CONFIRMED]
+
+**Goal**: Fill gap between C34 (α=1.5) and C32 (α=2.5). Peak migrates to kz=4.
+
+| kz | γ_sim  | γ_exact | sim/ex |
+|----|--------|---------|--------|
+| 1  | 0.0845 | 0.0862  | 0.980  |
+| 2  | 0.1334 | 0.1344  | 0.993  |
+| 3  | 0.1510 | 0.1529  | 0.988  |
+| 4  | 0.1564 | 0.1597  | 0.979  |
+| 5  | 0.1553 | 0.1602  | 0.969  |
+| 6  | 0.1347 | 0.1419  | 0.949  |
+
+**Peak at kz=4 (γ_sim=0.156)**, with kz=5 nearly equal (broad plateau). sim/ex=0.949–0.993.
+
+---
+
+## V0=0.05 complete series summary (C34, C35, C32, C33) [CONFIRMED]
+
+All four campaigns with R²≥0.999. kz_peak migration with α:
+
+| Campaign | α   | kz_peak (sim) | kz_peak (exact) | γ_peak (sim) |
+|----------|-----|---------------|-----------------|--------------|
+| C34      | 1.5 | 3             | 3               | 0.140        |
+| C35      | 2.0 | 4             | 5               | 0.156        |
+| C32      | 2.5 | 4–5           | 5               | 0.164        |
+| C33      | 3.0 | 5             | 5               | 0.173        |
+
+The **non-Abelian peak migrates from kz=3 → kz=5** as α increases from 1.5 to 3.0 at V0=0.05. WKB overestimates by 2–6× (ex/WKB=0.16–0.75). All sim/exact ≥ 0.944 for kz=1..6.
+
+---
+
+## Campaigns 36, 37, 38 — V0=0.03 low-velocity series (2026-07-03) [CONFIRMED]
+
+**Goal**: Test whether the peak migration persists at lower V0. All three campaigns used
+xi_sponge=5, σ=5, EPS=0.15, target_tu=100. kz measured up to 9 — peak is now
+captured within the measurement range. CSV format upgraded to 25 columns (adds
+Ex/Ez all colors, fluid density nA/nB, Q2/Q3 for Gauss's law tracking).
+
+Note on sponge effect: With xi_sponge=5 and ξ_peak=−5.24 (mode just inside sponge),
+sim growth rates systematically underestimate exact by 5–15%, with the discrepancy
+growing at higher kz. Peak position in sim is shifted 1–2 kz lower than exact.
+
+**C36: α=3.0, V0=0.03, xi_sponge=5**
+
+| kz | γ_sim  | γ_exact | sim/ex |
+|----|--------|---------|--------|
+| 1  | 0.0475 | 0.0542  | 0.876  |
+| 2  | 0.0819 | 0.0824  | 0.994  |
+| 3  | 0.0983 | 0.0992  | 0.991  |
+| 4  | 0.1070 | 0.1093  | 0.979  |
+| 5  | 0.1107 | 0.1149  | 0.964  |
+| 6  | 0.1099 | 0.1175  | 0.935  |
+| 7  | 0.1063 | 0.1181  | 0.900  |
+| 8  | 0.0994 | 0.1174  | 0.847  |
+| 9  | 0.0799 | 0.1159  | 0.689  |
+
+Peak (sim): kz=5 (γ=0.111). Peak (exact): kz=7 (γ=0.118). Sponge shifts apparent peak down by 2 kz.
+
+**C37: α=4.0, V0=0.03, xi_sponge=5**
+
+| kz | γ_sim  | γ_exact | sim/ex |
+|----|--------|---------|--------|
+| 1  | 0.0507 | 0.0572  | 0.886  |
+| 2  | 0.0885 | 0.0890  | 0.994  |
+| 3  | 0.1069 | 0.1083  | 0.987  |
+| 4  | 0.1175 | 0.1201  | 0.978  |
+| 5  | 0.1221 | 0.1271  | 0.961  |
+| 6  | 0.1222 | 0.1309  | 0.934  |
+| 7  | 0.1189 | 0.1323  | 0.899  |
+| 8  | 0.1131 | 0.1322  | 0.856  |
+| 9  | 0.0938 | 0.1311  | 0.715  |
+
+Peak (sim): kz=5–6 (γ=0.122). Peak (exact): kz=7 (γ=0.132). Shift: 1–2 kz.
+
+**C38: α=5.0, V0=0.03, xi_sponge=5**
+
+| kz | γ_sim  | γ_exact | sim/ex |
+|----|--------|---------|--------|
+| 1  | 0.0525 | 0.0589  | 0.891  |
+| 2  | 0.0935 | 0.0941  | 0.994  |
+| 3  | 0.1137 | 0.1155  | 0.984  |
+| 4  | 0.1261 | 0.1288  | 0.979  |
+| 5  | 0.1316 | 0.1371  | 0.960  |
+| 6  | 0.1323 | 0.1418  | 0.933  |
+| 7  | 0.1294 | 0.1441  | 0.898  |
+| 8  | 0.1237 | 0.1445  | 0.856  |
+| 9  | 0.1026 | 0.1438  | 0.713  |
+
+Peak (sim): kz=6 (γ=0.132). Peak (exact): kz=8 (γ=0.145). Shift: 2 kz.
+
+**V0=0.03 series summary:**
+
+| Campaign | α   | kz_peak (sim) | kz_peak (exact) | γ_peak (sim) |
+|----------|-----|---------------|-----------------|--------------|
+| C36      | 3.0 | 5             | 7               | 0.111        |
+| C37      | 4.0 | 5–6           | 7               | 0.122        |
+| C38      | 5.0 | 6             | 8               | 0.132        |
+
+The **non-Abelian peak migrates from kz=5 → kz=8** (exact) as α increases from 3.0 to 5.0 at V0=0.03.
+Growth rates are ~30% lower than V0=0.05 at similar α due to weaker shear driving.
+WKB dramatically overestimates by 4–11× (ex/WKB=0.09–0.47) — non-Abelian corrections are dominant.
+
+**Combining both V0 series (kz_peak vs αV0):**
+
+| αV0  | α   | V0   | kz_peak (exact) |
+|------|-----|------|-----------------|
+| 0.075 | 1.5 | 0.05 | 3               |
+| 0.09  | 3.0 | 0.03 | 7               |
+| 0.10  | 2.0 | 0.05 | 5               |
+| 0.09  | 3.0 | 0.03 | 7               |
+| 0.125 | 2.5 | 0.05 | 5               |
+| 0.12  | 4.0 | 0.03 | 7               |
+| 0.15  | 3.0 | 0.05 | 5               |
+| 0.15  | 5.0 | 0.03 | 8               |
+
+At fixed αV0, V0=0.03 (higher α) gives higher kz_peak than V0=0.05 — the peak position depends on α and V0 separately, not just their product. This is consistent with the WKB polynomial where α and V0 enter through different combinations (α²V0 and kz²V0²/α).
+
+**Plot**: `ym_dispersion_allcampaigns.png` — 3-panel: V0=0.05 dispersion (top-left), V0=0.03 dispersion (top-right), kz_peak migration vs αV0 (bottom).
