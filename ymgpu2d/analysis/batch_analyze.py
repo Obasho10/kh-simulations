@@ -66,18 +66,29 @@ def fit_growth_rate(times, amps, t_min=None, t_max=None, min_win_frac=0.15):
 
 # ── Parse directory name ──────────────────────────────────────────────
 def parse_dir(dname):
-    """Extract kz, alpha, V0, xi_sponge from directory name."""
+    """Extract kz_phys, alpha, V0, xi_sponge from directory name.
+    For Lz=4pi runs (lz12.566 in name), kz_physical = k_mode / 2.
+    """
     m_k  = re.search(r'ym_k(\d+)_', dname)
     m_a  = re.search(r'_a([\d.]+)_', dname)
     m_v  = re.search(r'_v([\d.]+)_', dname)
     m_sp = re.search(r'_sp([\d.]+)_', dname)
     if not (m_k and m_a):
         return None
-    kz = int(m_k.group(1))
+    k_mode = int(m_k.group(1))
+    lz4pi = bool(re.search(r'lz12\.56|lz4pi|_lz4', dname))
+    kz = k_mode / 2.0 if lz4pi else float(k_mode)
     alpha = float(m_a.group(1))
     V0 = float(m_v.group(1)) if m_v else 0.1
     xi_sp = float(m_sp.group(1)) if m_sp else 0.0
     return kz, alpha, V0, xi_sp
+
+
+def kz_to_label(kz):
+    """Convert kz float to timeseries filename label (1→'1', 1.5→'1p5')."""
+    if kz == int(kz):
+        return str(int(kz))
+    return f"{int(kz)}p5"
 
 
 def analyze_node(node_dir):
@@ -90,7 +101,7 @@ def analyze_node(node_dir):
         if parsed is None:
             continue
         kz, alpha, V0, xi_sp = parsed
-        ts_file = run_dir / f'timeseries_k{kz}.csv'
+        ts_file = run_dir / f'timeseries_k{kz_to_label(kz)}.csv'
         if not ts_file.exists():
             continue
         try:

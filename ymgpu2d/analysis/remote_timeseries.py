@@ -18,6 +18,8 @@ for run_dir in sorted(glob.glob(pattern)):
     if not m:
         continue
     k = int(m.group(1))
+    # For Lz=4pi runs (lz12.566... in dir name), kz_physical = k/2
+    lz4pi = bool(re.search(r'lz12\.56|lz4pi|_lz4', run_dir))
     csvs = sorted(glob.glob(f"{run_dir}/ym_*.csv"))
     if not csvs:
         continue
@@ -73,7 +75,9 @@ for run_dir in sorted(glob.glob(pattern)):
     if not rows_out:
         continue
 
-    out = f"{run_dir}/timeseries_k{k}.csv"
+    # For Lz=4pi runs, label the output by physical kz (k/2)
+    kz_label = f"{k}p5" if lz4pi and k % 2 == 1 else str(k // 2 if lz4pi else k)
+    out = f"{run_dir}/timeseries_k{kz_label}.csv"
     with open(out, 'w', newline='') as f:
         w = csv.DictWriter(f, fieldnames=['t', 'amp'])
         w.writeheader()
