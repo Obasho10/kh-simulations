@@ -115,7 +115,7 @@ def write_gpu_block_int(gpu_id, combos, out):
             out.append(f"target_tu = 100")
             out.append(f"EOINI")
             out.append(f"    echo \"[GPU{gpu_id}] a={alpha} V0={V0} kz={k} start $(date)\" >> $LOG")
-            out.append(f"    cd $WDIR && ./ym_coupled {ini} >> $LOG 2>&1")
+            out.append(f"    cd $WDIR/outputs && $WDIR/ym_coupled {ini} >> $LOG 2>&1")
             out.append(f"    echo \"[GPU{gpu_id}] a={alpha} V0={V0} kz={k} done $(date)\" >> $LOG")
 
     out.append(f"    echo \"[GPU{gpu_id}] ALL DONE $(date)\" >> $LOG")
@@ -162,7 +162,7 @@ def write_gpu_block_half(gpu_id, combos, out):
             out.append(f"nz_override = {NZ_4PI}")
             out.append(f"EOINI")
             out.append(f"    echo \"[GPU{gpu_id}] a={alpha} V0={V0} kz_phys={kz_phys} k_mode={k_mode} start $(date)\" >> $LOG")
-            out.append(f"    cd $WDIR && ./ym_coupled {ini} >> $LOG 2>&1")
+            out.append(f"    cd $WDIR/outputs && $WDIR/ym_coupled {ini} >> $LOG 2>&1")
             out.append(f"    echo \"[GPU{gpu_id}] a={alpha} V0={V0} kz_phys={kz_phys} done $(date)\" >> $LOG")
 
     out.append(f"    echo \"[GPU{gpu_id}] ALL DONE $(date)\" >> $LOG")
