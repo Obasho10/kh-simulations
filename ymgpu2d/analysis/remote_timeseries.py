@@ -85,6 +85,11 @@ for run_dir in sorted(glob.glob(pattern)):
     print(f"Wrote {len(rows_out)} pts → {out}")
 
     # Delete large field dumps now that timeseries is extracted
+    cleaned = 0
     for csv_path in csvs:
-        os.remove(csv_path)
-    print(f"  Cleaned {len(csvs)} field dumps from {run_dir}")
+        try:
+            os.remove(csv_path)
+            cleaned += 1
+        except FileNotFoundError:
+            pass
+    print(f"  Cleaned {cleaned} field dumps from {run_dir}")
