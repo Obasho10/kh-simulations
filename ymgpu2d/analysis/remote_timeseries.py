@@ -77,7 +77,7 @@ for run_dir in sorted(glob.glob(pattern)):
         continue
 
     # For Lz=4pi runs, label the output by physical kz (k/2)
-    kz_label = f"{k}p5" if lz4pi and k % 2 == 1 else str(k // 2 if lz4pi else k)
+    kz_label = f"{k//2}p5" if lz4pi and k % 2 == 1 else str(k // 2 if lz4pi else k)
     out = f"{run_dir}/timeseries_k{kz_label}.csv"
     with open(out, 'w', newline='') as f:
         w = csv.DictWriter(f, fieldnames=['t', 'amp'])

@@ -95,7 +95,16 @@ def kz_to_label(kz):
 def analyze_node(node_dir):
     node_dir = Path(node_dir)
     rows = []
-    for run_dir in sorted(node_dir.iterdir()):
+    # collect run dirs: both direct children and those under outputs/ subdir
+    run_dirs = []
+    for d in sorted(node_dir.iterdir()):
+        if not d.is_dir():
+            continue
+        if d.name == 'outputs':
+            run_dirs.extend(sorted(d.iterdir()))
+        else:
+            run_dirs.append(d)
+    for run_dir in run_dirs:
         if not run_dir.is_dir():
             continue
         parsed = parse_dir(run_dir.name)
