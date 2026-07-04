@@ -88,9 +88,9 @@ def write_gpu_block_int(gpu_id, combos, out):
     """GPU block for integer kz runs (default Lz=2pi, NZ=64)."""
     out.append(f"run_gpu{gpu_id}() {{")
     out.append(f"    export CUDA_VISIBLE_DEVICES={gpu_id}")
-    out.append(f"    local LOG=logs/gpu{gpu_id}_${{TAG}}.log")
-    out.append(f"    echo \"[GPU{gpu_id}] start $(date)\" >> $LOG")
     out.append(f"    local WDIR=/DATA/s23103/lcpfct/ymgpu2d")
+    out.append(f"    local LOG=$WDIR/logs/gpu{gpu_id}_${{TAG}}.log")
+    out.append(f"    echo \"[GPU{gpu_id}] start $(date)\" >> $LOG")
 
     for alpha, V0, kz_list in combos:
         xi = xi_sponge_for(alpha, V0, max(kz_list))
@@ -132,9 +132,9 @@ def write_gpu_block_half(gpu_id, combos, out):
     """
     out.append(f"run_gpu{gpu_id}() {{")
     out.append(f"    export CUDA_VISIBLE_DEVICES={gpu_id}")
-    out.append(f"    local LOG=logs/gpu{gpu_id}_${{TAG}}.log")
-    out.append(f"    echo \"[GPU{gpu_id}] start $(date)\" >> $LOG")
     out.append(f"    local WDIR=/DATA/s23103/lcpfct/ymgpu2d")
+    out.append(f"    local LOG=$WDIR/logs/gpu{gpu_id}_${{TAG}}.log")
+    out.append(f"    echo \"[GPU{gpu_id}] start $(date)\" >> $LOG")
 
     for alpha, V0, kz_list in combos:
         out.append(f"")
