@@ -76,7 +76,8 @@ def parse_dir(dname):
     if not (m_k and m_a):
         return None
     k_mode = int(m_k.group(1))
-    lz4pi = bool(re.search(r'lz12\.56|lz4pi|_lz4', dname))
+    lz4pi = bool(re.search(r'lz12\.56|lz4pi|_lz4', dname)) or \
+            (bool(re.search(r'_bp28', dname)) and k_mode % 2 == 1)
     kz = k_mode / 2.0 if lz4pi else float(k_mode)
     alpha = float(m_a.group(1))
     V0 = float(m_v.group(1)) if m_v else 0.1

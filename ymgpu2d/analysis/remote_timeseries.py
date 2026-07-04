@@ -18,8 +18,9 @@ for run_dir in sorted(glob.glob(pattern)):
     if not m:
         continue
     k = int(m.group(1))
-    # For Lz=4pi runs (lz12.566... in dir name), kz_physical = k/2
-    lz4pi = bool(re.search(r'lz12\.56|lz4pi|_lz4', run_dir))
+    # For Lz=4pi runs: dir name has lz12.56 / lz4pi / _lz4, OR bp28 bandpass + odd k_mode
+    lz4pi = bool(re.search(r'lz12\.56|lz4pi|_lz4', run_dir)) or \
+            (bool(re.search(r'_bp28', run_dir)) and k % 2 == 1)
     csvs = sorted(glob.glob(f"{run_dir}/ym_*.csv"))
     if not csvs:
         continue
