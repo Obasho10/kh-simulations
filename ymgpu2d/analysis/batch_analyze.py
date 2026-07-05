@@ -76,9 +76,15 @@ def parse_dir(dname):
     if not (m_k and m_a):
         return None
     k_mode = int(m_k.group(1))
-    lz4pi = bool(re.search(r'lz12\.56|lz4pi|_lz4', dname)) or \
-            (bool(re.search(r'_bp28', dname)) and k_mode % 2 == 1)
-    kz = k_mode / 2.0 if lz4pi else float(k_mode)
+    lz4pi  = bool(re.search(r'lz12\.56|lz4pi|_lz4', dname)) or \
+             (bool(re.search(r'_bp28', dname)) and k_mode % 2 == 1)
+    lz16pi = bool(re.search(r'_bp55', dname))
+    if lz16pi:
+        kz = k_mode / 8.0
+    elif lz4pi:
+        kz = k_mode / 2.0
+    else:
+        kz = float(k_mode)
     alpha = float(m_a.group(1))
     V0 = float(m_v.group(1)) if m_v else 0.1
     xi_sp = float(m_sp.group(1)) if m_sp else 0.0
@@ -86,10 +92,11 @@ def parse_dir(dname):
 
 
 def kz_to_label(kz):
-    """Convert kz float to timeseries filename label (1→'1', 1.5→'1p5')."""
+    """Convert kz float to timeseries filename label (1→'1', 1.5→'1p5', 0.125→'0p125')."""
+    kz = round(kz, 3)
     if kz == int(kz):
         return str(int(kz))
-    return f"{int(kz)}p5"
+    return f"{kz:.3f}".rstrip('0').replace('.', 'p')
 
 
 def analyze_node(node_dir):
