@@ -1704,3 +1704,52 @@ kz=1 dominant at γ=0.967 — likely parasitic kz=0 contamination or rapid nonli
 6. **Low-α high-V0 corner** (α=0.5, V0=0.20): all ratios>1, system nonlinear before 100 TU; boundary of accessible linear regime
 
 **Gap to fill**: α=0.5-1.0 at V0=0.05 (kz_peak < 2 requires Lz > 2π); α=1.0-2.0 at V0=0.10 for denser V0 coverage.
+
+---
+
+## T1.4 Warm-fluid closure — implementation and mode-2 validation attempt (2026-07-12)
+
+**Implemented**: isothermal pressure closure `P = n*T`, contributing `-T*grad(n)` (force per
+unit volume, no extra `/n` needed since `src.px`/`src.pz` are already momentum-density source
+rates) to the fluid momentum sources in `kernel_ym_lorentz`, alongside the existing Lorentz
+force. New `warm_T` runtime parameter (`.ini` key, `YMParams` field), default 0.0. `warm_T=0`
+takes a separate code branch and is exactly identical to prior cold behavior (not just
+numerically close — confirmed via matching banner + energy trace). `warm_T>0` (tested 0.01
+at α=2.0, V0=0.05, mode 6) runs stably (no NaN) and produces a measurably different energy
+trace from the cold case at identical parameters (E/E0 diverges from the 8th decimal at t=5,
+growing), confirming the term is genuinely active, not a silent no-op.
+
+**Mode-2 (EMHD_KH, no Az1) stabilization scan — inconclusive for the intended purpose,
+but a real, well-explained result**:
+
+Attempted to reproduce the roadmap's prescribed validation ("scan T at V0=0.05 in mode 2,
+find the v_th/V0 stabilization boundary" for the fluid two-stream channel, T1.4). Findings:
+
+1. **Without any suppression**, seeding `By1` at kz=1, 2, 4, 5, 6, 8, 10, 12, 14 (V0=0.05,
+   `suppress_kz0=0`) shows growth is dominated entirely by **kz=0** (γ≈0.5, matching the
+   documented kz=0 chromo-Weibel rate) — a DFT check confirms every tested finite-kz seed
+   (checked directly: kz=5) *decays* monotonically (5e-5→4e-5→1.2e-5 over 15 TU) while kz=0
+   grows (≈0→0.047→0.080). The classic finite-kz "fluid two-stream (γ≈0.7–0.9)" channel does
+   not manifest at V0=0.05 for any kz tested in this window — either it requires different
+   parameters, a longer window, or is closely related to/conflated with the kz=0 channel.
+2. Scanning `warm_T` (v_th/V0 = 0–3, i.e. `warm_T=(ratio·V0)²`) against this kz=0 channel
+   shows **minimal stabilization** (final By1 amplitude 0.095→0.085 at t=15, only ~11%
+   reduction across the full range) — physically expected, since the isothermal closure is
+   *isotropic* pressure, and Weibel-type filamentation is driven by pressure *anisotropy*;
+   isotropic pressure isn't the right mechanism to suppress it.
+3. **`suppress_kz0=1` cannot be used to isolate a finite-kz test in mode 2** — this flag does
+   far more than subtract the z-mean (`kernel_ym_subtract_zmean`). A *separate* code block in
+   `main_ym.cu` (step "6e", gated on the same flag) does a full `cudaMemset` to zero on
+   `By1`/`Ex1`/`Ez1` **every step** — intentional and correct for modes 5/6 (where By1 is a
+   known parasitic side-channel unrelated to the measured KH chain), but in mode 2 those three
+   fields *are* the entire physics. Using `suppress_kz0=1` in mode 2 erases the whole
+   simulation every step (confirmed: By1/Ex1/Ez1 exactly 0.0 everywhere by t≈1 TU, for every
+   kz tested, independent of resolution) — not a bug, just an incompatible flag/mode
+   combination that had never been exercised before this test.
+
+**Conclusion**: the mode-2 stabilization scan as prescribed doesn't cleanly validate the
+closure against the *specific* finite-kz two-stream channel (that channel isn't observed to
+grow at V0=0.05 in the tested window). The more direct and relevant test — and the next
+roadmap checkbox — is the full filters-off rerun of a known-good target point (C35 clone:
+α=2.0, V0=0.05, mode 6) with the warm closure on, comparing γ(kz) against the existing
+filtered cold-plasma results.
