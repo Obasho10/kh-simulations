@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
     const int   run_mode          = cfg.run_mode;
     const fct_real_t xi_sponge    = cfg.xi_sponge;
     const fct_real_t sigma_sponge = cfg.sigma_sponge;
+    const fct_real_t warm_T       = cfg.warm_T;
     const int   freeze_override   = cfg.freeze_override;
     const int   suppress_kz0      = cfg.suppress_kz0;
     const fct_real_t hyp_diff     = cfg.hyp_diff;
@@ -73,6 +74,7 @@ int main(int argc, char* argv[]) {
     params.periodic_x    = (run_mode >= 1) ? 1 : 0;
     params.xi_sponge     = xi_sponge;
     params.sigma_sponge  = sigma_sponge;
+    params.warm_T        = warm_T;
     params.suppress_kz0    = suppress_kz0;
     params.hyp_diff_coeff  = hyp_diff;
     params.kz_suppress_max = kz_suppress_max;
@@ -213,8 +215,10 @@ int main(int argc, char* argv[]) {
     // Derive velocities and precompute initial sources
     kernel_update_velocities<<<blocks2d, threads2d>>>(d_flA, NX, NZ);
     kernel_update_velocities<<<blocks2d, threads2d>>>(d_flB, NX, NZ);
-    kernel_ym_lorentz<<<blocks2d, threads2d>>>(d_srcA, d_fields, d_flA, NX, NZ, params.periodic_x);
-    kernel_ym_lorentz<<<blocks2d, threads2d>>>(d_srcB, d_fields, d_flB, NX, NZ, params.periodic_x);
+    kernel_ym_lorentz<<<blocks2d, threads2d>>>(d_srcA, d_fields, d_flA, NX, NZ, params.periodic_x,
+                                                params.warm_T, params.dx, params.dz);
+    kernel_ym_lorentz<<<blocks2d, threads2d>>>(d_srcB, d_fields, d_flB, NX, NZ, params.periodic_x,
+                                                params.warm_T, params.dx, params.dz);
     kernel_ym_precession<<<blocks2d, threads2d>>>(d_sQ1A, d_sQ2A, d_sQ3A, d_fields, d_flA, aYM, NX, NZ);
     kernel_ym_precession<<<blocks2d, threads2d>>>(d_sQ1B, d_sQ2B, d_sQ3B, d_fields, d_flB, aYM, NX, NZ);
     cudaDeviceSynchronize();
@@ -421,8 +425,10 @@ int main(int argc, char* argv[]) {
         }
 
         // 7. Update sources for next FCT step
-        kernel_ym_lorentz<<<blocks2d, threads2d>>>(d_srcA, d_fields, d_flA, NX, NZ, params.periodic_x);
-        kernel_ym_lorentz<<<blocks2d, threads2d>>>(d_srcB, d_fields, d_flB, NX, NZ, params.periodic_x);
+        kernel_ym_lorentz<<<blocks2d, threads2d>>>(d_srcA, d_fields, d_flA, NX, NZ, params.periodic_x,
+                                                    params.warm_T, params.dx, params.dz);
+        kernel_ym_lorentz<<<blocks2d, threads2d>>>(d_srcB, d_fields, d_flB, NX, NZ, params.periodic_x,
+                                                    params.warm_T, params.dx, params.dz);
         kernel_ym_precession<<<blocks2d, threads2d>>>(d_sQ1A, d_sQ2A, d_sQ3A, d_fields, d_flA, aYM, NX, NZ);
         kernel_ym_precession<<<blocks2d, threads2d>>>(d_sQ1B, d_sQ2B, d_sQ3B, d_fields, d_flB, aYM, NX, NZ);
 

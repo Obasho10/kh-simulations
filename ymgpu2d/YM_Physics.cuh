@@ -37,6 +37,7 @@ struct YMParams {
     int periodic_x;          // use periodic wrapping in x (instead of wall) for EM kernels
     fct_real_t xi_sponge;    // |ξ| at which sponge begins (0 = disabled)
     fct_real_t sigma_sponge; // sponge damping rate (TU⁻¹ per unit ξ beyond xi_sponge)
+    fct_real_t warm_T;       // isothermal pressure closure: P=n*T, adds -T*grad(n)/n to momentum sources (0=cold)
     int suppress_kz0;        // subtract z-mean of By1/Ex1/Ez1 + color-2/3 fields to kill kz=0 Weibel/filamentation
     fct_real_t hyp_diff_coeff; // 4th-order z-hyperdiffusion coefficient (0=off); use ~5e-5 to kill kz>=74
     int kz_suppress_max;     // subtract DFT modes kz=1..N from color-2/3 fields each step (0=off)

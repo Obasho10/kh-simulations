@@ -10,7 +10,8 @@ __global__ void kernel_enforce_boundaries(YMFieldPtrs f, YMFluidPtrs flA, YMFlui
                                            int nx, int nz, int periodic_x);
 
 __global__ void kernel_ym_lorentz(YMFluidPtrs src, YMFieldPtrs f, YMFluidPtrs fl,
-                                   int nx, int nz, int periodic_x);
+                                   int nx, int nz, int periodic_x,
+                                   fct_real_t warm_T, fct_real_t dx, fct_real_t dz);
 
 __global__ void kernel_ym_precession(fct_real_t* src_Q1, fct_real_t* src_Q2, fct_real_t* src_Q3,
                                       YMFieldPtrs f, YMFluidPtrs fl,
