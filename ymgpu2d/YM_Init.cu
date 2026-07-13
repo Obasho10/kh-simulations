@@ -1,5 +1,22 @@
 #include "YM_Init.cuh"
 
+// log(cosh(xi)) for the Az1 equilibrium profile. Below SAFE_XI, coshf(xi) in
+// float32 is safe (overflows above |xi|~89.4) -- keep the original float32
+// path exactly, bit-identical to every previously-validated run at EPS>=0.15.
+// Above SAFE_XI (reached at narrow EPS, e.g. EPS<=0.10 for the default Lx=6pi),
+// coshf(xi) overflows to Inf and poisons Az1 (and everything coupled to it)
+// from step 0 -- use the numerically stable double-precision identity
+// log(cosh(x)) = |x| - log(2) + log1p(exp(-2|x|)), which never overflows for
+// any finite x and is mathematically exact (not an approximation).
+__device__ __forceinline__ fct_real_t log_cosh_stable(fct_real_t xi) {
+    const fct_real_t SAFE_XI = 80.0;
+    if (fabs((double)xi) < SAFE_XI) {
+        return (fct_real_t)logf(coshf((float)xi));
+    }
+    double ax = fabs((double)xi);
+    return (fct_real_t)(ax - 0.6931471805599453 + log1p(exp(-2.0 * ax)));
+}
+
 // Two-beam counterstreaming init, zero gauge fields.
 // Fluid A: +z shear,  Q^a = (+1, 0, 0)
 // Fluid B: -z shear,  Q^a = (-1, 0, 0)   (anti-aligned → nonzero color current)
@@ -38,7 +55,7 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
     fct_real_t base_seed = perturb_amp * V0 * sech_xi * seed_win;
 
     // Single-tanh no-EPS Az1 equilibrium
-    fct_real_t az1_eq = -V0 * logf(coshf(xi));
+    fct_real_t az1_eq = -V0 * log_cosh_stable(xi);
 
     // ── Defaults ──
     fct_real_t by1_init = 0.0f, by2_init = 0.0f, by3_init = 0.0f;
@@ -157,7 +174,7 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
         vz_A = V0 * shear;   // beam A flows with this profile; beam B is -shear
 
         // No-EPS double-tanh Az1: same structure as single-tanh but symmetric around two layers
-        az1_init = -V0 * (logf(coshf(xi1)) - logf(coshf(xi2)));
+        az1_init = -V0 * (log_cosh_stable(xi1) - log_cosh_stable(xi2));
 
         // Gauge-consistent By1 = -∂_x Az1 = V0*(tanh(ξ₁) - tanh(ξ₂)) / EPS
         by1_init = V0 * (tanhf(xi1) - tanhf(xi2)) / epsilon;
