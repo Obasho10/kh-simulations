@@ -1894,3 +1894,66 @@ PRESENTATION.md — do not treat the sponge-tightening fix as a complete underst
 only as an empirically-useful (and scope-limited) mitigation.
 
 **Gap to fill**: α=0.5-1.0 at V0=0.05 (kz_peak < 2 requires Lz > 2π); α=1.0-2.0 at V0=0.10 for denser V0 coverage.
+
+---
+
+## Boundary-mapping the sponge fix around the (α=2.0, V0=0.03, kz=1.5) near-miss (2026-07-14)
+
+Perturbed each of α, V0, kz independently up and down from the near-miss point, one axis at a time, all
+in the bp28 box (Lz=4π, NZ=128), each run the tool's then-current (0.75x-margin) recommendation, full
+100-TU CUDA:
+
+| direction | point | tool sp | result |
+|---|---|---|---|
+| (center) | α=2.0, V0=0.03, kz=1.5 | 16 | near-miss (flat to t≈90, then creeping) |
+| α up | α=2.5, V0=0.03, kz=1.5 | 11 | **clean** |
+| α down | α=1.5, V0=0.03, kz=1.5 | 21 | fails, t=94.7 |
+| V0 up | α=2.0, V0=0.05, kz=1.5 | 11 | fails, t=94.7 (same timing as α down) |
+| V0 down | α=2.0, V0=0.02, kz=1.5 | 21 | **clean** (E/E0→1.0046, negligible) |
+| kz up | α=2.0, V0=0.03, kz=2.0 | 21 | fails, t=61.8 (worse than center — surprising) |
+| kz down | α=2.0, V0=0.03, kz=1.0 | 11 | **clean** |
+
+Naive reading: α up / V0 down / kz down = safer, α down / V0 up / kz up = less safe, matching an
+intuitive "closer to where γ_exact is strong relative to the ~fixed-rate outer branch" picture — except
+kz up should have moved *toward* kz_peak≈2α=4 and gotten safer, not failed worse. That contradiction was
+the tell that something was off with the *tool's margin*, not the physics.
+
+**Resolved by retesting all 4 problem points at a much tighter fixed sponge (values in the sp=6-10
+range) — every single one came back fully clean over the full 100 TU:**
+
+| point | rescued at sp | result |
+|---|---|---|
+| center (α=2.0, V0=0.03, kz=1.5) | 10 | **clean**, E/E0=1.0000 flat to t=99.6 |
+| α down (α=1.5, V0=0.03, kz=1.5) | 10 | **clean** |
+| V0 up (α=2.0, V0=0.05, kz=1.5) | 6 | **clean**, E/E0 even drifts slightly down (0.9991 by t=99.6) |
+| kz up (α=2.0, V0=0.03, kz=2.0) | 10 | **clean** |
+
+**Conclusion: there is no hard physical boundary anywhere in this tested neighborhood** (α=1.5-2.5,
+V0=0.02-0.05, kz=1.0-2.0) — every point is measurable with a properly tight sponge. What looked like a
+near-miss/failure boundary in the first pass was the *tool's 0.75x margin being insufficient*, not a real
+edge of the safe region. This is good news for the "how big is the volume we can now trust" question: at
+least within V0≤0.05, the volume is much larger and more forgiving than the boundary-mapping's first
+pass suggested — it just needs the margin fixed.
+
+**But this isn't free — sponge compression is real and was checked directly** (eigensolver only, no
+GPU): at the rescuing sponge values, γ_exact reads systematically lower than at a looser (but unsafe)
+sponge — e.g. the V0-up point: γ=0.172 at sp=30 (unsafe) vs γ=0.115 at sp=10 (safe), a 33% reduction.
+This is the already-documented sponge-compression tradeoff (PRESENTATION.md §8.3), now shown to bind
+harder than expected in this corner: you cannot have both "definitely excludes the outer branch" and "no
+compression" simultaneously at these points — the safe margin costs real amplitude accuracy.
+
+**Revised the tool's SAFETY_MARGIN from 0.75x to 0.5x** based on this 7-point dataset (3/6 new points
+needed roughly 0.4-0.6x their own ladder pick, not 0.75x). Re-running the tool at 0.5x recommends sp=10
+for the center point (exactly the confirmed-safe value) and sp=8/14 for two others (close to, not
+exactly matching, the manually-confirmed 6/10 — extrapolated, not independently re-verified by a fresh
+CUDA run). The two original calibration points now get sp=10 instead of the previously-confirmed sp=15
+— tighter is monotonically safer based on all evidence so far, so this should if anything be more
+conservative, but wasn't re-run to confirm.
+
+**Net picture for "what volume can we trust now"**: for V0≤0.05, roughly α=0.3-2.5 and kz=0.5-2.5 (the
+union of everything tested across both fix-fix threads) now looks like a genuinely safe, contiguous
+region once the sponge is set properly tight (~sp 6-14 depending on point, not the old formula's 21-55) —
+at the cost of the known compression bias, not yet separately corrected for. V0=0.10 remains a hard wall
+(failed even at the sponge floor in the earlier test) — the V0=0.05→0.10 transition has not been mapped
+in between (e.g. V0=0.07-0.08 untested) and is the natural next boundary-mapping direction if that's
+wanted.

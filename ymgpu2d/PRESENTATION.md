@@ -488,7 +488,24 @@ treat the half-integer/low-k_z contamination as fixable via sponge-tightening
 for V₀≲0.05 (still spot-check, not blind-trust), and as an **open problem**
 for V₀≳0.08 — those points may need a fundamentally different exclusion
 mechanism (e.g. the eigensolver's untried `xi_cut` hard-wall option) or may not
-be cleanly measurable with mode 6 as currently designed. **What the outer branch
+be cleanly measurable with mode 6 as currently designed.
+
+**Follow-up boundary-mapping (same day) found better news than the first pass
+suggested.** Perturbing α, V0, k_z one at a time around a near-miss point looked
+at first like a real boundary (3 of 6 directions failed at the tool's
+recommendation) — until re-testing all 4 problem points at a further-tightened
+sponge (sp≈6-10) showed **every one of them clean over the full 100 TU**. There
+is no hard physical wall anywhere tested across α≈1.5-2.5, V0≈0.02-0.05,
+k_z≈1-2.5 — the apparent boundary was the tool's margin being too loose, not a
+real edge of the safe region. `find_safe_sponge.py`'s margin was revised (0.75x
+→ 0.5x) accordingly. The real cost is sponge compression, confirmed directly:
+one point's γ_exact fell 33% (0.172→0.115) between an unsafe-loose and a
+safe-tight sponge — safety and accuracy trade off directly here, not free. Net
+effect: V0≤0.05 across roughly α=0.3-2.5, k_z=0.5-2.5 now looks like a genuinely
+usable, contiguous region with proper (tighter) sponge tuning; V0=0.10 is still
+a confirmed hard wall, and the V0=0.05→0.10 transition itself is unmapped.
+
+**What the outer branch
 physically *is* — a genuine secondary instability of the shear+Az1 background,
 vs. a numerical artifact of the linearization/discretization, and why its rate
 would scale with V₀ — is still not understood and needs real investigation before

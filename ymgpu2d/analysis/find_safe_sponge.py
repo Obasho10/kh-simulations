@@ -157,25 +157,30 @@ def classify(found, gamma_wkb, rate_factor=1.3, rate_floor=0.15, xi_abs_floor=25
     return real, outer
 
 
-SAFETY_MARGIN = 0.75  # see _apply_margin() docstring
-
+SAFETY_MARGIN = 0.5  # see _apply_margin() docstring -- revised 2026-07-14 boundary mapping
 
 def _apply_margin(sp):
     """Extra empirical safety margin below the eigensolver's own
     "2-consecutive-clean" pick, floored at SP_MIN.
 
     Direct CUDA verification (FINDINGS.md 2026-07-14) showed the linear
-    one-shot check is optimistic even with the 2-consecutive-clean rule:
-    for one test point the ladder's clean pick (sp=20, two consecutive
-    clean rungs at 26 and 20) still blew up at t=84.7 of a 100-TU run --
-    later than a single clean rung (sp=26 failed at t=57), but still not
-    clean. A separate point's independently-confirmed-safe value (sp=15)
-    is almost exactly 0.75x its own ladder pick (20) -- and 0.75x the
-    other point's ladder pick (20) lands on exactly its own confirmed-safe
-    value (15) too. This factor is calibrated on two points, not derived
-    from first principles -- treat it as a working margin, not a proof,
-    and spot-check new (alpha, V0) regions against a full-length CUDA run
-    before trusting it blindly across a whole series."""
+    one-shot check is optimistic even with the 2-consecutive-clean rule.
+    First calibration (2 points) suggested 0.75x was enough; a follow-up
+    7-point boundary-mapping exercise (perturbing alpha/V0/kz around a
+    near-miss, one direction at a time) showed 0.75x was NOT enough for
+    3 of those 7 points -- each had to be manually tightened further
+    (down to roughly 0.4-0.6x their own "2-consecutive-clean" ladder pick,
+    landing in the sp=6-10 range) before a full 100-TU CUDA run came back
+    clean. 0.5x is the revised, more conservative value from that larger
+    dataset. This buys safety at a real, measured accuracy cost: the
+    eigensolver's own gamma estimate drops as the sponge tightens (the
+    known sponge-compression tradeoff, PRESENTATION.md Sec 8.3) -- e.g.
+    for one boundary point, gamma fell from 0.172 (sp=30) to 0.115
+    (sp=10), a 33% reduction. This margin is still an empirical fit to a
+    handful of points near alpha~1.5-2.5, V0~0.02-0.05, kz~1-2.5 -- NOT a
+    general proof, and still needs a spot-check on any new region,
+    especially anything closer to the V0=0.10 regime that failed outright
+    even at the sponge floor."""
     return max(SP_MIN, int(round(sp * SAFETY_MARGIN)))
 
 
