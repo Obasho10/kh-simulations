@@ -2072,9 +2072,59 @@ either — just a reminder that plateau/local-slope reading, not max-R², is req
 `xi_cut=5` (or similar) should be tried as the default exclusion mechanism going forward, not just a
 V0≥0.08 patch — it's strictly more accurate than the soft sponge everywhere tested, and it just
 solved the one class of point (V0=0.09-0.10) that sponge-tightening structurally could not touch.
-**Not yet done**: sweep xi_cut radius itself (is 5 optimal, or could a looser wall like 10-15 — which the
-eigensolver suggests should also exclude the "easy" outer branch — give both safety and even better
-accuracy?); test xi_cut at V0>0.10 to find where (if anywhere) it too has a limit; re-verify the
+**Not yet done**: test xi_cut at V0>0.10 to find where (if anywhere) it too has a limit; re-verify the
 V0≤0.07 boundary-mapped points with xi_cut instead of xi_sponge for the accuracy win; combine xi_cut
 (outer, hard) with a mild xi_sponge (inner, soft) to see if that's better than either alone; update
-`find_safe_sponge.py`-style tooling to search xi_cut candidates, not just xi_sponge.
+`find_safe_sponge.py`-style tooling to search xi_cut candidates, not just xi_sponge. Radius sweep done
+below.
+
+---
+
+## xi_cut radius sweep at V0=0.09-0.10 — corrects the "solved" framing above (2026-07-15)
+
+Swept xi_cut from 5 up to 15 at the same α=1.5, k_z=2.5, V0=0.09/0.10 points, full 100-TU CUDA:
+
+| xi_cut | V0 | (α,k_z) | result |
+|---|---|---|---|
+| 5 | 0.10 | 1.5, 2.5 | clean, plateau γ=0.2141 (t=35-50), no catastrophe within 100 TU |
+| 5 | 0.09 | 1.5, 2.5 | clean, plateau γ=0.1995 (t=38-54), no catastrophe within 100 TU |
+| **5** | **0.10** | **2.0, 1.5 (cross-check)** | **catastrophic jump at t=97.7 — barely inside the 100-TU window** |
+| 5.5 | 0.10 | 1.5, 2.5 | catastrophic jump at t=90.2 |
+| 6 | 0.10 | 1.5, 2.5 | catastrophic jump at t=89.7 |
+| 7 | 0.10 | 1.5, 2.5 | catastrophic jump at t=91.7 |
+| 7 | 0.09 | 1.5, 2.5 | catastrophic jump at t=92.2 |
+| 10 | 0.09 | 1.5, 2.5 | catastrophic jump at t=57.3 |
+| 10 | 0.10 | 1.5, 2.5 | catastrophic jump at t=47.8 |
+| 10, hyp_diff=2.5e-4 (5×) | 0.10 | 1.5, 2.5 | catastrophic jump at t=87.7 (delayed vs. default hyp_diff, not eliminated) |
+| 15 | 0.10 | 1.5, 2.5 | catastrophic jump at t=26.9 (earliest/worst) |
+
+**Every failure has the same distinctive signature**: bounded, mildly elevated E/E0 (typically 1.4-3.5×)
+for most of the run, then a sudden jump of 4-6 orders of magnitude within a single ~0.5 TU output
+interval — qualitatively different from the smooth exponential blowup the soft sponge showed. Increasing
+hyperdiffusion 5× did not fix it (only delayed it modestly), ruling out "grid-scale/near-Nyquist noise
+from the wall's field discontinuity, fixable by more dissipation" as the mechanism.
+
+**This corrects the earlier framing**: `xi_cut` does **not** have a hard safe/unsafe cliff at radius 5 —
+it is the **same underlying late-onset instability that dominates the soft-sponge failures**, just
+delayed far more effectively by the hard wall, with onset time falling sharply as the radius loosens
+(t≈27 at radius 15 → t≈48-92 at radius 6-10 → past 90-100 at radius 5, but **not reliably past 100 for
+every point** — the α=2.0/k_z=1.5 cross-check at xi_cut=5 hit the same catastrophe at t=97.7). xi_cut=5
+is not "solved and stable," it is "delays onset long enough, in most tested cases, for a clean plateau
+measurement to complete with comfortable margin before the eventual catastrophe."
+
+**Why this is still a real, practically important result, not a retraction**: the plateaus at xi_cut=5
+are established early (t=35-54) and hold for 15+ TU with a clean fit matching the eigensolver to ~1% —
+well before any observed catastrophe onset (earliest observed at radius 5 was t=97.7, still >40 TU of
+margin past the plateau). The soft sponge, by contrast, **never established a clean plateau at V0=0.10 at
+any radius tested, including its own floor** — its failures overlapped the measurement window itself, not
+just the tail of a long run. So the practical conclusion holds even though the "fully stable" framing
+does not: **for production use at V0=0.09-0.10, use xi_cut=5 (not looser) and cap target_tu well below
+where the catastrophe has been observed** (comfortably under 90 TU, with the plateau itself typically
+readable by t≈55) **rather than running to the old default's full-length/energy-threshold behavior.**
+
+**Not yet done**: characterize the catastrophe mechanism itself (still unknown — ruled out hyperdiffusion
+as a fix, not yet checked whether it's an FP32 precision-accumulation effect, a genuine secondary
+bifurcation, or something else); find xi_cut's onset-time dependence on (α, k_z) more systematically
+(only one cross-check point so far); check whether target_tu capped below the observed onset is
+sufficient for reliable production use, or whether the onset time itself needs to be predicted per-point
+before trusting a run not to hit it mid-measurement.
