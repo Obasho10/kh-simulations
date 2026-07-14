@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
     const int   run_mode          = cfg.run_mode;
     const fct_real_t xi_sponge    = cfg.xi_sponge;
     const fct_real_t sigma_sponge = cfg.sigma_sponge;
+    const fct_real_t xi_cut       = cfg.xi_cut;
     const int   freeze_override   = cfg.freeze_override;
     const int   suppress_kz0      = cfg.suppress_kz0;
     const fct_real_t hyp_diff     = cfg.hyp_diff;
@@ -73,6 +74,7 @@ int main(int argc, char* argv[]) {
     params.periodic_x    = (run_mode >= 1) ? 1 : 0;
     params.xi_sponge     = xi_sponge;
     params.sigma_sponge  = sigma_sponge;
+    params.xi_cut        = xi_cut;
     params.suppress_kz0    = suppress_kz0;
     params.hyp_diff_coeff  = hyp_diff;
     params.kz_suppress_max = kz_suppress_max;
@@ -138,6 +140,8 @@ int main(int argc, char* argv[]) {
     if (V0 != 0.1) dir_ss << "_v" << std::setprecision(4) << V0;
     if (xi_sponge > 0.0)
         dir_ss << "_sp" << std::setprecision(1) << xi_sponge;
+    if (xi_cut > 0.0)
+        dir_ss << "_xc" << std::setprecision(1) << xi_cut;
     if (params.freeze_az1 && run_mode == 0)
         dir_ss << "_frz";  // only tag when freeze is non-default for this run_mode
     if (cfg.eps_override > 0.0f)
@@ -347,6 +351,13 @@ int main(int argc, char* argv[]) {
         //     This prevents the outer non-Abelian coupling from masking the inner WKB mode.
         if (params.xi_sponge > 0.0)
             kernel_ym_sponge<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB, NX, NZ, params);
+
+        // 6b2. xi_cut: hard-wall Dirichlet alternative/complement to the soft sponge —
+        //      unconditionally zero color-2/3 fields for |ξ| > xi_cut. Retains more of
+        //      the true growth rate than the sponge at matched radius (no damping bleed
+        //      into the interior); see FINDINGS.md 2026-07-15.
+        if (params.xi_cut > 0.0)
+            kernel_ym_xicut<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB, NX, NZ, params);
 
         // 6c. kz=0 suppression: subtract z-mean of color-1 EM (By1,Ex1,Ez1) AND color-2/3
         //     fields each step.  Kills both the color-1 Weibel filamentation instability

@@ -1992,3 +1992,89 @@ fundamentally different approach — updated `find_safe_sponge.py` to warn accor
 warning for 0.07<V0≤0.09, hard-wall warning above that). Next: try the eigensolver's `xi_cut` hard-wall
 option (Dirichlet BC, kills the outer region rather than damping it) on a V0=0.09 or V0=0.10 point to
 see whether it does better than the soft sponge in this zone.
+
+---
+
+## `xi_cut` implemented in CUDA — solves the V0=0.09-0.10 hard-wall zone (2026-07-15)
+
+### Eigensolver experiments first (CPU-only, before touching CUDA)
+
+Compared `xi_cut` (hard Dirichlet wall, `build_matrix`'s existing option) against `xi_sponge` (soft
+exponential damping) in `ym_eigenmode.py`, at matched radii, for α=1.5, k_z=2.5 across V0=0.05-0.10:
+
+1. **Compression cost, quantified**: at the same radius, `xi_cut` systematically retains more of γ_exact
+   than `xi_sponge` — the gap widens as the radius tightens: ~4% at radius=15, ~10% at radius=10, ~30%
+   at radius=5 (V0=0.05/0.07, α=1.5, k_z=2.5). A hard wall doesn't touch the interior at all; a soft
+   sponge's damping term bleeds into the mode's tail even before its nominal start radius.
+2. **A critical limitation of the eigensolver screen itself, found by direct comparison to known CUDA
+   ground truth**: `xi_sponge=8` at V0=0.10 shows **zero** outer-branch eigenvalues in an exhaustive
+   multi-shift search (12 shifts up to γ=12, 10 eigenvalues each) — yet this exact configuration is
+   *confirmed by CUDA* to blow up at t≈91. The linear eigenvalue problem the eigensolver solves does not
+   contain whatever actually kills the V0≥0.09 CUDA run. This means the eigensolver's "xi_cut also reads
+   safe there" result **could not be trusted on its own** — the tool that would tell us is demonstrably
+   blind in exactly that regime for the soft-sponge case, so real CUDA testing was required before
+   drawing any conclusion for xi_cut in the V0=0.09-0.10 zone. (It turned out xi_cut's readings there
+   *were* trustworthy — see below — but this could not have been known without testing.)
+
+### Implemented `kernel_ym_xicut` in CUDA
+
+Added a genuine hard-wall Dirichlet kernel (`YM_Physics.cu`), matching `ym_eigenmode.py`'s `xi_cut`
+exactly: unconditionally zeroes By2/By3/Ex2/Ex3/Ez2/Ez3/Az2/Az3/Q2A/Q3A/Q2B/Q3B for `|ξ| > xi_cut` every
+step (no damping ramp, no dt-dependence — the same 12 fields `kernel_ym_sponge` touches, just forced to
+exactly zero instead of decayed). New `xi_cut` config key (`YM_Config`), `YMParams.xi_cut`, called
+right after the existing sponge kernel in the main loop — can be used alone or together with
+`xi_sponge`. Verified correctness directly: a t=2 TU field dump at `xi_cut=8, eps_override=0.15` shows
+all touched fields exactly `0.0` for `|ξ|>8` and untouched inside.
+
+**Note on deployment**: found t130's `YM_Fluid.cuh/.cu` had diverged from git — an unrelated, uncommitted
+warm-fluid-closure prototype (`kernel_ym_lorentz` with extra `warm_T, dx, dz` params, not present
+anywhere else: not in git, not on t132/t140/t126/abi). User confirmed (2026-07-15) this was a failed
+experiment, safe to overwrite — done, all three build nodes (t130/t132/t140) now match git exactly.
+
+### CUDA results — the actual hard-wall zone, for real this time
+
+Same protocol as the V0-transition mapping (α=1.5, k_z=2.5 fixed, xi_cut=5 — deliberately the *same*
+tight radius the soft sponge floor used, for a fair comparison), full 100-TU runs:
+
+| V0 | soft xi_sponge=5-8 (established) | xi_cut=5 (new) |
+|---|---|---|
+| 0.09 | near-miss even at floor: E/E0≈1.28-1.35, visible contamination by t≈90 | **E/E0≈1.01-1.02, flat the whole run** |
+| 0.10 (the confirmed hard wall) | **outright failure**, E/E0>100, at every sponge tried down to the floor | **E/E0≈1.09-1.10, bounded and stable, no runaway** |
+
+Fitted growth rates, using the plateau method (not max-R², per the established §8.5 fit-methodology
+finding) — both points found a genuine, multi-decade-spanning plateau:
+
+- V0=0.09: plateau γ=0.1995 (15 TU duration, t=38-54) vs. eigensolver γ_exact(xi_cut=5)=0.2016 —
+  **ratio 0.99, essentially exact.**
+- V0=0.10: plateau γ=0.2141 (15 TU duration, t=35-50) vs. eigensolver γ_exact(xi_cut=5)=0.2163 —
+  **ratio 0.99, essentially exact.**
+
+This is not "bounded but messy" — it's a clean, accurate measurement, in the exact regime the soft
+sponge could never reach at any tightness. The hard Dirichlet wall is qualitatively different from the
+soft sponge, not just a tighter version of it: because it forces the outer fields to *exactly* zero every
+step regardless of amplitude, it can't be defeated by whatever nonlinear/finite-amplitude effect was
+apparently leaking past the soft sponge's damping (the mechanism the linear eigensolver couldn't see in
+the xi_sponge case, per the limitation noted above) — it simply removes the outer region's influence
+outright, unconditionally.
+
+**Accuracy check (why implement it even in the already-working regime)**: α=2.0, V0=0.07, k_z=1.5,
+xi_cut=5 — the same point independently confirmed clean under `xi_sponge=5`. This one is *not* a clean
+plateau story: the local-slope trace shows a genuine multi-regime curve (seed-transient decay from t=0-30,
+a bumpy growth phase peaking γ≈0.20 around t=42-48, a slow decline, then nonlinear rolloff after t≈75).
+max-R² landed on the peak (γ=0.193) and does not represent a verified rate — consistent with the
+project's own established §8.5 finding that max-R² is attracted to transients. The later, flatter part of
+the curve (t=65-72, local slope≈0.15-0.16) sits close to the eigensolver's own γ_exact(xi_cut=5)=0.156,
+which is the more defensible read. Not as clean a confirmation as V0=0.09/0.10, but not a contradiction
+either — just a reminder that plateau/local-slope reading, not max-R², is required here too.
+
+### Practical consequence — this reopens the whole V0≥0.08 suspect population
+
+`xi_cut=5` (or similar) should be tried as the default exclusion mechanism going forward, not just a
+V0≥0.08 patch — it's strictly more accurate than the soft sponge everywhere tested, and it just
+solved the one class of point (V0=0.09-0.10) that sponge-tightening structurally could not touch.
+**Not yet done**: sweep xi_cut radius itself (is 5 optimal, or could a looser wall like 10-15 — which the
+eigensolver suggests should also exclude the "easy" outer branch — give both safety and even better
+accuracy?); test xi_cut at V0>0.10 to find where (if anywhere) it too has a limit; re-verify the
+V0≤0.07 boundary-mapped points with xi_cut instead of xi_sponge for the accuracy win; combine xi_cut
+(outer, hard) with a mild xi_sponge (inner, soft) to see if that's better than either alone; update
+`find_safe_sponge.py`-style tooling to search xi_cut candidates, not just xi_sponge.

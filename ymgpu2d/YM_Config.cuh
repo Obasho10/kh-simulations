@@ -14,6 +14,7 @@ struct RunConfig {
     float V0             = 0.1f;
     float xi_sponge      = 0.0f;    // 0 = disabled
     float sigma_sponge   = 5.0f;
+    float xi_cut         = 0.0f;    // 0 = disabled; hard-wall Dirichlet BC, |xi|>xi_cut forced to zero
     int   freeze_override = -1;     // -1 = use run_mode default
     int   suppress_kz0   = 0;
     float hyp_diff       = 0.0f;

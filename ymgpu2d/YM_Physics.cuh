@@ -37,6 +37,7 @@ struct YMParams {
     int periodic_x;          // use periodic wrapping in x (instead of wall) for EM kernels
     fct_real_t xi_sponge;    // |ξ| at which sponge begins (0 = disabled)
     fct_real_t sigma_sponge; // sponge damping rate (TU⁻¹ per unit ξ beyond xi_sponge)
+    fct_real_t xi_cut;       // |ξ| beyond which color-2/3 fields are hard-zeroed (0 = disabled)
     int suppress_kz0;        // subtract z-mean of By1/Ex1/Ez1 + color-2/3 fields to kill kz=0 Weibel/filamentation
     fct_real_t hyp_diff_coeff; // 4th-order z-hyperdiffusion coefficient (0=off); use ~5e-5 to kill kz>=74
     int kz_suppress_max;     // subtract DFT modes kz=1..N from color-2/3 fields each step (0=off)
@@ -62,6 +63,18 @@ __global__ void kernel_ym_potential(YMFieldPtrs f, YMParams p, int nx, int nz);
 // the inner WKB mode.  Does NOT touch color-1 (equilibrium sector).
 __global__ void kernel_ym_sponge(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
                                   int nx, int nz, YMParams p);
+
+// Hard-wall (Dirichlet) cut: unconditionally zero color-2/3 fields for
+// |ξ| > xi_cut, the same exclusion mechanism as ym_eigenmode.py's xi_cut
+// (build_matrix's Dirichlet rows), as opposed to kernel_ym_sponge's soft
+// exponential damping. See FINDINGS.md 2026-07-15 for the eigensolver
+// comparison that motivated this: at matched radius, the hard wall retains
+// systematically more of the true growth rate than the soft sponge
+// (confirmed ~4-30% less compression as the radius tightens), because it
+// doesn't touch the interior at all rather than bleeding damping into the
+// mode's tail before the nominal radius.
+__global__ void kernel_ym_xicut(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
+                                 int nx, int nz, YMParams p);
 
 // kz=0 suppression: subtract z-mean of By1/Ex1/Ez1 (color-1 EM) + all color-2/3 fields.
 // Kills color-1 Weibel filamentation (By1[kz=0] → nonlinear explosion at t≈14.7 TU)

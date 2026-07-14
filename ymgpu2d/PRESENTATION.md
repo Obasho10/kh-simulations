@@ -513,17 +513,32 @@ at the sponge floor (confirmed at two different (α,k_z) points for V0=0.07).
 V0=0.08-0.09 is a genuine transition zone — even the tightest sponge tried
 leaves measurable residual contamination (mild at 0.08, moderate at 0.09;
 bounded, not an outright failure, but not clean either, and would bias any
-quoted γ upward). V0≥0.10 is confirmed as a hard wall at two sponge values,
-where tightening stops helping at all. **Practical scope, revised**: trust the
-sponge fix for V0≤0.07 (still spot-check); treat V0=0.08-0.09 as "measurable
-but biased," not safe to quote; V0≥0.10 needs a fundamentally different
-mechanism. `find_safe_sponge.py` now warns at the right thresholds.
+quoted γ upward). V0≥0.10 is confirmed as a hard wall **for the soft sponge**
+at two sponge values, where tightening stops helping at all.
+
+**Resolved (2026-07-15): `xi_cut` (hard-wall Dirichlet BC) closes the
+V0=0.09-0.10 gap the soft sponge could not.** Implemented `kernel_ym_xicut`
+in CUDA (unconditional zeroing of the outer region every step, vs. the soft
+sponge's exponential damping — see §11 item 3b for why this distinction
+matters) and tested it directly at the same α=1.5, k_z=2.5, V0=0.09/0.10
+points. Both now give a genuine, plateau-verified measurement matching the
+eigensolver to ~1% (V0=0.09: γ=0.1995 vs. 0.2016; V0=0.10: γ=0.2141 vs.
+0.2163) — not just "bounded," an accurate result, in the exact regime the
+soft sponge structurally could not reach. It is also more accurate than the
+soft sponge everywhere else tested (4-30% less compression at matched
+radius). **Revised practical scope**: `xi_cut` should be the default
+exclusion mechanism going forward, not a V0≥0.08 patch — it strictly
+dominates the soft sponge on the evidence so far. Not yet done: sweep the
+xi_cut radius itself (5 was carried over from the sponge-floor tests, not
+optimized), test above V0=0.10 for where (if anywhere) xi_cut has its own
+limit, and re-verify the V0≤0.07 points with xi_cut for the accuracy win.
 
 **What the outer branch
 physically *is* — a genuine secondary instability of the shear+Az1 background,
 vs. a numerical artifact of the linearization/discretization, and why its rate
-would scale with V₀ — is still not understood and needs real investigation before
-any of this is called solved; see the reminder in §11.**
+would scale with V₀ — is still not understood, and *why xi_cut succeeds where
+xi_sponge fails* is now an equally sharp open question** — see the reminder
+in §11 item 3b. A working fix is not the same as an explanation.
 
 ### 8.5 Growth-rate extraction: max-R² windows on multi-regime curves
 
@@ -785,21 +800,30 @@ In order of leverage per unit effort:
    continuation (T1.3) once the sponge-corrected data lands. Cheap and required
    before any public number.
 3b. **⚠️ REMINDER — understand the outer-region EM instability itself, not just
-   dodge it (§8.3, §8.4).** Sponge-tightening empirically fixes the low-V₀
-   contamination but the mechanism is still not understood: is it a genuine
-   secondary instability of the shear+Az1 background, or a numerical artifact
-   of the linearization/discretization? Why does its strength appear to scale
-   with V₀ strongly enough that tightening the sponge to near the practical
-   floor still doesn't exclude it at V₀=0.10 (confirmed by direct CUDA test,
-   not assumed)? Does `xi_cut` (hard-wall Dirichlet, untried) succeed where a
-   soft sponge fails? Until this is answered, the "fix" is a validated
-   mitigation for one regime, not a solved problem — don't let the V₀≤0.05
-   success quietly become "the outer branch is handled" in later writing. This
-   also bears on the sponge-compression issue in §8.3 generally (same
-   instability, same absorbing mechanism) and may be worth a dedicated theory
-   pass (candidate: is this the same γ~(α³V₀²)^(1/3)-type Weibel scaling as
-   the k_z=0 mode in §5.1, evaluated in the outer region instead of at the
-   shear layer? — not checked).
+   dodge it (§8.3, §8.4).** `xi_cut` (hard-wall Dirichlet BC), implemented in
+   CUDA and tested 2026-07-15, **does succeed where the soft sponge fails**:
+   at V₀=0.09-0.10 (soft sponge: near-miss/outright failure even at the
+   floor), `xi_cut=5` gives a clean, plateau-verified measurement matching
+   the eigensolver to ~1%. It's also strictly more accurate everywhere else
+   tested (4-30% less compression than xi_sponge at matched radius, worse
+   for xi_sponge as the radius tightens). That answers the practical
+   question — but **not** the mechanistic one, and the practical answer
+   makes the mechanistic question sharper, not moot: why does a hard,
+   unconditional-every-step zeroing succeed where a soft exponential damping
+   at the same radius does not, if both are removing the "same" outer
+   region? The natural reading is that whatever dominates the V₀≥0.09
+   soft-sponge failure is not a small linear leak past an imperfect
+   damping profile — it must be something the soft sponge structurally
+   cannot fully suppress (e.g. a finite-amplitude/nonlinear effect that
+   only a hard, amplitude-independent wall can guarantee against) — but
+   this is a hypothesis, not yet checked. Also still unknown: is the
+   outer branch a genuine secondary instability of the shear+Az1
+   background or a numerical artifact of the linearization/discretization,
+   and does its (still unexplained) V₀-scaling relate to the γ~(α³V₀²)^(1/3)
+   Weibel scaling of the k_z=0 mode in §5.1, evaluated in the outer region
+   instead of the shear layer? Don't let "xi_cut works" quietly become "the
+   outer branch is understood" in later writing — it's a working fix, not
+   an explanation.
 4. **T2.x referee-proofing batch** (each ≤1 day): linearity check, eigenfunction
    overlay figure, Gauss-law figure, sponge extrapolation, complex-ω table,
    dimensionless collapse.
