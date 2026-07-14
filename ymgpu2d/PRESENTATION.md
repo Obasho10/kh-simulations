@@ -503,7 +503,21 @@ one point's γ_exact fell 33% (0.172→0.115) between an unsafe-loose and a
 safe-tight sponge — safety and accuracy trade off directly here, not free. Net
 effect: V0≤0.05 across roughly α=0.3-2.5, k_z=0.5-2.5 now looks like a genuinely
 usable, contiguous region with proper (tighter) sponge tuning; V0=0.10 is still
-a confirmed hard wall, and the V0=0.05→0.10 transition itself is unmapped.
+a confirmed hard wall.
+
+**The V0=0.05→0.10 transition itself was then mapped** (fixed α=1.5, k_z=2.5 —
+the point that failed at V0=0.10 — swept V0 upward, retesting at the sponge
+floor whenever the tool's recommendation still showed contamination): it is a
+**gradual transition, not a step**. V0≤0.07 fully rescues to a clean 100-TU run
+at the sponge floor (confirmed at two different (α,k_z) points for V0=0.07).
+V0=0.08-0.09 is a genuine transition zone — even the tightest sponge tried
+leaves measurable residual contamination (mild at 0.08, moderate at 0.09;
+bounded, not an outright failure, but not clean either, and would bias any
+quoted γ upward). V0≥0.10 is confirmed as a hard wall at two sponge values,
+where tightening stops helping at all. **Practical scope, revised**: trust the
+sponge fix for V0≤0.07 (still spot-check); treat V0=0.08-0.09 as "measurable
+but biased," not safe to quote; V0≥0.10 needs a fundamentally different
+mechanism. `find_safe_sponge.py` now warns at the right thresholds.
 
 **What the outer branch
 physically *is* — a genuine secondary instability of the shear+Az1 background,

@@ -1957,3 +1957,38 @@ at the cost of the known compression bias, not yet separately corrected for. V0=
 (failed even at the sponge floor in the earlier test) — the V0=0.05→0.10 transition has not been mapped
 in between (e.g. V0=0.07-0.08 untested) and is the natural next boundary-mapping direction if that's
 wanted.
+
+---
+
+## Mapping the V0=0.05→0.10 transition (2026-07-14)
+
+Fixed α=1.5, k_z=2.5 — the exact point that originally failed at V0=0.10 — and swept V0 upward
+(0.06, 0.07, 0.08, 0.09), first at the tool's own recommendation, then retested at the sponge floor
+(sp=5) whenever the first attempt still showed contamination. One cross-check at a different (α, k_z)
+(α=2.0, V0=0.07, k_z=1.5) confirms the V0=0.07 result isn't specific to the first point.
+
+| V0 | tool's sp | tool result | floor (sp=5) result |
+|---|---|---|---|
+| 0.05 | ~15 | clean (established earlier) | — |
+| 0.06 | 11 | near-miss (E/E0→3.52 by t=99.6, "completed" but climbing) | **clean** — E/E0 stays 0.99-1.01 the whole 100 TU |
+| 0.07 | 9 | near-miss, milder (E/E0→1.52, appears to plateau near the end) | **clean** (confirmed at α=1.5 AND independently at α=2.0/kz=1.5) |
+| 0.08 | 8 | near-miss (E/E0→2.03, still rising) | **near-miss, mild** — flat to t≈96, creeps to E/E0≈1.22 |
+| 0.09 | 9 | **fails outright**, t=82.7 | **near-miss, moderate** — E/E0≈1.28-1.35, visible contamination by t≈90, not eliminated |
+| 0.10 | 12 / 8 | fails, t=38 / t=91 | fails (already established; sp=8 was effectively at-floor for that point too) |
+
+**This is a gradual transition, not a step function.** V0≤0.07 is genuinely usable — every point
+tested there is fully rescuable to a clean 100-TU run (though 0.06-0.07 needed the sponge floor, not
+just a moderate value, to get there — the tool's own recommendation undershot at both). V0=0.08-0.09 is
+a real transition zone: even the tightest sponge tried leaves measurable, non-catastrophic residual
+contamination (mild at 0.08, moderate at 0.09) that would bias any quoted γ upward, not a clean
+measurement but also not an outright failure. V0≥0.10 is a hard wall where tightening no longer helps at
+all, confirmed independently at two sponge values.
+
+**Practical takeaway**: the sponge-tightening fix is trustworthy for V0≤0.07 (still spot-check new
+points, and expect to need floor-level sponges near the top of that range, with the associated
+compression cost). V0=0.08-0.09 should be treated as "measurable but biased" at best — not safe to quote
+without heavy caveats, and probably not worth rerunning until a better mechanism exists. V0≥0.10 needs a
+fundamentally different approach — updated `find_safe_sponge.py` to warn accordingly (transition-zone
+warning for 0.07<V0≤0.09, hard-wall warning above that). Next: try the eigensolver's `xi_cut` hard-wall
+option (Dirichlet BC, kills the outer region rather than damping it) on a V0=0.09 or V0=0.10 point to
+see whether it does better than the soft sponge in this zone.

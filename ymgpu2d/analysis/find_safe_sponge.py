@@ -25,33 +25,46 @@ single clean rung, even a "2-consecutive-clean" one, was directly shown by
 CUDA to still fail late in a 100-TU run (see below).
 
 *** IMPORTANT -- READ BEFORE TRUSTING THE OUTPUT ***
-This is a candidate finder, not a proof of safety. Validated (2026-07-14) by
-running the FULL 100-TU CUDA simulation at the recommended sponge for 5
-points:
+This is a candidate finder, not a proof of safety, and its own margin has
+already been shown to be insufficient at some points even after one revision
+(0.75x -> 0.5x, 2026-07-14, after a 7-point boundary-mapping exercise found
+3 points where 0.75x wasn't enough but a further-tightened sponge, down to
+roughly 0.4-0.6x the ladder pick, rescued every one of them). Within
+V0<=0.05, boundary-mapping around several points (alpha=1.5-2.5, kz=1-2.5)
+found NO hard physical wall -- every failure at the tool's recommendation
+was rescuable by tightening further, usually into the sp=6-10 range. That is
+NOT free: sponge compression is real and was measured directly (eigensolver),
+e.g. one point's gamma_exact fell 33% between an unsafe-loose and a
+safe-tight sponge.
 
-  alpha=1.0 V0=0.05 kz=1.5   -> sp=15  CLEAN  (full 100 TU, matches gamma_exact ~10%)
-  alpha=0.5 V0=0.05 kz=0.5   -> sp=15  CLEAN  (full 100 TU, matches gamma_exact ~16%)
-  alpha=0.3 V0=0.05 kz=0.5   -> sp=11  CLEAN  (full 100 TU)
-  alpha=2.0 V0=0.03 kz=1.5   -> sp=16  NEAR-MISS (flat to t~90, then creeping growth --
-                                        would likely exceed the halt threshold given more TU)
-  alpha=1.5 V0=0.10 kz=2.5   -> sp=12  FAILS  (blows up t=38); still fails even at sp=8,
-                                        the tightest value tried (blows up t=91, i.e.
-                                        tightening delays but does not eliminate it)
+**V0 transition mapped (2026-07-14)**: fixing alpha=1.5, kz=2.5 (the point
+that originally failed at V0=0.10) and sweeping V0 upward, retesting each at
+the sponge FLOOR (sp=5) when the tool's own recommendation still showed
+contamination:
 
-Every V0=0.03-0.05 point tested was clean or near-clean; the one V0=0.10
-point failed outright even near the sponge floor. This strongly suggests
-the outer-region instability's strength scales with V0 in a way this tool
-does not yet account for -- **do not trust this tool's output uncritically
-for V0 >~ 0.08 without a full-length CUDA spot-check**, and treat even the
-V0<=0.05 recommendations as a strong starting candidate that still merits a
+  V0=0.05  (baseline)         CLEAN at moderate sponge (sp~15, established earlier)
+  V0=0.06                     CLEAN at floor (sp=5): E/E0 stays ~0.99-1.01 the whole 100 TU
+  V0=0.07                     CLEAN at floor (sp=5), confirmed at TWO different (alpha,kz)
+  V0=0.08                     MILD near-miss even at floor: flat to t~96, creeps to E/E0~1.22
+  V0=0.09                     MODERATE near-miss even at floor: E/E0~1.28-1.35, visible by t~90
+  V0=0.10                     HARD FAIL even at floor (sp=8 tried): outright blowup, t~38-91
+                               depending on point
+
+This is a gradual transition, not a step: V0<=0.07 is genuinely usable (rescuable to fully
+clean with proper -- often quite tight -- sponge tuning); V0=0.08-0.09 is a real transition
+zone where even the tightest sponge leaves measurable residual contamination (would bias any
+quoted gamma high, not catastrophically wrong but not clean either); V0>=0.10 is a hard wall
+where the sponge mechanism fails regardless of tightness. **Do not trust this tool's output
+uncritically for V0 > 0.07 without a full-length CUDA spot-check**, and treat even the
+V0<=0.07 recommendations as a strong starting candidate that still merits a
 spot-check on the first point of any new (alpha, V0) series, not a proof.
-For the V0=0.1-class failures, the sponge mechanism itself may be
-insufficient regardless of how tight it's set -- the eigensolver's xi_cut
-hard-wall option (build_matrix(..., xi_cut=X), Dirichlet BC instead of soft
-damping) is untried here and is the next thing to check before assuming the
-point is unmeasurable. This whole area needs more understanding, not just a
-tighter dial -- see FINDINGS.md and PRESENTATION.md for the open-question
-reminder on what the outer branch actually is.
+For V0>=0.08, the sponge mechanism itself becomes insufficient regardless of
+how tight it's set -- the eigensolver's xi_cut hard-wall option
+(build_matrix(..., xi_cut=X), Dirichlet BC instead of soft damping) is
+untried here and is the next thing to check before assuming those points are
+unmeasurable. This whole area needs more understanding, not just a tighter
+dial -- see FINDINGS.md and PRESENTATION.md for the open-question reminder
+on what the outer branch actually is.
 
 Usage (CLI):
   python3 find_safe_sponge.py --alpha 1.0 --V0 0.05 --kz 1.5 --verbose
@@ -264,10 +277,16 @@ def main():
     args = p.parse_args()
 
     E.LX = 6.0 * np.pi
-    if args.V0 > 0.08:
-        print(f"WARNING: V0={args.V0} is outside the validated range (tested V0<=0.05 clean/"
-              f"near-clean; the one V0=0.10 point tested FAILED even at the sponge floor). "
-              f"Do not trust this output without a full-length CUDA spot-check.", file=sys.stderr)
+    if args.V0 > 0.09:
+        print(f"WARNING: V0={args.V0} is at/beyond the confirmed hard wall (V0=0.10 fails "
+              f"even at the sponge floor, sp=5-8). This point is likely unmeasurable with "
+              f"the sponge mechanism alone -- see the xi_cut note in this file's docstring.",
+              file=sys.stderr)
+    elif args.V0 > 0.07:
+        print(f"WARNING: V0={args.V0} is in the confirmed transition zone (V0=0.08-0.09: "
+              f"even the sponge floor leaves measurable residual contamination -- mild at "
+              f"0.08, moderate at 0.09, not eliminated). Any gamma reported here likely reads "
+              f"high. Do not trust it without a full-length CUDA spot-check.", file=sys.stderr)
     print(f"{'kz':>6} {'formula_sp':>10} {'safe_sp':>8} {'gamma_exact':>12} {'safe':>6}")
     for kz in args.kz:
         sp, g, info = find_safe_xi_sponge(args.alpha, args.V0, kz, args.EPS, args.NX,
