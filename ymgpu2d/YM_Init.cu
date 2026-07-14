@@ -81,7 +81,7 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
             if (seed.qA) qA_amp   = perturb_amp * V0 * seed.qA[x];
             if (seed.qB) qB_amp   = perturb_amp * V0 * seed.qB[x];
         } else {
-            fct_real_t xi_char = 1.0f / sqrtf(alpha_YM * (fct_real_t)k_mode * V0 + 1e-12f);
+            fct_real_t xi_char = 1.0f / sqrtf(alpha_YM * k_z * V0 + 1e-12f);
             az_amp = perturb_amp * V0 * expf(-0.5f * xi * xi / (xi_char * xi_char));
         }
         az2_init = az_amp * cosf(k_z * z_val);
