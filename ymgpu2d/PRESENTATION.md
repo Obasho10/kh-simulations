@@ -93,7 +93,13 @@ this program: the local Doppler/precession frequencies Ω_A(ξ) = k_z + αA_z¹(
 region becomes unstable to a *different*, faster EM mode; the absorbing "sponge"
 layer must be placed to contain it (right panel — the empirical safe limit
 γ_outer(sponge edge) ≤ 1.5 TU⁻¹ became a quantitative design rule,
-xi_sponge ≈ 1.3·k_z/(αV₀) capped to [5, 55]).
+xi_sponge ≈ 1.3·k_z/(αV₀) capped to [5, 55]). **That design rule was found
+(2026-07-14, §8.4) to not actually hold at the low-k_z/low-α·V₀ corner** — the
+formula's own cap pushes xi_sponge toward 55 there, and outer-branch
+eigenvalues up to γ≈1.4 (well above the 1.5 target only by luck, not
+enforcement) were found sitting inside that "designed" sponge. A corrected,
+per-point tool exists for V₀≲0.05 (`analysis/find_safe_sponge.py`); V₀≳0.08 is
+still open — see the §11 reminder.
 
 ---
 
@@ -327,6 +333,12 @@ and the final configuration is the one that survives all of them.
 
 Items 4–6 are genuine physics of the cold system (see §8.2 for what filtering
 them means); items 3, 8, 10 are numerics/process lessons now encoded in rules.
+**Item 9 was not actually closed by the "per-campaign sponge design rule"** —
+that rule's own formula was found (2026-07-14) to reintroduce exactly this
+failure at low k_z/low α·V₀ (§8.4, §11 item 3b), fixed for V₀≲0.05 and still
+open at V₀≳0.10. Treat "→ per-campaign sponge design rule" as the fate for
+the *originally tested* α≥3/V₀≥0.2 regime only, not as evidence the general
+mechanism is understood.
 
 ---
 
@@ -445,6 +457,43 @@ configs (candidate suspects: binary vintage, seed file, filter configuration on
 that node). Until the flagship series reproduces across nodes, cross-node
 reproduction of at least one campaign belongs on the pre-publication checklist.
 
+**Root cause found for the half-integer spikes (2026-07-14) — it was the sponge, not
+a box/filter-indexing bug.** The "suggesting a box-size/filter-indexing interaction"
+hypothesis above is superseded: field-decomposed one blown-up run and found
+By2/By3 (color-2/3 EM) exploding at exactly the target k_z bin, independent of the
+Az2/Az3 field the amplitude timeseries actually measures — this is the same
+category of failure already known and fixed for color-1 (an on-target EM
+instability the bandpass filter structurally cannot remove), just without the
+equivalent protection for color-2/3. Querying the eigensolver's full spectrum
+(not just the default near-γ_WKB shift) at the failing sponge value found a
+genuine eigenvalue at γ≈1.4 — the outer-region EM instability (§8.3, already
+known since Campaigns 19-21) — passing `is_localised()`'s check because that
+check's tolerance scales with xi_sponge itself, and the blind `xi_sponge_for()`
+formula pushes xi_sponge toward its 55 ceiling at exactly the low-k_z/low-α·V₀
+corner the half-integer campaigns targeted. **Confirmed by direct fix-and-rerun**,
+not just theory: tightening xi_sponge (e.g. 52→15 for one point) took a run from
+γ_sim=1.49 (8× the true value, blows up at t≈21 TU) to a full clean 100-TU run
+matching γ_exact to ~10%, reproduced on a second independent point.
+
+**But this fix is scope-limited, not universal — do not assume it rescues the
+whole suspect set.** `analysis/find_safe_sponge.py` automates the eigensolver-based
+search. Tested against 5 points with full 100-TU CUDA confirmation: every
+V₀≤0.05 point tested was clean or near-clean at the tool's recommended (much
+tighter) sponge, but the one V₀=0.10 point tested **failed outright, and still
+failed even at the tightest sponge tried** (near the floor) — tightening delayed
+the blowup (t=38→t=91) but did not eliminate it. This strongly suggests the
+outer-branch instability's strength scales with V₀ in a way sponge-tightening
+alone cannot fully counter once V₀ is large enough. **Practical consequence**:
+treat the half-integer/low-k_z contamination as fixable via sponge-tightening
+for V₀≲0.05 (still spot-check, not blind-trust), and as an **open problem**
+for V₀≳0.08 — those points may need a fundamentally different exclusion
+mechanism (e.g. the eigensolver's untried `xi_cut` hard-wall option) or may not
+be cleanly measurable with mode 6 as currently designed. **What the outer branch
+physically *is* — a genuine secondary instability of the shear+Az1 background,
+vs. a numerical artifact of the linearization/discretization, and why its rate
+would scale with V₀ — is still not understood and needs real investigation before
+any of this is called solved; see the reminder in §11.**
+
 ### 8.5 Growth-rate extraction: max-R² windows on multi-regime curves
 
 `presentation/plots/fig11_growth_curves_C25.png`
@@ -544,10 +593,19 @@ theorist, [N] = computationalist.** Status tags: ✅ solid, ⚠️ partially res
 
 6. **[P] How is the sponge not just an absorbing wall that you tuned until you
    liked the answer?**
-   ⚠️ It is tuned — but against a documented, physics-derived rule
-   (γ_outer(edge) ≤ 1.5 TU⁻¹), and its cost is measured (sim/exact vs
-   ξ_peak/xi_sponge; §8.3). The missing piece is extrapolation xi_sponge → ∞
-   (T2.7). Points where the sponge binds are flagged, not hidden.
+   ⚠️ It is tuned — against a documented, physics-derived rule
+   (γ_outer(edge) ≤ 1.5 TU⁻¹) — but that rule was found (2026-07-14) to not
+   actually hold at low k_z/low α·V₀: the production formula's own cap let
+   outer-branch eigenvalues up to γ≈1.4 sit inside the "designed" sponge, and
+   this directly explains a large fraction of the raw sweep table's
+   contamination (§8.4). A corrected, eigensolver-verified per-point tool now
+   exists and is confirmed by direct CUDA rerun for V₀≲0.05; it does not work
+   at V₀≳0.10 (still fails even at the tightest sponge tried) — so this
+   question is **not fully answered**, it is answered for part of the grid and
+   openly unresolved for the rest (§11 item 3b). The missing piece is still
+   extrapolation xi_sponge → ∞ (T2.7), now joined by understanding why the
+   outer branch's strength scales with V₀ at all. Points where the sponge
+   binds are flagged, not hidden.
 
 7. **[P] What is the actual free-energy source — shear, or the frozen field?**
    ❌ Open = §8.6. The drive vanishes with V₀, but the spatial structure is
@@ -689,9 +747,28 @@ In order of leverage per unit effort:
    local slope; re-audit C32–C39 (and every quoted campaign) the way C25 was
    audited; declare no-measurement where no plateau exists; reproduce one
    campaign cross-node (the t140-vs-t136 2× discrepancy must be understood, not
-   averaged over). Then propagate reliability flags into the npz tables,
-   quarantine the Lz=4π odd-k family, and re-derive the sub-k_z=1 claim from the
-   solver continuation (T1.3). Cheap and required before any public number.
+   averaged over). Sponge selection is now automatable for V₀≲0.05
+   (`analysis/find_safe_sponge.py`, §8.4) — use it plus a per-point CUDA
+   spot-check to re-run the V₀≤0.05 slice of the suspect set; the V₀≳0.08 slice
+   is still open (item 3b). Re-derive the sub-k_z=1 claim from the solver
+   continuation (T1.3) once the sponge-corrected data lands. Cheap and required
+   before any public number.
+3b. **⚠️ REMINDER — understand the outer-region EM instability itself, not just
+   dodge it (§8.3, §8.4).** Sponge-tightening empirically fixes the low-V₀
+   contamination but the mechanism is still not understood: is it a genuine
+   secondary instability of the shear+Az1 background, or a numerical artifact
+   of the linearization/discretization? Why does its strength appear to scale
+   with V₀ strongly enough that tightening the sponge to near the practical
+   floor still doesn't exclude it at V₀=0.10 (confirmed by direct CUDA test,
+   not assumed)? Does `xi_cut` (hard-wall Dirichlet, untried) succeed where a
+   soft sponge fails? Until this is answered, the "fix" is a validated
+   mitigation for one regime, not a solved problem — don't let the V₀≤0.05
+   success quietly become "the outer branch is handled" in later writing. This
+   also bears on the sponge-compression issue in §8.3 generally (same
+   instability, same absorbing mechanism) and may be worth a dedicated theory
+   pass (candidate: is this the same γ~(α³V₀²)^(1/3)-type Weibel scaling as
+   the k_z=0 mode in §5.1, evaluated in the outer region instead of at the
+   shear layer? — not checked).
 4. **T2.x referee-proofing batch** (each ≤1 day): linearity check, eigenfunction
    overlay figure, Gauss-law figure, sponge extrapolation, complex-ω table,
    dimensionless collapse.
