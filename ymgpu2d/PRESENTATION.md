@@ -20,8 +20,10 @@ potential, and measure the growth rate γ(k_z; α, V₀) of the resulting
 Kelvin–Helmholtz (KH) problem, motivated by `khaxn.pdf` and the WKB dispersion
 relation of `wkb.pdf` (eq. 33). The program now has a **three-level validation
 stack** — analytic WKB ← exact 1D linear eigensolver ← full 2D GPU simulation —
-with simulation-vs-eigensolver agreement of **0.93–0.99** on the best-controlled
-campaigns and thousands of fitted runs across a five-decade (α, V₀, k_z) grid. The
+with simulation-vs-eigensolver agreement of **0.96–0.99** on the plateau-audited
+points of the best-controlled campaigns (k_z=1–5; see §5.2 and §8.5 for what
+"audited" means and why k_z=6-type points are excluded) and thousands of fitted
+runs across a five-decade (α, V₀, k_z) grid. The
 headline physics: **the fastest-growing wavelength is selected by the gauge
 coupling (k_z,peak ≈ 2α), not by the flow profile** — the opposite of classical
 KH, where the shear-layer width sets the wavelength — and the dispersion curve is
@@ -186,7 +188,7 @@ geometry (Campaign 4), the simulation crosses the WKB curve — suppressed below
 effects, not code error — but it is the reason all production campaigns moved to
 a single-layer geometry.
 
-### 5.2 The validation stack at V₀=0.05 — sim/exact = 0.93–0.99
+### 5.2 The validation stack at V₀=0.05 — plateau rates match the eigensolver to 1–4% (kz≤5)
 
 `presentation/plots/fig03_validation_stack_v005.png`,
 `presentation/plots/fig11_growth_curves_C25.png`
@@ -194,19 +196,45 @@ a single-layer geometry.
 For the core V₀=0.05 series (α = 1.0, 1.5, 2.0, 2.5, 3.0 — campaigns C25,
 C32–C35) with 6-field eigenmode seeding and per-campaign matched sponges:
 
-| α | sim/exact (kz=1..6) | R² | kz_peak (sim / exact) |
-|---|---------------------|-----|----------------------|
-| 1.0 | 0.93–0.99 | ≥0.999 | 2 / 2 |
-| 1.5 | 0.96–0.99 | ≥0.999 | 3 / 3 |
-| 2.0 | 0.95–0.99 | ≥0.999 | 4 / 5 |
-| 2.5 | 0.95–0.99 | 1.000 | 4–5 / 5 |
-| 3.0 | 0.94–0.99 | 1.000 | 5 / 5 |
+| α | sim/exact (kz=1..5) | plateau audit | kz_peak (sim / exact) |
+|---|---------------------|---------------|----------------------|
+| 1.0 | 0.96–0.99 | done (fig11; see below) | 2 / 2 |
+| 1.5 | 0.98–0.99 | pending | 3 / 3 |
+| 2.0 | 0.97–0.99 | pending | 4 / 5 |
+| 2.5 | 0.97–0.99 | pending | 4–5 / 5 |
+| 3.0 | 0.97–0.99 | pending | 5 / 5 |
 
-fig11 shows what "clean" means here: pure exponentials over decades with fitted
-R² = 1.000. The 2D initial-value simulation reproduces the 1D eigenvalue to a few
-percent across 30 (α, k_z) points simultaneously. **This is the strongest
-methodological claim of the program**: the measurement machinery is quantitatively
-under control wherever the mode is contained by the sponge and seeded correctly.
+(kz=6 columns are deliberately excluded — see below.)
+
+**How to read the growth curves — and how not to** (fig11). The measured
+amplitude curves are **not single exponentials**. Each has three regimes:
+(1) a seed-dominated transient over the first ~20–30 TU, where the static
+Gaussian Az seed swamps the growing component and the local slope climbs from
+roughly half its final value; (2) a **plateau** (t ≈ 35–55 TU) where the local
+slope d ln A/dt is flat to three decimals; (3) a post-kink late regime
+(t ≳ 55–60) where the slope declines as the run approaches its nonlinear end.
+The published fitting pipeline selects the sliding window with maximum R² —
+and a smooth transition between regimes is *locally the straightest part of the
+curve*, so max-R² windows are actually **attracted to regime transitions**, and
+"R² = 1.000" carries almost no information about window placement (at 1-TU
+cadence, nearly any ~10 TU stretch is locally straight). Re-auditing the C25
+series against the local slope: the kz=2–4 windows landed on the plateau; the
+kz=1 window landed in the post-kink regime (its value agrees with the plateau
+essentially by luck); kz=5 straddles the kink; and **kz=6 has no plateau at
+all** — its local slope wanders between 0.007 and 0.10, and refitting the same
+timeseries with the batch fitter gives 0.088 vs the reported 0.057, a ~50%
+fitter dependence. The defensible statement is therefore: **the local-slope
+plateau — a window-free quantity — matches γ_exact to 0.7–3.6% for kz = 1–5**
+(0.0889/0.0897, 0.1211/0.1220, 0.0927/0.0933, 0.0810/0.0819, 0.0643/0.0667),
+and the kz=6 point should not be quoted. The C32–C35 campaigns used the same
+pipeline and need the same plateau audit before their per-point numbers are
+quoted individually (§8.5, §11).
+
+With that caveat stated: the 2D initial-value simulation reproduces the 1D
+eigenvalue to a few percent across the audited points, which remains the
+program's central methodological claim — the machinery is quantitatively under
+control wherever the mode is sponge-contained, correctly seeded, *and* the fit
+is read off a verified plateau.
 
 ### 5.3 Headline result — non-monotonic dispersion and coupling-selected k_z,peak
 
@@ -323,10 +351,12 @@ them means); items 3, 8, 10 are numerics/process lessons now encoded in rules.
   absolute residual growing with the (exponentially growing) fields, spatially
   localized at the mode. This is small but deserves its promised paper figure and
   a statement (roadmap T2.3); a referee will ask (§9, Q17).
-- **Fit quality**: production campaigns report R² ≥ 0.999; growth measured on the
-  circular amplitude, immune to Im(γ) phase rotation.
+- **Fit quality**: production campaigns report R² ≥ 0.999, but R² alone does not
+  certify window placement on multi-regime curves (§8.5) — the plateau in the
+  local slope is the meaningful diagnostic, audited so far only for C25. Growth
+  is measured on the circular amplitude, immune to Im(γ) phase rotation.
 - **Linearity check** (seed amplitude ×10/×0.1 ⇒ γ unchanged) is on the Tier-2
-  list but has *not* been run systematically yet — flagged in §8.6.
+  list but has *not* been run systematically yet — flagged in §8.7.
 
 ---
 
@@ -404,7 +434,43 @@ below k_z ≈ 1 should be shown publicly until a quality-gated re-analysis pass
 or excluded) is done.** The integer-k_z results of §5.2–5.3 are unaffected — they
 come from the curated per-campaign analyses, not the raw tables.
 
-### 8.5 Is "Kelvin–Helmholtz" even the right name?
+A related and sharper reproducibility finding (2026-07-12): a **later re-run of
+the C25 series at identical nominal parameters** (α=1, V₀=0.05, xi_sponge=20, on
+t140 instead of t136) shows a k_z=1 local-slope *plateau* of 0.174 — **twice the
+eigensolver value** and twice the original C25 measurement — and that
+contaminated value is exactly what sits in the sweep table at (α=1, V₀=0.05,
+k_z=1). This is not a fit artifact (the plateau itself is wrong), so something
+physical-or-numerical differs between the two runs despite identical nominal
+configs (candidate suspects: binary vintage, seed file, filter configuration on
+that node). Until the flagship series reproduces across nodes, cross-node
+reproduction of at least one campaign belongs on the pre-publication checklist.
+
+### 8.5 Growth-rate extraction: max-R² windows on multi-regime curves
+
+`presentation/plots/fig11_growth_curves_C25.png`
+
+The standard fitter (`fit_growth_rate` in `batch_analyze.py`, and the same idea
+in `dispersion_ym.py`) scans all sliding windows and keeps the one with maximum
+R². On curves with multiple growth regimes (§5.2: seed transient → plateau →
+late decline) this criterion is **attracted to inflection points** — the
+transition between two regimes is where the curve is locally straightest — so a
+reported R² of 1.000 does not certify that the window sits on the physical
+growth phase. Audited consequences on the flagship C25 series: two of six
+windows landed cleanly on the plateau, three touched or straddled the late
+kink, one (k_z=1) sat entirely in the post-kink regime, and k_z=6 — which has
+no plateau at all — gave values differing by ~50% between two fitters. The
+plateau in the local slope d ln A/dt is the fitter-independent quantity, and it
+vindicates the C25 measurement for k_z=1–5 (§5.2) — but that audit has been done
+for **one campaign of ~30**. Required before publication: (a) replace or
+supplement max-R² selection with plateau detection (fit windows chosen by
+flatness of the local slope, minimum plateau duration in e-folding times);
+(b) re-audit every campaign whose numbers are quoted; (c) declare "no reliable
+measurement" wherever no plateau exists (as at C25 k_z=6) instead of reporting
+the best-R² number. Credit where due: this issue was caught by inspection of
+the published growth-curve figure, not by the pipeline's own diagnostics —
+which is precisely the problem.
+
+### 8.6 Is "Kelvin–Helmholtz" even the right name?
 
 The eigenmode frequently peaks far from the shear layer, at the Ω_A ≈ 0 surface
 (fig08). The instability is driven by the shear flow (it vanishes as V₀→0) but
@@ -415,7 +481,7 @@ which fraction of the growth is "KH-like". This is a naming/framing risk for the
 papers more than a correctness risk — but a referee who plots our own
 eigenfunctions will raise it, so the diagnostic should exist before submission.
 
-### 8.6 Smaller open flanks (each cheap to close — Tier 2 of the roadmap)
+### 8.7 Smaller open flanks (each cheap to close — Tier 2 of the roadmap)
 
 - **Complex frequency unreported**: several campaigns have Im(γ) ≠ 0
   (oscillatory envelopes bias naive fits — diagnosed in C19b/C20b); Re(ω)
@@ -484,7 +550,7 @@ theorist, [N] = computationalist.** Status tags: ✅ solid, ⚠️ partially res
    (T2.7). Points where the sponge binds are flagged, not hidden.
 
 7. **[P] What is the actual free-energy source — shear, or the frozen field?**
-   ❌ Open = §8.5. The drive vanishes with V₀, but the spatial structure is
+   ❌ Open = §8.6. The drive vanishes with V₀, but the spatial structure is
    background-resonant. T1.5 (energy-transfer budget) will answer it; until then
    we say "shear-driven non-Abelian mode" rather than claiming classical-KH
    character.
@@ -557,10 +623,24 @@ theorist, [N] = computationalist.** Status tags: ✅ solid, ⚠️ partially res
 
 18. **[N] 5,800 runs on shared university GPUs — how do you know a given batch
     ran the binary/config you think it did?**
-    ✅ Two incidents (stale binary, stale extraction script) led to hard rules:
+    ✅/⚠️ Two incidents (stale binary, stale extraction script) led to hard rules:
     rebuild + 1-TU smoke test after every source sync; md5-verify analysis
     scripts per node; directory-name encodes full parameter set; runs
-    re-extractable from raw CSV dumps.
+    re-extractable from raw CSV dumps. ⚠️ And one open case: a same-config re-run
+    of the flagship series on a different node gives 2× the k_z=1 rate (§8.4) —
+    cross-node reproduction is not yet demonstrated.
+
+19. **[N] Your legends say R² = 1.000 everywhere. Isn't that meaningless — the
+    curves visibly have several linear regimes, and some fit windows sit right
+    on the transitions?**
+    ⚠️ Correct, and this was caught by exactly that observation (§8.5, fig11).
+    R² over a max-R²-selected sliding window certifies local straightness, which
+    near a smooth regime transition is guaranteed, not informative. The
+    defensible quantity is the plateau of the local slope d ln A/dt; the C25
+    audit shows the plateau matches the eigensolver to 0.7–3.6% for k_z=1–5 and
+    exposes k_z=6 as having no measurement at all. Plateau-based fitting and a
+    re-audit of every quoted campaign are queued (§11 item 3) before any of the
+    per-point numbers go into a paper.
 
 ---
 
@@ -604,16 +684,20 @@ In order of leverage per unit effort:
 2. **T1.4 warm-fluid closure + filter-free rerun** (code: small; runs: days).
    Converts the program's biggest vulnerability (§8.1) into its biggest
    validation. Also unlocks papers C/D/E.
-3. **Sweep-table curation** (§8.4; analysis-only). Propagate reliability flags
-   into the npz tables; quarantine the Lz=4π odd-k family; re-derive the
-   sub-k_z=1 claim from the solver continuation (T1.3). Cheap and required before
-   any public map.
+3. **Fit-methodology hardening + sweep-table curation** (§8.4, §8.5;
+   analysis-only). Replace max-R² window selection with plateau detection on the
+   local slope; re-audit C32–C39 (and every quoted campaign) the way C25 was
+   audited; declare no-measurement where no plateau exists; reproduce one
+   campaign cross-node (the t140-vs-t136 2× discrepancy must be understood, not
+   averaged over). Then propagate reliability flags into the npz tables,
+   quarantine the Lz=4π odd-k family, and re-derive the sub-k_z=1 claim from the
+   solver continuation (T1.3). Cheap and required before any public number.
 4. **T2.x referee-proofing batch** (each ≤1 day): linearity check, eigenfunction
    overlay figure, Gauss-law figure, sponge extrapolation, complex-ω table,
    dimensionless collapse.
 5. **T1.2 exact-action WKB** (theory): explain k_z,peak ≈ 2α; closes the
    theory–numerics loop for the Letter.
-6. **T1.5 energetics** (post-processing): settles the naming question (§8.5).
+6. **T1.5 energetics** (post-processing): settles the naming question (§8.6).
 7. **T1.6 non-Abelian Kolmogorov flow** (new equilibrium; the nonlinear paper):
    removes the frozen-background and sponge caveats *simultaneously*, and its
    saturation outputs feed the dark-matter application.
@@ -631,5 +715,5 @@ In order of leverage per unit effort:
 - Analysis: `analysis/remote_timeseries.py` on-node → rsync `timeseries_k*.csv`
   → `analysis/batch_analyze.py` → `analysis/make_sweep_tables.py --fill`.
 - Presentation figures: `python3 presentation/make_plots.py` (figs 01, 05, 06,
-  07, 12 regenerate from the npz tables and FINDINGS master table; the rest are
-  curated copies from `plots/`).
+  07, 11, 12 regenerate from the npz tables, the t136 timeseries mirror, and the
+  FINDINGS master table; the rest are curated copies from `plots/`).
