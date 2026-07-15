@@ -21,6 +21,12 @@ struct RunConfig {
     int   kz_suppress_max = 0;
     float eps_override   = -1.0f;   // -1 = Lx/6
     int   kz_suppress_hi  = 0;
+    float vz_edge_taper  = 0.0f;    // >0: taper vz smoothly to 0 for |ξ| beyond this
+                                    // (width 3 ξ-units), modes 1/6 — removes the
+                                    // periodic-wrap vz discontinuity that destroys
+                                    // suppress_kz0=0 runs (kz=0 wrap collapse, see
+                                    // OUTER_REGION.md). Put it well outside the
+                                    // measurement window (e.g. 50).
     int   init_by1_eq    = 0;       // 1 = initialize By1 to the current-consistent
                                     // color-1 equilibrium (∂x By1 = Jz1) in modes 1/6.
                                     // Required for suppress_kz0=0 runs: with By1=0 the

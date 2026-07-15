@@ -216,7 +216,7 @@ int main(int argc, char* argv[]) {
 
     kernel_ym_init<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB,
                                              NX, NZ, DX, DZ, k_mode, p_amp, V0, EPS, run_mode, (float)aYM,
-                                             cfg.init_by1_eq, h_seed);
+                                             cfg.init_by1_eq, cfg.vz_edge_taper, h_seed);
     cudaDeviceSynchronize();
 
     // Derive velocities and precompute initial sources

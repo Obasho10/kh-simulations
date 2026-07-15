@@ -56,6 +56,7 @@ RunConfig load_config(const std::string& path) {
         else if (key == "eps_override")      cfg.eps_override       = std::stof(val);
         else if (key == "kz_suppress_hi")    cfg.kz_suppress_hi     = std::stoi(val);
         else if (key == "init_by1_eq")       cfg.init_by1_eq        = std::stoi(val);
+        else if (key == "vz_edge_taper")     cfg.vz_edge_taper      = std::stof(val);
         else if (key == "nz_override")       cfg.nz_override        = std::stoi(val);
         else if (key == "nx_override")       cfg.nx_override        = std::stoi(val);
         else if (key == "courant_override")  cfg.courant_override   = std::stof(val);
@@ -101,7 +102,8 @@ RunConfig load_config(const std::string& path) {
               << "  kz_suppress_max=" << cfg.kz_suppress_max
               << "  kz_suppress_hi="  << cfg.kz_suppress_hi
               << "  eps_override=" << cfg.eps_override
-              << "  init_by1_eq=" << cfg.init_by1_eq << "\n"
+              << "  init_by1_eq=" << cfg.init_by1_eq
+              << "  vz_edge_taper=" << cfg.vz_edge_taper << "\n"
               << " NX=" << NX << "  NZ=" << NZ
               << "  LX=" << LX << "  LZ=" << LZ
               << "  DX=" << DX << "  DZ=" << DZ
