@@ -80,11 +80,35 @@ Data artifacts on the iMac: `~/ym_kh/forensics_diffkz.npz` (the 98-snapshot
 reduction), `~/ym_kh/onset_census.csv`, `~/ym_kh/energy_pull/` (all t130/t140
 energy histories as of 2026-07-15).
 
+## Self-consistent (unfrozen Az1) test — DONE 2026-07-15/16 (t133)
+
+Full numbers: FINDINGS.md §"Self-consistent (unfrozen Az1) test". Headlines:
+
+- **Frozen approximation validated**: unfreezing Az1 leaves the tachyonic
+  branch's linear rate unchanged (documented sp=52 blowup reproduced, γ=1.45
+  vs eigensolver 1.43–1.46); unfrozen runs die ~3 TU *earlier*.
+- **No depletion — the back-reaction has the opposite sign**: differencing
+  seeded vs unseeded unfrozen runs isolates ΔAz1 ≈ −0.04·|a|² at the mode
+  peak — the wave *deepens* the background (positive feedback). Depletion
+  would need |a|≈50·V0, far beyond fluid-model validity. Saturation is by
+  fluid nonlinearity, not background drain; the frozen "infinite battery" is
+  not an overestimate.
+- **A quiet self-consistent color-1 background does not exist**: three
+  obstructions found — periodic-wrap vz-discontinuity collapse (fixed:
+  `vz_edge_taper`), out-of-equilibrium By1 secular pump (fixed:
+  `init_by1_eq`), and the kz=0 chromo-Weibel of the beams (γ=0.284 here,
+  irreducible). The wrap collapse — not the Weibel alone — is the real
+  reason `suppress_kz0=1` is mandatory in production.
+- New code (committed): Az1 snapshot column (trailing, name-safe),
+  `init_by1_eq`, `vz_edge_taper` .ini keys; `analysis/depletion_extract.py`.
+  Experiment runs live on t133 `/DATA/ym_kh/ymgpu2d/outputs/*dep*`;
+  reductions on the iMac (`~/ym_kh/dep_*.npz`, `dep3_*.npz`).
+
 ## Open items
 
 - Post-cavitation survival-time dependence on window radius: characterized
   empirically, mechanism not pinned (suspect: cavitated-volume size).
 - A V0=0.08–0.09 run with snapshots retained, to watch marginal cavitation
   directly (all controlled-series snapshot dirs except `diffkz` were cleaned).
-- Self-consistent (unfrozen Az1) check of background depletion by the
-  tachyonic branch — relevant to the khaxn physics story, not just numerics.
+- Retrieve/analyze the sp=42 confirmation trio on t133 (launched before a
+  connectivity drop) to refine the −0.04·|a|² coefficient at |a|→O(1).

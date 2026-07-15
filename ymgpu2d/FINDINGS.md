@@ -2282,3 +2282,86 @@ conclusions rest on.
 4. Open: post-cavitation survival-time mechanism; a V0=0.08-0.09 run with
    snapshots retained to watch marginal cavitation; self-consistent Az1
    depletion by the tachyonic branch (khaxn-relevant).
+
+---
+
+## Self-consistent (unfrozen Az1) test of the tachyonic branch — depletion does NOT occur; the back-reaction DEEPENS the background (2026-07-15/16, t133)
+
+Follow-up to the mechanism identification above (OUTER_REGION.md open item
+#3). New node t133 set up for this (see CLAUDE.md §Server Setup). Reference
+point: α=1.0, V0=0.05, kz_phys=1.5 (bp28 box), the documented tachyonic
+configuration. Code additions (committed): Az1 snapshot export column,
+`init_by1_eq`, `vz_edge_taper` — see those commits for details.
+
+### Result 1 — the frozen approximation is validated for the linear phase
+
+Frozen reference (sp=52, suppress_kz0=1) reproduces the documented blowup
+exactly (halt t=21.4, γ from snapshots 1.45 vs eigensolver 1.43-1.46).
+Unfrozen + color-1-live variants grow at the same rate, halting only ~3 TU
+earlier (extra seeding via color-1 noise). Freezing Az1 does not
+meaningfully distort the tachyonic branch's linear growth.
+
+### Result 2 — three obstructions to a self-consistent color-1 sector,
+two fixed, one physical
+
+Any depletion measurement needs `suppress_kz0=0` (the sponge/filters never
+touch Az1, and the depletion channel is mode² → By1/Ez1 @ kz=0 → Az1).
+Doing that exposed, in order:
+
+1. **Periodic-wrap collapse** (dominant): the single-tanh vz jumps ±V0
+   across the wrap at |ξ|=62.8; with kz=0 live this drives nA → floor at the
+   box edge by t≈6, junk propagating inward at c. **This — not the Weibel
+   alone — is the real reason suppress_kz0=1 is mandatory in production.**
+   Fixed by `vz_edge_taper=50` (+ By1_eq integrating the tapered current).
+2. **Secular By1 pump at the shear layer**: with By1=0 init the color-1
+   sector is out of equilibrium (∂x By1 ≠ Jz1 = −2V0 tanh ξ); the screened
+   DC of Ez1 pumps By1 at the layer (dBy1≈0.45 by t=12) → collapse. Fixed by
+   `init_by1_eq=1` (current-consistent By1, half-cell-shifted to make the
+   backward-difference Ampere stencil exact to O(dx²)). Az1 needs no fix —
+   ∂x Az1 never enters the dynamics.
+3. **kz=0 chromo-Weibel of the beams themselves** (irreducible physics):
+   γ=0.284 at this (α,V0) per the documented formula, seeded at O(10⁻²) by
+   the residual equilibration transient → E/E0 blowup at t≈23 in every
+   sk0=0 run regardless of seed/freeze. This is the hard floor: a "quiet"
+   self-consistent counter-streaming background does not exist — some kz=0
+   channel is always growing.
+
+### Result 3 — the back-reaction is real, quadratic, and has the WRONG SIGN
+for depletion
+
+Differencing unfrozen seeded vs unfrozen unseeded runs (identical
+deterministic background dynamics cancels; B−C in the run tags) isolates the
+tachyon's own imprint on Az1@kz=0:
+
+| t | mode max\|a\| (annulus) | max\|ΔAz1\| (annulus) |
+|---|---|---|
+| 12 | 1.4e-4 | < 1e-6 |
+| 14 | 3.0e-3 | 3.6e-6 |
+| 16 | 6.1e-2 | 1.6e-4 |
+| 17 | 2.9e-1 | 3.6e-3 |
+
+Clean quadratic scaling: **ΔAz1 ≈ −0.04·|a|²**, localized at the mode peak
+(ξ≈+49). The sign is *negative where Az1<0*: the wave makes the background
+**deeper** (|αAz1| larger), not shallower — anti-screening / positive
+feedback, consistent with unfrozen runs dying slightly earlier than frozen.
+Extrapolating the quadratic law, self-quenching by background modification
+would require |a| ≈ 2.5 (≈50 V0) — far beyond where the fluid model dies
+(density cavitation / energy halt at |a| ≈ 0.3-0.5). **Depletion is not the
+saturation route for this branch in this model.** The physical picture to
+quote: the frozen-Az1 approximation is conservative — self-consistency makes
+the tachyonic branch (slightly) worse, and its true saturation is by fluid
+nonlinearity, not background drain.
+
+(A confirmation trio at an intermediate-rate annulus — sp=42, γ=0.642,
+eigenvector-seeded at 20× amplitude to push |a| toward O(1) inside the
+pre-Weibel window — was launched on t133; connectivity dropped before
+retrieval. Its analysis can only strengthen/refine the quadratic-law
+coefficient; the sign and scaling above are already established by the
+sp=52 pair.)
+
+**Physics interpretation for khaxn**: in a fully self-consistent setting the
+counter-streaming beams continuously re-supply the color-1 background (and
+the charged waves locally deepen it); the frozen-background "infinite
+battery" is therefore not an overestimate of the drive — the instability of
+such backgrounds is robust, and its endpoint is fluid-scale (cavitation)
+rather than field-scale (depletion).
