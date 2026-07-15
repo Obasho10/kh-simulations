@@ -811,7 +811,23 @@ In order of leverage per unit effort:
    is still open (item 3b). Re-derive the sub-k_z=1 claim from the solver
    continuation (T1.3) once the sponge-corrected data lands. Cheap and required
    before any public number.
-3b. **⚠️ REMINDER — understand the outer-region EM instability itself, not just
+3b. **✅ RESOLVED 2026-07-15 — see `OUTER_REGION.md` (summary) and FINDINGS.md
+   §"Outer-region growth rates: mechanisms identified" (full numbers),
+   PHYSICS.md §10 (derivations).** Two separate mechanisms were conflated:
+   (i) the loose-window contamination is a genuine linear *tachyonic
+   charged-wave instability of the frozen Az1 background* (γ²=α²Az1²−kz²
+   where |αAz1|>kz — the WKB well's own trapping term past its rim; physical
+   in-model, not numerical, correctly excluded by windowing); (ii) the late
+   catastrophe below (incl. the V₀≥0.08 "hard wall") is **not outer-region
+   at all** — it is density cavitation of the physical KH mode at the shear
+   layer (nA hits the 0.05 floor ~35 TU before the terminal jump; amplitude
+   threshold confirmed across sibling runs; eigensolver blind by
+   construction — no fluid dof). The V₀-scaling question is answered
+   (amplitude competition: cavitation vs benign saturation), and the §5.1
+   Weibel-scaling speculation below is moot. Original open-question text
+   kept for context:
+
+   **⚠️ REMINDER (superseded) — understand the outer-region EM instability itself, not just
    dodge it (§8.3, §8.4).** `xi_cut` (hard-wall Dirichlet BC), implemented in
    CUDA and tested 2026-07-15, **substantially outperforms the soft sponge at
    V₀=0.09-0.10 but does not eliminate the failure — it delays it**, by a lot.

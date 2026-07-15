@@ -2128,3 +2128,157 @@ bifurcation, or something else); find xi_cut's onset-time dependence on (α, k_z
 (only one cross-check point so far); check whether target_tu capped below the observed onset is
 sufficient for reliable production use, or whether the onset time itself needs to be predicted per-point
 before trusting a run not to hit it mid-measurement.
+
+---
+
+## Outer-region growth rates: mechanisms identified (2026-07-15 investigation)
+
+Dedicated investigation into what the "outer-region instability" physically is
+(the open item flagged in the 2026-07-14 sections above and PRESENTATION.md
+item 3b). Summary hub: `OUTER_REGION.md`. Derivations: `PHYSICS.md` §10.
+Analysis ran on the lab iMac (new CPU work machine — see CLAUDE.md §Server
+Setup); tools: `analysis/outer_region_theory.py`,
+`analysis/catastrophe_forensics.py`, `analysis/onset_census.py`.
+
+**Headline: two unrelated mechanisms were being conflated.** The fast
+contamination at loose sponges is a *linear, outer-region, purely-EM
+tachyonic instability of the frozen Az1 background* (physical in-model,
+predictable, correctly excluded by windowing). The late-onset catastrophe
+(the "V0≥0.08 hard wall", the xi_cut radius-sweep failures) is *not an
+outer-region effect at all* — it is finite-amplitude **density cavitation of
+the physical KH mode at the shear layer**, followed by a long-lived
+floored-density state and a delayed terminal blowup.
+
+### 1. The linear outer branch is the tachyonic charged-wave instability
+
+At kx=0 the linearized color-2/3 Faraday/Ampere pair closes on itself:
+γb = −iΩ_F·ex, γex = −iΩ_A·b ⇒ **γ² = −Ω_A·Ω_F = α²Az1² − kz²** — growth
+wherever |α·Az1(ξ)| > kz, i.e. |ξ| > ξ_crit ≈ kz/(αV0) + ln2. This is the
+γ_outer ≈ √(|Ω_A|·Ω_F) empirical rule of the 2026-07-02 sponge-design section,
+now derived and identified: the covariant derivative gives the two circular
+polarizations kz_eff = kz ± αAz1; past ξ_crit one of them is tachyonic
+(Nielsen-Olesen-type mechanism). It is the same α²V0kz-type term that forms
+the WKB confining well — the outer branch is the trapping term continued past
+the well rim.
+
+Quantitative check (`outer_region_theory.py validate`, iMac) at the
+documented worst case α=1.0, V0=0.05, kz_phys=1.5, xi_sponge=52, NX=384 — the
+full 6-field local dispersion γ_loc(ξ) (numerically maximized over kx) equals
+the analytic tachyonic law **exactly** at every outer eigenmode peak (fluid
+terms contribute nothing out there — pure EM mechanism):
+
+| γ_eigensolver | ξ_peak | γ_loc(ξ_peak)=γ_tac | eig/local |
+|---|---|---|---|
+| 1.4598 | +48.4 | 1.857 | 0.79 |
+| 1.4284 | −48.1 | 1.836 | 0.78 |
+| 0.3415 | −38.0 | 1.106 | 0.31 |
+| 0.3316 | +38.0 | 1.106 | 0.30 |
+| 0.2075 | +37.3 | 1.049 | 0.20 |
+
+The global (eigensolver) rates sit *below* the local envelope in a discrete
+ladder — standard global-mode structure: finite-width kx-quantization inside
+the tachyonic annulus [ξ_crit, wall] costs growth (Airy-type quenching; this
+is also why a tight sponge/cut kills the branch entirely even though γ_loc>0
+pointwise there — the annulus becomes too narrow to hold a bound state).
+
+**Not a numerical artifact** — three independent confirmations: analytic
+local law; float64 scipy eigensolver; float32 CUDA rates (documented
+2026-07-14: CUDA 0.786 vs eigensolver 0.75-0.76 at this point). Rates scale
+with physics (αAz1 product — cf. C19 vs C20 identical γ_outer at equal
+α·Az1), not with resolution. **Physical caveat**: its unbounded energy source
+is the *frozen* Az1 — an external battery. Self-consistently the branch would
+deplete the background (chromo-background decay by charged-wave emission);
+its presence is a property of the idealized model, so excluding it by
+windowing is legitimate, not sweeping physics under the rug.
+
+### 2. The late catastrophe is density cavitation at the shear layer
+
+Direct forensics on the one failing run with dense snapshots retained —
+`ym_k3_a2.000_..._v0.1000_xc5.0_..._xc5_v10_diffkz` on t140 (α=2.0,
+kz_phys=1.5, V0=0.10, xi_cut=5, 98 snapshots ≈1/TU, terminal jump t=97.7).
+Reduction: `catastrophe_forensics.py extract` on t140 → 9 MB npz → analyzed
+on the iMac (`~/ym_kh/forensics_diffkz.npz`). Snapshot format now carries 25
+columns incl. nA/nB densities and all E fields.
+
+Timeline (all at the **shear layer**, inside the xi_cut window):
+
+- t≈30–55: physical KH mode grows (By2@k_mode local slope ≈0.19,
+  eigensolver γ_exact(xc5)≈0.19-0.20 for this point) — the documented clean
+  plateau.
+- **min-density trace: nA_min = 1.0 (t≤32) → 0.9987 (t=40) → 0.975 (t=48) →
+  0.64 (t=56) → 0.0500 = the code's density floor (t=64), and stays pinned
+  there for the remaining ~34 TU.** Cavitation completes ~35 TU before the
+  energy catastrophe.
+- The density perturbation nA@k_mode is the cleanest-growing channel
+  (γ=0.160, r²=0.98 over t=40-97 — consistent with the δn ~ mode-quadratic
+  compressive response at ≈2×the saturating mode rate). Its x-power is 96%
+  inside |ξ|<5 by t=57, 99.9% by t=81. **The outer region is quiet.**
+- t=64→97: bounded floored-pocket state (E/E0 creeps 1.00→1.09 — energy.csv
+  only sees the tail of this); t=97.7: terminal 6-order jump (p/n divisions
+  against the floor).
+
+**Amplitude threshold confirmed across sibling runs** (same-method
+comparisons): the V0=0.07 sibling (`xicut_acc`, clean full 100 TU) peaked at
+timeseries-amp 1.0×10⁻³ — an order of magnitude below cavitation; the
+V0=0.10 survivor (`xicut_v10`, kz=2.5) reached 9.4×10⁻³ at t=99.6, just
+approaching threshold exactly as its E/E0 creep appeared (t≳70). In
+spectral-amp units the diffkz cavitation threshold is ~1–2×10⁻² (By2-channel,
+this config). So **V0 sets whether the drive reaches cavitation amplitude
+within the run** — the gradual V0=0.05→0.10 transition mapped on 2026-07-14
+is an amplitude competition (benign saturation vs cavitation), not a
+distinct outer instability turning on.
+
+**Why the eigensolver is blind** (the previously-unexplained 2026-07-15
+limitation): both because the effect is nonlinear *and* because the
+eigensolver's state vector [b,ex,ez,a,qA,qB] contains no fluid density or
+momentum dof at all — by construction it cannot represent cavitation at any
+amplitude.
+
+**xi_cut radius ordering explained-in-part**: eigensolver γ_exact across
+xc=5→15 (α=1.5, kz=2.5, V0=0.10, measured on iMac): 0.2163, 0.2187, 0.2225,
+0.2262, 0.2294, 0.2234 — only a 6% spread, so the radius trend of the
+*terminal* jump (t≈27 at r=15 vs >100 at r=5) is **not** a growth-rate
+(compression) effect: cavitation happens at ≈the same time regardless of
+radius; the radius controls how long the *post-cavitation floored state*
+survives (empirical; suspect cavitated-volume size / wall proximity
+quenching). Practical rule unchanged: xi_cut=5, cap target_tu past the
+plateau.
+
+### 3. Tested and rejected: outer two-stream as the catastrophe driver
+
+The color-1 cold two-stream at the retained kz was a strong a-priori
+candidate (α-independent, rate γ_ts ∝ kzV0 at small kV — the right V0
+scaling; exact code-units dispersion γ² = √(4(kV)²+1) − (kV)² − 1 with
+per-beam ωp=1, whose kV<√2 cutoff *exactly* reproduces the documented
+kz_ts≈14 band at V0=0.1; predicted time-to-blowup 14/γ_ts: 59 TU at V0=0.10
+→ 114 TU at V0=0.05, eerily matching the observed V0 ladder). **Forensics
+rejects it**: PzA/nA growth localizes at the shear layer, not in the
+|vz|≈V0 outer region, and the implied-seed consistency breaks on the α=2.0
+cross-check. Kept documented here because the onset-time coincidence is a
+trap future analysis could re-fall into; `outer_region_theory.py twostream`
+prints the full table.
+
+### 4. Population census (context, weaker evidence)
+
+`onset_census.py` over all 1,365 parseable t130+t140 runs (2026-07-15 pull,
+mirrored to iMac `~/ym_kh/energy_pull/`): 901 catastrophes / 45 creep / 419
+clean. Splitting by tachyon exposure (ξ_crit vs window radius) shows the
+loose-window population's creep rates (~1-2.5 TU⁻¹) in the documented
+global-tachyonic range, but the census creep fits conflate physical-mode
+saturation with contamination and mix Lz/bp conventions — treat as context
+only; the controlled-series + forensics evidence above is what the
+conclusions rest on.
+
+### Consequences for the program
+
+1. Windowed measurements are legitimate; plateaus completing before
+   cavitation are clean. xi_cut=5 remains the production mechanism.
+2. For V0≥0.08: predict/monitor cavitation via mode amplitude (timeseries
+   amp approaching ~10⁻² in this config), not via a fixed safe time; cap
+   target_tu accordingly. `find_safe_sponge.py`-style linear screens can
+   never certify against mechanism 2.
+3. The V0≤0.07 "safe zone" is not mechanistically different — it is where
+   saturation stays below the cavitation amplitude within 100 TU.
+4. Open: post-cavitation survival-time mechanism; a V0=0.08-0.09 run with
+   snapshots retained to watch marginal cavitation; self-consistent Az1
+   depletion by the tachyonic branch (khaxn-relevant).

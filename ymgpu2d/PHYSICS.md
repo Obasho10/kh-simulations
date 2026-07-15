@@ -338,3 +338,98 @@ Discretize on NX=768 points → sparse complex matrix M of size ~(NX×12)². Sol
 4. Extract dominant eigenvalue → compare to WKB
 5. Extract eigenvector → write Az2(x), By2(x), Q2A(x), ... profiles
 6. New init kernel reads the profile from a file (or a new run_mode=7) as seed
+
+---
+
+## 10. Outer-Region Growth: Tachyonic Background Instability and Cavitation (2026-07-15)
+
+Derivations behind the OUTER_REGION.md / FINDINGS.md (2026-07-15) mechanism
+identification. Numerical companions: `analysis/outer_region_theory.py`.
+
+### 10a. Tachyonic instability of the frozen Az1 background (linear, EM)
+
+Combine the color-2/3 fields into complex circular pairs (as in
+`ym_eigenmode.py`): b = By2+iBy3, ex = Ex2+iEx3, etc. In a locally uniform
+background (Az1 = A, vz = v const), with ∂t→γ, ∂z→ikz, ∂x→ikx, the linearized
+system is closed by the 6×6 matrix of `outer_region_theory.local_matrix`. At
+kx = 0 the magnetic/electric pair decouples:
+
+```
+γ b  = −i Ω_F ex          Ω_F = kz − αA      (Faraday + α(Az×Ex) term)
+γ ex = −i Ω_A b           Ω_A = kz + αA      (Ampere − α(Az×By) term)
+⇒  γ² = −Ω_A Ω_F = (αA)² − kz²
+```
+
+Interpretation: the covariant z-derivative D_z = ∂z ∓ iαAz1 gives the two
+circular color polarizations effective wavenumbers kz_eff = kz ± αA. Where
+|αA| > kz, the product Ω_A·Ω_F < 0 and one polarization is **tachyonic**:
+γ(ξ) = sqrt(α²Az1(ξ)² − kz²). For the mode-1/6 background Az1 = −V0 log cosh ξ
+(log cosh ξ ≈ ξ − ln 2 for ξ≳2) the instability region is
+
+```
+|ξ| > ξ_crit ≈ kz/(αV0) + ln 2 ,     γ_loc(ξ) ≈ sqrt( (αV0)²(ξ−ln2)² − kz² )
+```
+
+This is the same non-Abelian term that produces the α²V0kz coefficient in the
+WKB quartic (eq. 33) — i.e. the confining well and the outer instability are
+one mechanism on the two sides of ξ_crit. kx > 0 only subtracts (γ² → γ² −
+kx² to leading order), so γ_loc is the pointwise envelope; the fluid/charge
+terms (v-coupling rows) vanish from the growing branch in the outer region —
+verified numerically: γ_loc = γ_tachyonic exactly at all outer eigenmode
+peaks.
+
+**Global modes**: an eigenmode must fit inside the tachyonic annulus
+[ξ_crit, ξ_wall]; the x-envelope quantization costs growth, so global rates
+sit below the envelope (measured 0.78× at the widest tested annulus, a
+discrete ladder below that). A narrow annulus holds no bound state at all —
+an Airy-type estimate with wall value U_w = γ_loc²(ξ_wall) and slope
+U' = d(γ_loc²)/dx gives γ² ≈ U_w − 2.34·U'^{2/3}, negative for tight
+sponges/cuts — this is *why* windowing inside or near ξ_crit kills the branch
+completely rather than merely reducing it.
+
+**Energy source**: the frozen Az1. The instability converts background
+potential into charged waves; with freeze_az1=1 the battery is bottomless, so
+the branch grows until the box dies. Self-consistently it would deplete Az1
+(background decay by charged-wave emission) — the branch is a real linear
+mode of the model as posed, but its runaway character is an artifact of the
+freeze, which justifies excluding it from measurement windows.
+
+### 10b. Color-1 cold two-stream in code units (for reference; NOT the
+late-catastrophe mechanism)
+
+Each beam: n=1, |Q1|=1, m=1 ⇒ per-beam ωp² = 1 (ε0=1). Counter-streaming at
+±V, longitudinal color-1 channel:
+
+```
+1 = 1/(ω−kV)² + 1/(ω+kV)²   ⇒   γ²(kV) = sqrt(4(kV)²+1) − (kV)² − 1
+```
+
+Unstable band kV < √2 — at V0=0.1 this is kz < 14.1, matching the documented
+kz_ts ≈ 14 two-stream band exactly. Small-kV limit γ ≈ kV; maximum γ = 0.5 at
+kV = √3/2 (measured full-domain rates 0.7–0.9 include EM/Weibel corrections).
+The bandpass filter kills this on kz=1..k−1, k+1..kz_hi but *retains* kz =
+k_mode by design; nevertheless snapshot forensics (FINDINGS 2026-07-15) shows
+the late catastrophe does not grow in the outer ±V region, ruling this out as
+the driver.
+
+### 10c. Density cavitation of the finite-amplitude KH mode (nonlinear, fluid)
+
+Continuity, linearized about n=1: γ δn = −(ikz pz1 + ∂x px1), so the mode
+carries a first-order compressive response δn ~ (kz·pz1 + kx_eff·px1)/γ, plus
+a quadratic ponderomotive part growing at 2γ (the observed nA@k_mode rate ≈
+2× the saturating field rate). Cavitation (δn → n, i.e. n → the 0.05 code
+floor in `YM_Fluid.cu`) occurs when the momentum amplitude reaches
+
+```
+p_cav ~ γ / max(kz, kx_eff)        (order-of-magnitude threshold)
+```
+
+after which `safe_n = max(n, 0.05)` divisions decouple momentum from density
+and the model is no longer the physical system: a long-lived floored-pocket
+state (bounded, mildly elevated energy) persists for tens of TU before a
+terminal blowup. Because the threshold is on *amplitude*, whether a run
+cavitates within its length is set by drive strength (V0, via γ_exact and the
+saturation level) and effective seed — hence the observed *gradual*
+V0=0.05→0.10 transition and its insensitivity to window mechanism (sponge vs
+cut) and radius. The linear eigensolver cannot see any of this: the effect is
+nonlinear and the state vector [b,ex,ez,a,qA,qB] has no fluid n/p blocks.
