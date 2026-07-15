@@ -21,6 +21,13 @@ struct RunConfig {
     int   kz_suppress_max = 0;
     float eps_override   = -1.0f;   // -1 = Lx/6
     int   kz_suppress_hi  = 0;
+    int   init_by1_eq    = 0;       // 1 = initialize By1 to the current-consistent
+                                    // color-1 equilibrium (∂x By1 = Jz1) in modes 1/6.
+                                    // Required for suppress_kz0=0 runs: with By1=0 the
+                                    // color-1 background is out of equilibrium and the
+                                    // screened DC of Ez1 secularly pumps By1 at the
+                                    // shear layer → kz=0 density collapse by t≈12
+                                    // (2026-07-15 depletion experiment, OUTER_REGION.md)
 
     // ── Grid / timestep ───────────────────────────────────────────────────────
     int   nz_override      = -1;    // -1 = default 64

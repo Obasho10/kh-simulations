@@ -19,6 +19,7 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
                                 int k_mode, fct_real_t perturb_amp,
                                 fct_real_t V0, fct_real_t epsilon,
                                 int run_mode, fct_real_t alpha_YM,
+                                int init_by1_eq,
                                 YMSeedProfiles seed) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int z = blockIdx.y * blockDim.y + threadIdx.y;
@@ -86,6 +87,15 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
         }
         az2_init = az_amp * cosf(k_z * z_val);
         az3_init = az_amp * sinf(k_z * z_val);
+
+        // Current-consistent color-1 equilibrium (opt-in, needed for
+        // suppress_kz0=0): ∂x By1 = Jz1 = -2 V0 tanh(ξ) ⇒
+        // By1 = -2 V0 EPS (log cosh ξ - <log cosh>), zero-mean so no uniform
+        // v×B force. <log cosh> over the periodic box ≈ Lx/(4 EPS) - ln 2.
+        if (init_by1_eq) {
+            fct_real_t mean_lc = (nx * dx) / (4.0f * epsilon) - 0.693147f;
+            by1_init = -2.0f * V0 * epsilon * (logf(coshf(xi)) - mean_lc);
+        }
 
     } else if (run_mode == 2) {
         // EMHD_KH: color-1 Kelvin-Helmholtz; no Az1 coupling

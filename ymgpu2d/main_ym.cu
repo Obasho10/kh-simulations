@@ -131,6 +131,11 @@ int main(int argc, char* argv[]) {
     std::vector<fct_real_t> h_nA(num_cells), h_nB(num_cells);
     std::vector<fct_real_t> h_Q2A(num_cells), h_Q3A(num_cells);
     std::vector<fct_real_t> h_Q2B(num_cells), h_Q3B(num_cells);
+    // Az1 appended last (2026-07-15): static under freeze_az1=1, but the
+    // unfrozen background-depletion runs need its actual evolution — By1 is
+    // not slaved to ∂x Az1 once color-1 evolves. Name-based readers are
+    // unaffected by the extra trailing column.
+    std::vector<fct_real_t> h_Az1(num_cells);
 
     // ── Output directory ──
     std::ostringstream dir_ss;
@@ -211,7 +216,7 @@ int main(int argc, char* argv[]) {
 
     kernel_ym_init<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB,
                                              NX, NZ, DX, DZ, k_mode, p_amp, V0, EPS, run_mode, (float)aYM,
-                                             h_seed);
+                                             cfg.init_by1_eq, h_seed);
     cudaDeviceSynchronize();
 
     // Derive velocities and precompute initial sources
@@ -269,13 +274,14 @@ int main(int argc, char* argv[]) {
         CUDA_CHECK(cudaMemcpy(h_Q3A.data(), d_flA.Q3,     bytes, cudaMemcpyDeviceToHost));
         CUDA_CHECK(cudaMemcpy(h_Q2B.data(), d_flB.Q2,     bytes, cudaMemcpyDeviceToHost));
         CUDA_CHECK(cudaMemcpy(h_Q3B.data(), d_flB.Q3,     bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_Az1.data(), d_fields.Az1, bytes, cudaMemcpyDeviceToHost));
 
         std::thread t([=]() {
             std::ostringstream fn;
             fn << out_dir << "/ym_" << std::setfill('0') << std::setw(6) << step << ".csv";
             std::ofstream out(fn.str());
             out << "X,Z,By1,By2,By3,Az2,Az3,PzA,PxA,Q1A,PzB,PxB,Q1B,"
-                   "Ex1,Ex2,Ex3,Ez1,Ez2,Ez3,nA,nB,Q2A,Q3A,Q2B,Q3B\n";
+                   "Ex1,Ex2,Ex3,Ez1,Ez2,Ez3,nA,nB,Q2A,Q3A,Q2B,Q3B,Az1\n";
             for (int z = 0; z < NZ; ++z)
                 for (int x = 0; x < NX; ++x) {
                     int i = x + z * NX;
@@ -288,7 +294,8 @@ int main(int argc, char* argv[]) {
                         << h_Ez1[i] << ',' << h_Ez2[i] << ',' << h_Ez3[i] << ','
                         << h_nA[i]  << ',' << h_nB[i]  << ','
                         << h_Q2A[i] << ',' << h_Q3A[i] << ','
-                        << h_Q2B[i] << ',' << h_Q3B[i] << '\n';
+                        << h_Q2B[i] << ',' << h_Q3B[i] << ','
+                        << h_Az1[i] << '\n';
                 }
         });
         export_threads.push_back(std::move(t));
