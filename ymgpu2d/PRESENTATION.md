@@ -31,7 +31,9 @@ KH, where the shear-layer width sets the wavelength — and the dispersion curve
 eigensolver reproduces. The main caveats: the measured mode is isolated by
 numerical filters that remove faster-growing parasitic instabilities (a warm-fluid
 closure is the physical fix, not yet implemented), the background is frozen rather
-than self-consistent, and the coupling-selection claim has so far been established
+than self-consistent (now quantitatively tested — the back-reaction is quadratic,
+wrong-signed for depletion, and ≲7% out to |a|≈2.5, §8.2), and the
+coupling-selection claim has so far been established
 at a single shear width EPS=0.15 (the EPS scan is the single most important
 pending experiment).
 
@@ -119,7 +121,7 @@ still open — see the §11 reminder.
   Modes 3, 4, 5 are documented failures that shaped the design (§8.1).
 - A suite of spectral surgery kernels (DFT subtraction of selected k_z ranges,
   z-mean removal, hyperdiffusion, color-1 EM zeroing) used to isolate the target
-  mode from faster parasitic instabilities (§8.2 — read that section critically;
+  mode from faster parasitic instabilities (§8.1 — read that section critically;
   it is the program's main vulnerability).
 - **Eigenfunction seeding**: the 2D run is initialized with the exact 6-field
   (By², Ex², Ez², Az², Q²_A, Q²_B) eigenvector of the 1D linear problem, so the
@@ -398,7 +400,7 @@ within ~10–20%, the entire objection dissolves and the cold-filtered results a
 retroactively validated as the T→0 limit. Until then, this is the program's
 largest known vulnerability.
 
-### 8.2 The frozen background is not a self-consistent equilibrium
+### 8.2 The frozen background is not a self-consistent equilibrium — now quantitatively validated (T2.6 done)
 
 A_z¹ is prescribed and static (freeze_az1=1). The true self-consistent
 equilibrium of the khaxn derivation has A_z¹ sourced by the beams' own color
@@ -407,13 +409,48 @@ Freezing is the standard "fixed external field" idealization (and it is *exact*
 in the condensed-matter realization — see `../spinkh/`), but in the plasma
 context it means: (a) the background exerts forces the beams do not back-react
 on; (b) there is no momentum-conservation statement connecting mode growth to
-background depletion. Mitigations: during the linear phase the perturbation is
-tiny compared to the background, so back-reaction is O(amplitude²) — but the
-promised quantitative check (unfreeze A_z¹ from t=0, measure drift and γ shift;
-T2.6) has not been run. The clean long-term fix is the **non-Abelian Kolmogorov
-flow** (T1.6): a fully periodic cosine equilibrium where −∂ₓ²A_z¹ = J_z¹ exactly,
-no freezing, no sponge — that is also the gateway to the nonlinear/saturation
-study.
+background depletion.
+
+**Update (2026-07-15/16): the promised quantitative check (T2.6 — unfreeze
+A_z¹, measure drift and γ shift) has now been run** (t133, two independent
+tachyonic-branch configs at α=1.0, V₀=0.05; FINDINGS.md "Self-consistent
+(unfrozen Az1) test"). Results:
+
+- **Linear phase: freezing is validated.** Unfrozen (and color-1-live)
+  variants grow at the same rate as the frozen reference (γ=1.45 from
+  snapshots vs eigensolver 1.43–1.46); freezing does not meaningfully distort
+  the tachyonic branch's linear growth.
+- **The back-reaction is real, quadratic, and wrong-signed for depletion.**
+  Differencing seeded vs unseeded unfrozen runs isolates the mode's imprint on
+  A_z¹ at k_z=0: **ΔA_z¹ ≈ −0.04·|a|²**, tracked over four decades of |a|² and
+  landing exactly on the prediction at the endpoint (|a|=2.46: measured
+  −0.242 vs predicted −0.242), pinned at the mode peak throughout. The wave
+  makes the background **deeper** (|αA_z¹| larger), not shallower — the
+  opposite of depletion.
+- **Net feedback is weakly stabilizing**: the unfrozen mode grows slightly
+  slower at finite amplitude (amplitude ratio 0.998 at |a|≈0.1 falling to
+  0.933 at |a|≈2.5; fitted γ 0.5156 vs 0.5180 mid-range) — two orders of
+  magnitude too weak to saturate the branch before the fluid model itself dies
+  (density cavitation / energy halt). **Depletion is not the saturation route,
+  and the frozen approximation is accurate to a few percent everywhere it
+  matters.**
+- A byproduct of the test: a "quiet" fully self-consistent counter-streaming
+  background does not exist in this model — with k_z=0 live, the beams' own
+  chromo-Weibel mode (γ=0.284 at the test point) always grows. Two other
+  obstructions (periodic-wrap collapse of the single-tanh v_z profile — the
+  real reason `suppress_kz0=1` is mandatory in production — and a secular By¹
+  pump from a non-equilibrium color-1 init) were fixed with `vz_edge_taper`
+  and `init_by1_eq`; the Weibel floor is physics, not numerics.
+
+Consequence for khaxn: the frozen "infinite battery" is *not* an overestimate
+of the drive — in a self-consistent setting the beams continuously re-supply
+the background and the charged waves locally deepen it. The instability of
+such backgrounds is robust, and its endpoint is fluid-scale (cavitation)
+rather than field-scale (depletion). The **non-Abelian Kolmogorov flow**
+(T1.6): a fully periodic cosine equilibrium where −∂ₓ²A_z¹ = J_z¹ exactly,
+no freezing, no sponge — remains the gateway to the nonlinear/saturation
+study, but is no longer needed to defend the frozen-background approximation
+itself.
 
 ### 8.3 Sponge dependence of the measured rates
 
@@ -631,8 +668,10 @@ theorist, [N] = computationalist.** Status tags: ✅ solid, ⚠️ partially res
    different, measurable statement.
 
 3. **[U] What is a "frozen" background and why is it allowed?**
-   ⚠️ §8.2. Standard external-field idealization, exact in the spin-orbit
-   mapping, quantitatively unchecked here (T2.6 pending).
+   ✅ §8.2. Standard external-field idealization, exact in the spin-orbit
+   mapping — and now quantitatively checked here (T2.6, 2026-07-16): unfrozen
+   runs grow at the same rate, and the back-reaction is quadratic
+   (ΔA_z¹ ≈ −0.04·|a|²), wrong-signed for depletion, and ≲7% out to |a|≈2.5.
 
 4. **[P] Your mode grows slower than instabilities you delete every step. Why
    should I believe it exists?**
@@ -865,7 +904,8 @@ In order of leverage per unit effort:
    theory–numerics loop for the Letter.
 6. **T1.5 energetics** (post-processing): settles the naming question (§8.6).
 7. **T1.6 non-Abelian Kolmogorov flow** (new equilibrium; the nonlinear paper):
-   removes the frozen-background and sponge caveats *simultaneously*, and its
+   removes the frozen-background and sponge caveats *simultaneously* (the
+   former is already quantitatively bounded by the T2.6 test, §8.2), and its
    saturation outputs feed the dark-matter application.
 
 ---
