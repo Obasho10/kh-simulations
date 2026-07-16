@@ -2342,22 +2342,31 @@ tachyon's own imprint on Az1@kz=0:
 
 Clean quadratic scaling: **ΔAz1 ≈ −0.04·|a|²**, localized at the mode peak
 (ξ≈+49). The sign is *negative where Az1<0*: the wave makes the background
-**deeper** (|αAz1| larger), not shallower — anti-screening / positive
-feedback, consistent with unfrozen runs dying slightly earlier than frozen.
-Extrapolating the quadratic law, self-quenching by background modification
-would require |a| ≈ 2.5 (≈50 V0) — far beyond where the fluid model dies
-(density cavitation / energy halt at |a| ≈ 0.3-0.5). **Depletion is not the
-saturation route for this branch in this model.** The physical picture to
-quote: the frozen-Az1 approximation is conservative — self-consistency makes
-the tachyonic branch (slightly) worse, and its true saturation is by fluid
-nonlinearity, not background drain.
+**deeper** (|αAz1| larger), not shallower — the opposite of depletion.
 
-(A confirmation trio at an intermediate-rate annulus — sp=42, γ=0.642,
-eigenvector-seeded at 20× amplitude to push |a| toward O(1) inside the
-pre-Weibel window — was launched on t133; connectivity dropped before
-retrieval. Its analysis can only strengthen/refine the quadratic-law
-coefficient; the sign and scaling above are already established by the
-sp=52 pair.)
+**Confirmed and refined at a second, independent configuration** (sp=42,
+γ_lin=0.642, outer eigenvector seeded at |a|₀=0.02 to push |a|→O(1) inside
+the pre-Weibel window; unfrozen G vs frozen H vs unfrozen-unseeded I, each
+20-TU/halt, t133): the G−I differencing tracks −0.04·|a|² over four decades
+of |a|², landing **exactly on the prediction at the endpoint** (t=9,
+|a|=2.46: measured ΔAz1=−0.242 vs −0.04·|a|²=−0.242), pinned at the mode
+peak ξ=+38.6 the whole way. The control I (taper + By1_eq background, no
+seed) survived its full 20 TU cleanly — the equilibrium fixes hold on this
+timescale.
+
+**Feedback direction, settled by the clean G/H pair**: despite the local
+deepening, the unfrozen mode grows slightly *slower* at finite amplitude
+(amplitude ratio G/H = 0.998 at |a|≈0.1 falling to 0.933 at |a|≈2.5; fitted
+γ 0.5156 vs 0.5180 mid-range) — deepening at the peak with the damping
+boundary fixed compresses the annulus rather than accelerating the wave.
+(The earlier inference "unfrozen dies earlier ⇒ positive feedback" from the
+sp=52 halts was wrong in detail — that ordering came from seeding
+differences.) Net: the back-reaction is weakly stabilizing in the global
+sense, at the −7%-by-|a|≈2.5 level — **two orders of magnitude too weak to
+saturate the branch** before the fluid model dies (density cavitation /
+energy halt). **Depletion is not the saturation route for this branch in
+this model**, and the frozen-Az1 approximation is accurate to a few percent
+everywhere it matters.
 
 **Physics interpretation for khaxn**: in a fully self-consistent setting the
 counter-streaming beams continuously re-supply the color-1 background (and

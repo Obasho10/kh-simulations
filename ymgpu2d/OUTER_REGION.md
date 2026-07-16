@@ -89,10 +89,14 @@ Full numbers: FINDINGS.md §"Self-consistent (unfrozen Az1) test". Headlines:
   vs eigensolver 1.43–1.46); unfrozen runs die ~3 TU *earlier*.
 - **No depletion — the back-reaction has the opposite sign**: differencing
   seeded vs unseeded unfrozen runs isolates ΔAz1 ≈ −0.04·|a|² at the mode
-  peak — the wave *deepens* the background (positive feedback). Depletion
-  would need |a|≈50·V0, far beyond fluid-model validity. Saturation is by
-  fluid nonlinearity, not background drain; the frozen "infinite battery" is
-  not an overestimate.
+  peak — the wave *deepens* the background. Confirmed at two independent
+  configurations (sp=52/γ=1.45 and sp=42/γ=0.64); at the second, the law
+  holds over four decades and lands exactly on the endpoint measurement
+  (ΔAz1=−0.242 at |a|=2.46). The clean frozen-vs-unfrozen pair shows the
+  net global effect is *weakly stabilizing* (unfrozen mode −7% in amplitude
+  by |a|≈2.5 — annulus compression), two orders of magnitude too weak to
+  saturate the branch. Saturation is by fluid nonlinearity, not background
+  drain; the frozen approximation is accurate to a few percent.
 - **A quiet self-consistent color-1 background does not exist**: three
   obstructions found — periodic-wrap vz-discontinuity collapse (fixed:
   `vz_edge_taper`), out-of-equilibrium By1 secular pump (fixed:
@@ -110,5 +114,6 @@ Full numbers: FINDINGS.md §"Self-consistent (unfrozen Az1) test". Headlines:
   empirically, mechanism not pinned (suspect: cavitated-volume size).
 - A V0=0.08–0.09 run with snapshots retained, to watch marginal cavitation
   directly (all controlled-series snapshot dirs except `diffkz` were cleaned).
-- Retrieve/analyze the sp=42 confirmation trio on t133 (launched before a
-  connectivity drop) to refine the −0.04·|a|² coefficient at |a|→O(1).
+- ~~Retrieve/analyze the sp=42 confirmation trio~~ — done 2026-07-16, see
+  FINDINGS.md; the quadratic law and its coefficient are confirmed at
+  |a|→O(1) and the frozen-vs-unfrozen growth comparison is settled.
