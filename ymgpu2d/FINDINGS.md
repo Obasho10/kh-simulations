@@ -2517,3 +2517,45 @@ or any default-σ eigensolver value as "sim vs theory" — the first two compare
 against the bare quartic (median 1.9× off, up to 29×), and the default-σ call
 rides well-ladder overtones at low α / beyond-peak kz (20% of suspectfix points
 moved >5% when chased, 12.6% moved >50%).
+
+### Diagnosis of the >50%-error cells (integer kz, α>0.3 population)
+
+185/1123 cells exceed 50% error vs chased theory. **Every one lacks plateau
+confirmation**, and they fall into three mechanisms (plot:
+`plots/relerr_heatmap_int_kz.png`, 100%-capped scale):
+
+1. **Cavitation blow-up, V0=0.1/0.2 low-kz/high-α wedge — 146 cells (79%)**.
+   The runs die at median t=9 TU (90% before 15 TU) with super-exponential
+   amplitude growth (e.g. V0=0.1, α=2.3, kz=3: 1.3e-13 → 2e-3 in 8 TU); the
+   max-R² fitter reports the blow-up rate (γ 1–5 TU⁻¹, 3–15× any eigenmode).
+   This is the documented V0≥0.08 KH density-cavitation failure — the linear
+   KH mode is simply never measured in these runs, so the "error" is a
+   data-coverage hole, not a sim-accuracy statement.
+
+2. **Wide-window (sp55) outer-region contamination — ~29 cells**: the V0=0.01
+   kz=1 α≥2.3 column, the V0=0.03 kz=4–6 α≥2.1 band, and a few V0=0.05
+   strays. All are old blind-formula runs with xi_sponge=55 that never got a
+   vetted-sponge suspectfix rerun. The outer tachyonic frozen-Az1 branch grows
+   inside the huge window, outruns the shear mode (V0=0.01 kz=1: γ_meas rises
+   linearly with α, 0.30→0.84 over α=2.3→3.0, vs shear-mode γ≈0.04), and the
+   fit locks onto it at t≈11–25 before the energy-threshold halt. At sp55 the
+   eigensolver's is_localised(xi_inner=55) is nearly vacuous, so γ_chased is
+   also unreliable there (γ_chased jumps 0.04→0.10→0.23 across α=2.2→2.4;
+   at V0=0.1 kz=1 sp25-27 it returns the tachyon itself, γ≈5–6). Fix = rerun
+   with find_safe_sponge.py windows, not a theory problem.
+
+3. **Overtone-seeded runs read as undershoots — the ~5 clean R²=1.0 cells**
+   (V0=0.05 α=1.0 kz=5–7 sp25; V0=0.03 α=1.5 kz=8; V0=0.1 α=0.5 kz=5–6).
+   Confirmed quantitatively: at V0=0.05 α=1.0 sp25, sim matches the
+   default-σ (overtone) eigenvalue to 6–23% (kz=5: 0.064 vs 0.068; kz=6:
+   0.054 vs 0.060; kz=7: 0.042 vs 0.055) while sitting at 0.36–0.50× the
+   chased dominant mode — the T1.2 seeding by-product: the run grows exactly
+   the overtone its eigenmode seed selected. Sim numerics fine; re-seed with
+   σ-chased n=0 profiles to measure the dominant branch.
+
+**Bottom line: not one of the >50% cells indicates a simulation-accuracy
+problem.** They are (1) runs destroyed by cavitation before any linear phase,
+(2) runs measuring a different (outer, physical) instability admitted by an
+oversized window, and (3) runs measuring a different (overtone) branch of the
+correct instability. The honest sim-vs-theory benchmark remains the
+plateau-confirmed population: median 9–14%.

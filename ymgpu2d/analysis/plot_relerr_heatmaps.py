@@ -35,14 +35,11 @@ for ax, v in zip(axes, V0S):
     for r in sub.itertuples():
         grid[ALPHA.index(r.alpha), KZ.index(r.kz)] = r.rel_err_chased * 100
     finite = grid[np.isfinite(grid)]
-    vmax = np.percentile(finite, 99)
-    grid = np.clip(grid, 1.0, None)  # 1% floor for log scale
-    pm = ax.pcolormesh(np.ma.masked_invalid(grid), cmap=cmap,
-                       norm=LogNorm(vmin=1.0, vmax=vmax),
+    n_over = int(np.sum(finite > 100))
+    pm = ax.pcolormesh(np.ma.masked_invalid(grid), cmap=cmap, vmin=0, vmax=100,
                        edgecolors='white', linewidth=0.6)
     cb = fig.colorbar(pm, ax=ax, extend='max', pad=0.02, aspect=28)
-    ticks = [t for t in [1, 3, 10, 30, 100, 300, 1000] if t <= vmax * 1.05]
-    cb.ax.yaxis.set_major_locator(FixedLocator(ticks))
+    cb.ax.yaxis.set_major_locator(FixedLocator([0, 25, 50, 75, 100]))
     cb.ax.yaxis.set_minor_locator(FixedLocator([]))
     cb.ax.yaxis.set_major_formatter(FuncFormatter(lambda v, p: f'{v:g}'))
     cb.set_label('rel. error vs chased theory  [%]', fontsize=8.5, color='#444444')
@@ -57,7 +54,7 @@ for ax, v in zip(axes, V0S):
     ax.set_xlabel('kz', fontsize=9.5, color='#333333')
     ax.set_ylabel('alpha', fontsize=9.5, color='#333333')
     med = np.median(finite)
-    ax.set_title(f'V0 = {v}   (n={len(finite)}, median {med:.0f}%, log scale to p99={vmax:.0f}%)',
+    ax.set_title(f'V0 = {v}   (n={len(finite)}, median {med:.0f}%, {n_over} cells >100%)',
                  fontsize=10.5, color='#222222')
     for s in ax.spines.values():
         s.set_visible(False)
@@ -71,8 +68,8 @@ axes[5].text(0.02, 0.92,
              'color = |gamma_sim - gamma_theory| / gamma_theory\n'
              'theory = sigma-chased windowed eigensolver\n'
              'at the run\'s actual xi_sponge\n\n'
-             'each panel has its own color scale\n'
-             '(log, 1% floor, capped at that panel\'s p99)\n\n'
+             'common color scale across panels,\n'
+             'capped at 100% (arrow = cells beyond cap)\n\n'
              'gray = not measured\n\n'
              'alpha grid is 0.4-3.0; the sparse alpha = 4, 5\n'
              'rows exist only at V0 = 0.03 (and 4 at V0 = 0.1)',
