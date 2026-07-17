@@ -2559,3 +2559,85 @@ problem.** They are (1) runs destroyed by cavitation before any linear phase,
 oversized window, and (3) runs measuring a different (overtone) branch of the
 correct instability. The honest sim-vs-theory benchmark remains the
 plateau-confirmed population: median 9–14%.
+
+## CRITICAL: two pipeline bugs invalidate most post-07-04 measurements — helicity-conjugate extraction + missing lz_override in suspectfix (2026-07-17)
+
+Asked "what is the most important experiment to make this solid", the answer
+turned out to be: none of the physics experiments — first verify the
+measurement pipeline itself. Two independent bugs were found, each alone
+serious enough to invalidate whole campaign blocks. Both are now fixed; a
+7-run validation campaign (`scripts/heli_validation_t140.sh`, tag `heli_*`)
+re-measures representative anchors with the corrected pipeline.
+
+### Bug 1 — remote_timeseries.py extracted the CONJUGATE helicity (2026-07-04 03:29 → 2026-07-17)
+
+The stdlib-DFT rewrite (`e414da3`) replaced the numpy extraction
+`|rfft(Az2)[k] + i·rfft(Az3)[k]|` with an explicit loop that had one sign
+error: `re += az2*c - az3*(-s)` instead of `re += az2*c - az3*s`. For the
+(+)-helicity circular seed (Az2,Az3) ∝ (cos kz, sin kz) the buggy expression
+returns **exactly zero** — verified on a fresh k5/α2.0/V0=0.05 run:
+step-0 snapshot has max|Az2| = 5.000e-05 (the seed, perfectly deposited), the
++helicity amplitude is e^-13.5, and the −helicity amplitude the buggy code
+measured is e^-29.8 (FP32 noise).
+
+Blast radius, measured by scanning all 7,909 archived timeseries for their
+first amplitude: **7,589 (96%) start at logamp < −25** — i.e. they tracked
+the initially-empty wrong-helicity component, not the seeded mode. Only ~320
+series (extracted before 07-04: parts of abi/t130/t136/t140 int-kz) start at
+the healthy ≈ −13. Everything extracted after — 2/3 of half-kz, all
+eighth-kz, all epsscan, all xi_cut probes, all tierprobe, ALL suspectfix —
+measured the wrong component. Because the auto-cleanup deletes field dumps
+after extraction, these cannot be re-extracted; affected points need reruns.
+
+Why this wasn't obvious: in many regimes the wrong-helicity component is
+slaved to the growing mode at an FP32-rounding offset and grows at the same
+γ, so fits often *look* clean and even agree with theory (this is how the
+"clean core" survived the audit). But the two components genuinely diverge in
+slow-growth/competing-mode regimes — e.g. the k5 α2.0 sp10 bp28 suspectfix
+run: wrong component grows at 0.042 for 100 TU while the true mode grows at
+0.155 (eigensolver: 0.158) — which is exactly where the audit's mystery
+buckets lived. **Sim was fine; the tape recorder was pointed at the wrong
+channel.** Fixed in `analysis/remote_timeseries.py` (also now emits
+`amp_conj` as a diagnostic and honors `KEEP_DUMPS=1`).
+
+### Bug 2 — suspectfix scripts never set lz_override/nz_override
+
+`gen_suspectfix_campaign.py` defines `LZ_HALF/LZ_FINE/NZ_HALF/NZ_FINE` but
+its INI template never emitted them: **all 18 suspectfix_*.sh scripts (all
+waves) ran "half-tier" and "fine-tier" points on the default Lz=2π box**, at
+physical kz = k_mode = 2× (half) or 8× (fine) the labeled kz. Numerical
+proof: labeled-kz=0.5 suspectfix γ_sim matches int-tier kz=1 (e.g. α=2.0:
+0.0887 vs 0.0852) point by point. The audit's "kz<1 floor" ratios are just
+γ(kz)/γ_theory(kz/2 or kz/8) bookkeeping artifacts on top of Bug 1. Old
+(pre-suspectfix) half/eighth-kz campaigns DID set the box correctly — only
+suspectfix-sourced rows (313 best-per-point rows in
+`sweep/all_points_vs_chased.npz`, plus everything the V0=0.05 audit's
+non-int-tier buckets used) carry wrong labels. Fixed in
+`gen_suspectfix_campaign.py` (`lz_nz_block()`).
+
+### Consequences for prior conclusions
+
+- The V0=0.05 audit's four buckets (2026-07-17, earlier today) need
+  re-reading: the "kz<1 floor + sign-flip", the "half-tier kz=2.5 0.30×
+  undershoot", and the fine-tier 68% block are all measurements of the wrong
+  helicity at the wrong physical kz. They are NOT sim deficiencies and NOT
+  physics. The clean-core numbers survive only where wrong-helicity slaving
+  tracked the true γ; treat all suspectfix-derived γ as unreliable.
+- `project_low_alpha_noise_floor` ("seed decays into noise before growth")
+  needs re-examination: the "noise floor" observed was partly the wrong
+  component starting AT the noise floor by construction.
+- The tierprobe conclusions (int-vs-half accuracy gap, resolution ruled out)
+  were also extracted with the buggy script and need re-running.
+- `sweep/all_points_vs_chased.npz` rel_err/ratio columns are only meaningful
+  for the ~320 pre-07-04-extracted series; a fresh audit needs the rerun
+  campaign.
+
+### Validation campaign (running on t140, 2026-07-17)
+
+Seven anchors, corrected pipeline, γ_chased references at each run's exact
+(kz, xi_sponge): int-box k5 bp14 vs bp28 (0.1584); genuine half-box kz=2.5
+(0.1434); genuine half-box kz=0.5 α=0.9 (0.0455); genuine fine-box kz=2.75
+α=1.7 at bp55 vs bp112 (0.1511; tests the fine-tier band-coverage question —
+bp=55 only filters physical kz ≤ 6.875 on the Lz=16π box while the EM band
+extends to 14); genuine fine-box kz=0.25 α=2.0 bp112 (0.1122). Results to be
+appended below.
