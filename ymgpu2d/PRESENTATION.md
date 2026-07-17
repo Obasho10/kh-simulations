@@ -28,7 +28,11 @@ headline physics: **the fastest-growing wavelength is selected by the gauge
 coupling (k_z,peak ≈ 2α), not by the flow profile** — the opposite of classical
 KH, where the shear-layer width sets the wavelength — and the dispersion curve is
 **non-monotonic**, which the WKB formula does not predict but the exact
-eigensolver reproduces. The main caveats: the measured mode is isolated by
+eigensolver reproduces. (Update 2026-07-17: the exact-action theory — T1.2,
+§5.4 — derives this and sharpens it: the peak is set by coupling *and*
+containment radius, k_z,peak ≈ αV₀ξ_w + (α/V₀)^{1/3}, with a hard growth
+ceiling γ ≤ (αV₀²)^{1/3}; "≈2α" is what this evaluates to over the surveyed
+grid, and its low-α end carries a mode-selection artifact — §8.8.) The main caveats: the measured mode is isolated by
 numerical filters that remove faster-growing parasitic instabilities (a warm-fluid
 closure is the physical fix, not yet implemented), the background is frozen rather
 than self-consistent (now quantitatively tested — the back-reaction is quadratic,
@@ -244,6 +248,14 @@ program's central methodological claim — the machinery is quantitatively under
 control wherever the mode is sponge-contained, correctly seeded, *and* the fit
 is read off a verified plateau.
 
+**Second caveat (2026-07-17, §8.8):** for the α=1 series specifically, the
+eigensolver values being matched at k_z ≥ 3 are well-ladder *overtones*, not
+the dominant mode (the default shift-invert target rides the quartic's
+underestimate). The sim/exact ratios above stand as numerics validation, but
+the C25 curve's shape — including its k_z = 2 peak — is a property of the
+selected overtone family; the dominant-branch peak at the same window is
+k_z = 3.5 at γ = 0.135. α ≥ 2 series are unaffected near their peaks.
+
 ### 5.3 Headline result — non-monotonic dispersion and coupling-selected k_z,peak
 
 `presentation/plots/fig04_dispersion_v005_v003.png`,
@@ -264,6 +276,18 @@ is read off a verified plateau.
   "the gauge coupling, not the flow profile, selects the wavelength" is the
   title-level result of the first paper.
 
+**Reinterpretation (2026-07-17, T1.2 done — §5.4, PHYSICS.md §11):** the
+exact-action theory shows the peak is **confinement-set, not intrinsic**:
+k_z,peak ≈ αV₀(ξ_w − ln 2) + (α/V₀)^{1/3} where ξ_w is the sponge/cut radius;
+unbounded, γ(k_z) saturates at the ceiling (αV₀²)^{1/3} with no interior
+maximum. Both terms are EPS-free — the theory *predicts* the "not the flow
+profile" half of the claim — but "k_z,peak ≈ 2α" is what that expression
+happens to evaluate to over the surveyed (α, V₀, sponge) box, not a
+fundamental linear-in-α selection. The Letter framing needs to change from
+"coupling selects the wavelength" to "coupling and containment radius select
+the wavelength; the flow profile does not." Additionally, the low-α end of
+this trend is contaminated by an eigenmode-selection artifact (§8.8).
+
 There is also a **sub-k_z=1 fine-structure result** from the extended-box (Lz=4π,
 8π) campaigns — a sharp two-branch structure below k_z=1 (γ = 0.32 at
 k_z,phys = 0.5 falling to 0.06 at 0.75 for α=2, V₀=0.05), suggesting a crossing
@@ -272,20 +296,49 @@ in per-run session records, and the raw sweep tables at those k_z are contaminat
 (§8.4, fig12) — it must be re-established by the curated solver-continuation study
 (roadmap T1.3) before being presented as a result.
 
-### 5.4 The WKB gap — measured, mapped, not yet explained
+### 5.4 The WKB gap — explained: the exact-action theory (T1.2 ✅ 2026-07-17)
 
-`presentation/plots/fig07_sim_vs_wkb.png`
+`presentation/plots/fig07_sim_vs_wkb.png`,
+`plots/exact_action_wkb_validation.png`
 
-Across ~1,900 clean grid points, the median γ_sim/γ_WKB ≈ 0.56, with a broad hump
-at 0.4–1.1 near and above the dispersion peak and a long tail of tiny ratios at
-low k_z where WKB overestimates by up to 10–20×. Two known reasons, both
-geometric: (i) the parabolic-well approximation to log cosh is poor at strong
-coupling; (ii) at low k_z the true mode is pushed to large |ξ| (or clipped by the
-sponge) where WKB's assumptions fail entirely. In the weak-coupling corner
-(α=0.5–1, k_z≥4), WKB *under*estimates by up to ~25% instead. The exact
-eigensolver is the trustworthy theory level everywhere; WKB is honest only within
-a factor ~2 in its best regime. Deriving the k_z,peak(α, V₀) scaling analytically
-(exact-action WKB, roadmap T1.2) is the missing theory piece.
+The measurement stands as before: across ~1,900 clean grid points, the median
+γ_sim/γ_WKB ≈ 0.56, with a broad hump at 0.4–1.1 near and above the dispersion
+peak, a long tail of tiny ratios at low k_z where WKB overestimates by up to
+10–20×, and ~25% *under*estimates in the weak-coupling corner (α=0.5–1, k_z≥4).
+
+**Update (2026-07-17): the exact-action theory now exists and closes T1.2**
+(derivation: `PHYSICS.md` §11; code: `analysis/exact_action_wkb.py`). The
+6-field linear system reduces *exactly* (even at the discrete level — verified
+to machine precision) to one scalar ODE, (γ²a′/D)′ = (γ²+g)a, whose only drive
+is the two-beam precession-charge response g = 2αv³Ω_A/(γ²+v²Ω_A²). Everything
+follows from that term:
+
+- **Hard growth ceiling γ³ ≤ αV₀²** — the drive maximizes on the
+  precession-resonance surface V₀·Ω_A = γ; measured peak rates reach 95–99%
+  of (αV₀²)^{1/3} in every audited series.
+- **Exact-action quantization** (the branch is quantization-marginal: the
+  well holds less than a quarter wave, tan S = κ/k) reproduces the σ-chased
+  dominant eigensolver branch to ≤2% (median ≤0.2%) for k_z ≥ 1.5 across
+  α = 1–5, V₀ = 0.03–0.2, windows ξ_w = 5–40; a closed-form square-well
+  version (PHYSICS.md eq. 11.7) is within ~3% near/above the peak.
+- **The dispersion peak is not intrinsic**: unbounded, γ(k_z) saturates
+  monotonically at the ceiling while the mode migrates outward riding the
+  resonance surface. The measured peak is the crossover where that surface
+  reaches the sponge/cut radius:
+  **k_z,peak ≈ αV₀(ξ_w − ln 2) + (α/V₀)^{1/3}** (verified to ±0.6 in k_z on
+  11 series, including a direct test: moving the window 11→25 at fixed
+  physics moved the peak 4.5→5.5). Both terms are EPS-free. See §5.3 note
+  and §8.8 for what this does to the "k_z,peak ≈ 2α" framing.
+- **The gap itself is diagnosed**: eq. 33's drive term −α²V₀k_z does not
+  match the true beam response (three powers of v, Doppler-resonant,
+  ceiling-bounded). Its low-k_z overshoot produces the 10–20× tail; its
+  high-k_z decline against the true ceiling saturation produces the
+  weak-coupling-corner underestimates. The k_z=0 chromo-Weibel 0.5% anchor
+  (§5.1) is untouched — different geometry, where eq. 33's parabolic
+  quantization is exact.
+
+The quartic (eq. 33) is thereby retired as the theory level for k_z ≥ 1; the
+exact-action model (or the eigensolver itself) replaces it.
 
 ### 5.5 Parameter-space coverage
 
@@ -661,6 +714,29 @@ eigenfunctions will raise it, so the diagnostic should exist before submission.
 - **Cold, non-relativistic, SU(2), classical**: acknowledged model boundaries;
   each has a roadmap item (T1.4, T3.3, T3.4) or an explicit scope statement.
 
+### 8.8 Eigenmode-selection artifact: reference curves ride overtones at low α (found 2026-07-17)
+
+The shear branch is a *ladder* of well overtones (n = 0, 1, 2, …, spaced a
+few ×0.01 TU⁻¹ at loose windows), and `solve_eigenmode`'s default
+shift-invert target σ = 0.55·γ_WKB(quartic) lands mid-ladder wherever the
+quartic underestimates — i.e. exactly at low α and/or k_z above the
+quartic's own peak. Concretely, at (α=1, V₀=0.05, k_z=4, window 20) the
+dominant mode is γ = 0.134 (hard cut) / 0.131 (production sponge), but the
+default-σ solve returns 0.106 and the cached C25 curve carries 0.082 — an
+n≈3 overtone. Because production runs are *seeded with the eigensolver's
+returned eigenfunction*, the simulation faithfully grew the same overtone
+(plateau-audited 0.081): **the celebrated sim-vs-solver agreement certifies
+the numerics, not dominant-mode selection.** The true C25-window peak is
+k_z = 3.5 at γ = 0.135 (99% of the (αV₀²)^{1/3} ceiling), not k_z = 2 at
+0.122. The α ≥ 2 series are unaffected near their peaks (the quartic is
+accurate enough there for σ to land on n = 0). Affected artifacts:
+eigensolver_grid_cache / exact_grid_cache (figs 03/04/05/13) at low α and
+beyond-peak k_z, and the low-α end of fig05's k_z,peak ≈ 2α trend. Fixes
+queued: σ-chasing is implemented (`analysis/exact_action_wkb.py::gamma_true`);
+regenerate the caches with it; and one cheap CUDA falsification run — reseed
+one C25 point with the true-n0 eigenfunction (`--sigma 0.14 --export-seed`)
+and watch the plateau move 0.081 → ≈0.13.
+
 ---
 
 ## 9. Anticipated questions, by audience
@@ -772,7 +848,10 @@ theorist, [N] = computationalist.** Status tags: ✅ solid, ⚠️ partially res
     ✅ Same linearized physics, no WKB approximations (no parabolic well, no step
     velocity, exact Doppler terms, sponge included). The measured WKB error
     (median ~2×, up to 20× at low k_z, sign flip in the weak-coupling corner) is
-    a *result*, not an embarrassment — fig07.
+    a *result*, not an embarrassment — fig07 — and as of 2026-07-17 a *diagnosed*
+    one: the quartic's drive term −α²V₀k_z does not match the exact beam
+    response; the exact-action theory (§5.4, PHYSICS.md §11) replaces it and
+    matches the eigensolver to ≤2%.
 
 15. **[N] FCT is diffusive at sharp fronts. Is the shear layer resolved and does
     FCT damping fake a growth-rate reduction?**
@@ -917,8 +996,18 @@ In order of leverage per unit effort:
 4. **T2.x referee-proofing batch** (each ≤1 day): linearity check, eigenfunction
    overlay figure, Gauss-law figure, sponge extrapolation, complex-ω table,
    dimensionless collapse.
-5. **T1.2 exact-action WKB** (theory): explain k_z,peak ≈ 2α; closes the
-   theory–numerics loop for the Letter.
+5. **✅ RESOLVED 2026-07-17 — T1.2 exact-action WKB** (theory): done — see
+   §5.4, PHYSICS.md §11, `analysis/exact_action_wkb.py`,
+   `plots/exact_action_wkb_validation.png`. Delivered: exact scalar
+   reduction of the 6-field system (machine-precision equivalent); hard
+   growth ceiling γ³ ≤ αV₀²; exact-action quantization matching the
+   dominant eigensolver branch to ≤2%; closed-form dispersion; and the peak
+   law k_z,peak ≈ αV₀(ξ_w − ln2) + (α/V₀)^{1/3} — the peak is
+   confinement-set, not intrinsic (§5.3 note). Also delivered the T2.5
+   collapse variables ((αV₀²)^{1/3}, (α/V₀)^{1/3}, αV₀ξ_w) as a by-product.
+   New follow-ups it created: the §8.8 overtone artifact (regenerate caches
+   with σ-chasing; one cheap CUDA reseed check) and the Letter's framing
+   change ("coupling + containment radius select the wavelength").
 6. **T1.5 energetics** (post-processing): settles the naming question (§8.6).
 7. **T1.6 non-Abelian Kolmogorov flow** (new equilibrium; the nonlinear paper):
    removes the frozen-background and sponge caveats *simultaneously* (the

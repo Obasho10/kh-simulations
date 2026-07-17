@@ -2375,3 +2375,83 @@ the charged waves locally deepen it); the frozen-background "infinite
 battery" is therefore not an overestimate of the drive — the instability of
 such backgrounds is robust, and its endpoint is fluid-scale (cavitation)
 rather than field-scale (depletion).
+
+## T1.2 resolved — exact-action WKB theory of the shear branch: drive ceiling γ³ ≤ αV0², no intrinsic kz peak, kz_peak is confinement-set (2026-07-17, theory + eigensolver only)
+
+**Full derivation: PHYSICS.md §11. Companion code: `analysis/exact_action_wkb.py`.
+Validation figure: `plots/exact_action_wkb_validation.png`. No new simulations —
+the one queued CUDA check is listed at the end.**
+
+### What was derived
+
+1. **The 6-field eigensolver system reduces exactly to one scalar ODE**
+   (γ²a′/D)′ = (γ²+g)a, D = γ²+kz²−α²Az1², with the two-beam
+   precession-charge drive g = 2αvz³Ω_A/(γ²+vz²Ω_A²). Exact at the discrete
+   level too: the reduced dense operator reproduces the ARPACK 6-field
+   eigenvalues to **rel. diff 0.0** at 7 points spanning α=1–3,
+   V0=0.03–0.1, kz=1–7. Also established: the xi_cut wall is zero-flux
+   (Neumann) on the mode side and Dirichlet on the other.
+
+2. **Exact drive ceiling γ³ ≤ αV0²**: the drive G(w)=2αV0³w/(γ²+V0²w²),
+   w=Ω_A, is maximized on the precession-resonance surface w*=γ/V0 (beam
+   Doppler-shifted precession frequency = growth rate). Measured
+   dominant-branch peaks reach 95–99% of (αV0²)^{1/3} in every series.
+
+3. **T2.5 collapse variables**: γ=(αV0²)^{1/3}γ̂, kz=(α/V0)^{1/3}k̂, plus
+   window group αV0ξ_w and budget (αV0²)^{1/3}/EPS. α and V0 provably do
+   not combine as αV0.
+
+4. **Quantization**: the branch is quantization-marginal (well holds under
+   a quarter wave): tan S = κ/k_edge. Exact-action model matches σ-chased
+   dominant eigenvalues to ≤2% (median ≤0.2%) for kz ≥ 1.5 across 12
+   series (α=1–5, V0=0.03–0.2, windows 5–40); a closed-form square-well
+   model (PHYSICS.md eq. 11.7) is within ~3% near/above the peak.
+
+5. **The kz peak is NOT intrinsic.** Unbounded, γ(kz) saturates
+   monotonically at the ceiling while the mode migrates outward riding the
+   resonance surface ξ_res ≈ (kz−γ/V0)/(αV0) (verified out to ξ=−36,
+   γ=0.9955×ceiling at kz=10, cut=40). The measured non-monotonic
+   dispersion is windowed physics, and the peak is the crossover
+   "resonance surface = window radius":
+
+       kz_peak ≈ αV0(ξ_w − ln 2) + c·(α/V0)^{1/3},   c = 1.0 ± 0.1
+
+   Verified to ±0.6 in kz on 11 series, including a direct window test:
+   cut 11→25 at fixed physics (α=2, V0=0.05) moved the peak 4.5→5.5
+   (formula 4.45→5.85). Both terms are EPS-free. Over the surveyed
+   (α, V0, sponge) box this expression happens to track ≈2α — **the
+   "kz_peak ≈ 2α law" is a serviceable mnemonic inside the surveyed box,
+   not a fundamental coupling selection**; coupling and containment radius
+   select the wavelength together.
+
+6. **WKB gap of eq. 33 diagnosed**: its drive term −α²V0kz does not match
+   the true beam response (three powers of v, Doppler-resonant,
+   ceiling-bounded). Low-kz 10–20× overestimates and weak-coupling-corner
+   ~25% underestimates (ceiling saturation) both follow. The kz=0
+   chromo-Weibel 0.5% anchor is untouched (different geometry, outside the
+   reduction's regime).
+
+### Data-quality by-product (referee-critical)
+
+**The eigensolver's default shift-invert target (σ=0.55·γ_WKB-quartic)
+lands on well-ladder overtones wherever the quartic underestimates** — low
+α and/or kz above the quartic's peak. At (α=1, V0=0.05, kz=4, window 20)
+the dominant mode is γ=0.134 (cut) / 0.131 (production sponge); default-σ
+returns 0.106; the cached C25 curve carries 0.082 — an n≈3 overtone. The
+eigenmode-seeded simulation grew exactly the overtone it was seeded with
+(plateau-audited 0.081): sim-vs-solver agreement certifies numerics, not
+dominant-mode selection. True C25-window peak: kz=3.5, γ=0.135 (99% of
+ceiling) — not kz=2, γ=0.122. α≥2 series are unaffected near their peaks.
+Affected: eigensolver_grid_cache / exact_grid_cache (figs 03/04/05/13) at
+low α and beyond-peak kz; the low-α end of fig05's 2α trend.
+
+### Queued follow-ups
+
+- **CUDA falsification check** (cheap): rerun one C25 point (α=1, V0=0.05,
+  kz=4, sponge 20) with a broadband or true-n0 seed
+  (`ym_eigenmode.py --sigma 0.14 --export-seed`) and confirm the plateau
+  moves 0.081 → ≈0.13.
+- Regenerate reference caches with σ-chasing (`exact_action_wkb.gamma_true`
+  or model-B-guided σ); re-audit fig05's low-α points.
+- Absorbing-edge (sponge) version of the quantization phase if the few-%
+  cut-vs-sponge offsets ever matter quantitatively.

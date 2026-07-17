@@ -433,3 +433,233 @@ saturation level) and effective seed — hence the observed *gradual*
 V0=0.05→0.10 transition and its insensitivity to window mechanism (sponge vs
 cut) and radius. The linear eigensolver cannot see any of this: the effect is
 nonlinear and the state vector [b,ex,ez,a,qA,qB] has no fluid n/p blocks.
+
+---
+
+## 11. Exact-action WKB theory of the shear branch: scalar reduction, drive
+ceiling, and the confinement-set k_z peak (T1.2, 2026-07-17)
+
+Companion code: `analysis/exact_action_wkb.py`; validation figure:
+`plots/exact_action_wkb_validation.png`. This section resolves roadmap item
+T1.2 (derive the k_z,peak scaling), diagnoses the WKB gap of
+PRESENTATION.md §5.4, and documents an eigenmode-selection artifact in the
+reference data (§11e) found along the way.
+
+### 11a. Exact scalar reduction of the 6-field system
+
+The eigensolver system (`ym_eigenmode.py` — the program's "exact theory"
+level, validated against the 2D simulation to 1–4%) is, per circular colour
+pair (b, ex, ez, a, qA, qB) with ∂t→γ, ∂z→ik_z:
+
+```
+γ b  = -iΩ_F ex + ez'      γ a  = -ez
+γ ex = -iΩ_A b             γ qA = iα v a - i v Ω_A qA
+γ ez = b' + v (qA - qB)    γ qB = iα v a + i v Ω_A qB
+```
+
+with Ω_A = k_z + αAz1, Ω_F = k_z - αAz1, v = V0 tanh ξ, Az1 = -V0 log cosh ξ.
+Everything except a can be eliminated algebraically:
+
+```
+ex = -iΩ_A b/γ ,   ez = -γ a ,   b = -γ² a'/D ,   qA - qB = 2α v² Ω_A a / R
+D(x) ≡ γ² + Ω_A Ω_F = γ² + k_z² - α²Az1² ,      R(x) ≡ γ² + v²Ω_A²
+```
+
+leaving one second-order ODE for the vector-potential amplitude:
+
+```
+( γ² a' / D )' = ( γ² + g ) a ,      g(x) ≡ 2α v³ Ω_A / R        (11.1)
+```
+
+**The reduction is exact, including at the discrete level**: the forward
+(∂x ez) / backward (∂x b) stencils of the eigensolver collapse to the
+flux-form finite difference of (11.1) with D on the "left node of the
+face", and the xi_cut boundary maps to a zero-flux (Neumann, b=0) face on
+one side and a Dirichlet (ez=0) ghost on the other — the two wall faces
+are *not* equivalent. Verified: Newton root-finding on the reduced dense
+operator reproduces the 6-field ARPACK eigenvalues to **rel. diff 0.0**
+(below the 1e-10 tolerance) at 7 points spanning α=1–3, V0=0.03–0.1,
+k_z=1–7 (`--verify-reduction`).
+
+Physical anatomy of (11.1):
+
+- **D** — the EM factor. D < 0 is exactly the tachyonic outer region of
+  §10a (one circular polarization sees k_eff² < 0); the shear branch lives
+  where D > 0.
+- **g** — the *only* drive: the two-beam charge-precession response. Its
+  three powers of v: one from the precession source (γq ∋ iαv a), one from
+  the two-beam Doppler asymmetry (∝ vΩ_A/R), one from the current
+  (j = -v(qA - qB)). The counter-streaming beams enter only through the
+  symmetric combination R = γ² + v²Ω_A².
+- g is **odd** in ξ (∝ v³): each circular polarization is driven on one
+  side of the layer only; the mirror mode is the conjugate polarization
+  (same |γ|). Eigenfunctions are one-sided — confirmed numerically, and
+  explains the one-sided eigenfunctions that fig08 shows.
+
+WKB form: a ∝ exp(±i∫√Q dx) with the exact local wavenumber
+
+```
+Q(x; γ) = -D (γ² + g) / γ²                                       (11.2)
+```
+
+### 11b. The drive ceiling γ³ ≤ αV0² and the resonance surface
+
+In the saturated region |ξ| ≳ 2 (v = ±V0, u ≡ -αAz1 ≈ αV0(|ξ|-ln 2)), the
+drive on the driven side is
+
+```
+-g = G(w) = 2α V0³ w / (γ² + V0² w²) ,      w ≡ Ω_A = k_z - u    (11.3)
+```
+
+G is maximized on the **precession-resonance surface**
+
+```
+w* = γ/V0   ⇔   V0·Ω_A(ξ_res) = γ ,   ξ_res ≈ (k_z - γ/V0)/(αV0) + ln 2
+```
+
+(the beam-frame precession frequency matches the growth rate), where
+G_max = αV0²/γ. The well condition Q > 0 (with D > 0) requires G > γ², so
+
+```
+γ³ ≤ α V0²          — hard ceiling of the shear branch            (11.4)
+```
+
+independent of k_z, EPS, and window geometry. Measured dominant-branch
+peak rates reach 95–99% of (αV0²)^{1/3} (table in §11d). Natural units:
+
+```
+γ = (αV0²)^{1/3} γ̂ ,   k_z = (α/V0)^{1/3} k̂ ,   w = (α/V0)^{1/3} ŵ
+```
+
+in which the well condition is universal — γ̂²(γ̂² + ŵ²) < 2ŵ, ceiling
+γ̂ = 1, well edges ŵ± = [1 ± √(1-γ̂⁶)]/γ̂² — and the action is
+
+```
+S = ∫√Q dx = (EPS/(αV0²)^{1/3}) ∫ √Q̂ dŵ                          (11.5)
+```
+
+One dimensionless group P = (αV0²)^{1/3}/EPS controls the quantization
+budget; (k̂, αV0ξ_w) control the geometry. **These are the dimensionless
+collapse variables T2.5 was looking for**: α and V0 provably do not
+combine as αV0 (consistent with the observed non-collapse in αV0) but as
+(αV0²)^{1/3} for rates and (α/V0)^{1/3} for wavenumbers, plus the window
+group αV0ξ_w.
+
+### 11c. Quantization and the closed-form dispersion (model A)
+
+The well is bounded on the layer side by the tanh³ knee of g (inner edge
+ξ0 ≈ 1.4–2, from tanh³ξ0 ≈ γ²/G) and on the outer side by the window
+radius ξ_w or, if the window is loose, by the turning point where G falls
+back to γ². Under a hard cut the outer face is zero-flux (Neumann); the
+inner edge is a sharp step on the scale of the interior wavelength.
+Matching cos(∫k dx) to the under-barrier exponential across the step gives
+the n = 0 quantization
+
+```
+tan S = κ / k_edge ,     κ = √(γ² + k_z²) ≈ k_z                   (11.6)
+```
+
+with S ∈ (0, π/2): the branch is **quantization-marginal** — the well
+holds less than a quarter wave (measured actions 0.31π–0.46π at production
+points), which is why γ sits close to but below the ceiling, and why naive
+(n+½)π quantization fails. With the interior drive constant (G varies by
+< 5% across production wells — the numerically confirmed square-well
+regime), (11.6) closes to **model A**:
+
+```
+X ≡ √(G-γ²)/γ   from   L·X = arctan(1/X) ,   L = EPS (ξ_w - ξ0) k_z
+γ² = ½ [ -V0²k_z² + √( V0⁴k_z⁴ + 8 α V0³ k_z/(1+X²) ) ]           (11.7)
+```
+
+**Model B** ("exact-action") drops the square-well approximation: it
+integrates √Q from (11.2) over the exact well at each trial γ and
+root-finds (11.6), with the connection switched to π/4 when the well
+detaches from the knee and +π/4 when the outer edge is a free turning
+point. Validation against σ-chased dominant (n=0) eigenvalues of the
+6-field solver — 12 series spanning α = 1–5, V0 = 0.03–0.2, windows
+ξ_w = 5–40, k_z = 0.5–10 (figure): **model B matches to ≤ 2% (median
+≤ 0.2%) at every k_z ≥ 1.5; model A is within ~3% near and above the
+peak** and identifies the peak within ±0.5 in k_z. Worst deviations
+(6–9%) are at k_z ≲ 1 where the well is widest and least square.
+
+### 11d. Consequences: no intrinsic peak; k_z,peak is confinement-set
+
+1. **The unbounded system has no interior k_z maximum.** γ(k_z) rises and
+   saturates monotonically at the ceiling (αV0²)^{1/3} while the eigenmode
+   migrates outward riding the resonance surface (mode peaks track ξ_res;
+   measured -1 → -16 across k_z = 0.5–10 at C25 parameters, -36 at cut
+   40). Directly demonstrated at (α=2, V0=0.05, cut=40): γ climbs to
+   0.9955 of the ceiling by k_z = 10 with no turnover. The non-monotonic
+   dispersion of fig04 is **windowed physics**: once ξ_res reaches the
+   sponge/cut radius, the well is truncated at u_w = αV0(ξ_w - ln2), only
+   the Doppler-detuned drive G(w ≈ k_z) ≈ 2αV0³k_z/(γ²+V0²k_z²) remains,
+   and γ rolls off ∝ √(2αV0/k_z)·V0-ish — the measured decline.
+
+2. **Peak location** — resonance surface at the window edge, evaluated at
+   the ceiling rate (w* → (α/V0)^{1/3}):
+
+```
+k_z,peak ≈ αV0 (ξ_w - ln 2) + c (α/V0)^{1/3} ,   c = 1.0 ± 0.1    (11.8)
+```
+
+   Verified across 11 usable series (V0 = 0.03–0.2, ξ_w = 5–25): (11.8)
+   with c = 1 predicts every measured dominant-branch peak to ±0.6 in k_z,
+   including the direct window test — moving the cut 11 → 25 at fixed
+   physics (α=2, V0=0.05) moved the peak k_z 4.5 → 5.5 (formula: 4.45 →
+   5.85). Peak table (true / formula): C25-type (1, 0.05, 20): 3.5 / 3.7;
+   (1.5, 0.05, 12): 4.0 / 4.0; (2, 0.05, 11): 4.5 / 4.5; (2.5, 0.05, 9):
+   4.5 / 4.7; (3, 0.05, 8): 5.0 / 5.0; (3, 0.03, 5): 5.5 / 5.0;
+   (4, 0.03, 5): 6.0 / 5.6; (5, 0.03, 5): 6.5 / 6.2; (1, 0.1, 10):
+   3.0 / 3.1; (1, 0.2, 10): 3.0 / 3.6.
+
+3. **Why the data said k_z,peak ≈ 2α.** Both terms of (11.8) are EPS-free
+   — the theory *predicts* that the shear width does not select the
+   wavelength (T1.1's headline expectation) — but the correct statement is
+   "**the coupling and the containment radius select it together**". Over
+   the surveyed grid (α = 1–5, V0 = 0.03–0.1, sponges 5–20) expression
+   (11.8) numerically tracks ≈ 2α because the sub-linear resonance term
+   (α/V0)^{1/3} plus a window term whose radius the campaign design
+   shrank as α grew mimics a linear trend across a factor-5 α range.
+   k_z,peak ≈ 2α is a serviceable mnemonic inside the surveyed box, not a
+   law; (11.8) is the law (to the model's ±0.5).
+
+4. **γ_peak** = (0.95–0.99)·(αV0²)^{1/3} for windows ξ_w ≥ 8, dropping to
+   ~0.95 at ξ_w = 5. The empirical γ_peak ~ V0^{0.85–0.92} exponent at
+   fixed α is the V0^{2/3} of the ceiling times the window/quantization
+   correction γ̂(P, αV0ξ_w), which increases with V0 across the surveyed
+   range.
+
+### 11e. By-product: eigenmode-selection artifact in the reference data
+
+The branch is a *ladder* of well overtones (n = 0, 1, 2, …; spacing a few
+×0.01 TU⁻¹ at loose windows). `solve_eigenmode`'s default shift-invert
+target σ = 0.55·γ_WKB(quartic) lands mid-ladder wherever the quartic
+underestimates — i.e. at low α and/or k_z above the quartic's peak. At
+(α=1, V0=0.05, k_z=4, window 20): the dominant mode is γ = 0.134 (cut) /
+0.131 (production sponge), but default-σ returns 0.106, and the cached C25
+curve carries 0.082 — an n≈3 overtone. The eigenmode-seeded simulation
+then grew exactly the overtone it was seeded with (plateau-audited 0.081):
+**sim-vs-solver agreement certifies the numerics, not dominant-mode
+selection.** True C25-window peak: k_z = 3.5 at γ = 0.135 (99% of
+ceiling), not k_z = 2 at 0.122. The α ≥ 2 series are unaffected near
+their peaks (the quartic is accurate enough there for σ to find n = 0).
+Affected artifacts: eigensolver_grid_cache / exact_grid_cache
+(figs 03/04/05/13) at low α and beyond-peak k_z; the low-α end of fig05's
+k_z,peak ≈ 2α trend. Falsifiable CUDA check (queued, cheap): rerun one C25
+point with a broadband or true-n0 seed (`ym_eigenmode.py --sigma 0.14
+--export-seed`) and watch the plateau move 0.081 → ≈0.13.
+
+### 11f. Scope and relation to eq. 33
+
+The reduction inherits the 6-field model's scope: background By1 coupling
+in Ampère-x, Ez1 back-reaction, and fluid density/momentum perturbations
+are outside it (their combined effect on the shear branch is bounded at
+the few-% level by the sim agreement). The k_z = 0 chromo-Weibel anchor
+(0.5% agreement, §5.1-level) lives in the wide-EPS cosine geometry where
+those omissions matter and eq. 33's parabolic quantization is exact — it
+is untouched by this section. The **WKB gap is now diagnosed**: eq. 33's
+drive term -α²V0k_z does not match the true beam response (11.3) — three
+powers of v, Doppler-resonant, ceiling-bounded. Its low-k_z overshoot
+produces the 10–20× overestimates in fig07's tail; its decline at high
+k_z, against the true branch's ceiling saturation, produces the
+weak-coupling-corner ~25% underestimates.
