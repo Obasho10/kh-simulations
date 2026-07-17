@@ -2281,7 +2281,8 @@ conclusions rest on.
    saturation stays below the cavitation amplitude within 100 TU.
 4. Open: post-cavitation survival-time mechanism; a V0=0.08-0.09 run with
    snapshots retained to watch marginal cavitation; self-consistent Az1
-   depletion by the tachyonic branch (khaxn-relevant).
+   depletion by the tachyonic branch (khaxn-relevant) — *the depletion item
+   is resolved in the next section (2026-07-15/16): no depletion occurs.*
 
 ---
 

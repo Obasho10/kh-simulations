@@ -417,9 +417,9 @@ tachyonic-branch configs at α=1.0, V₀=0.05; FINDINGS.md "Self-consistent
 (unfrozen Az1) test"). Results:
 
 - **Linear phase: freezing is validated.** Unfrozen (and color-1-live)
-  variants grow at the same rate as the frozen reference (γ=1.45 from
-  snapshots vs eigensolver 1.43–1.46); freezing does not meaningfully distort
-  the tachyonic branch's linear growth.
+  variants grow at the same rate as the frozen reference (first config:
+  γ=1.45 from snapshots vs eigensolver 1.43–1.46); freezing does not
+  meaningfully distort the tachyonic branch's linear growth.
 - **The back-reaction is real, quadratic, and wrong-signed for depletion.**
   Differencing seeded vs unseeded unfrozen runs isolates the mode's imprint on
   A_z¹ at k_z=0: **ΔA_z¹ ≈ −0.04·|a|²**, tracked over four decades of |a|² and
@@ -428,12 +428,12 @@ tachyonic-branch configs at α=1.0, V₀=0.05; FINDINGS.md "Self-consistent
   makes the background **deeper** (|αA_z¹| larger), not shallower — the
   opposite of depletion.
 - **Net feedback is weakly stabilizing**: the unfrozen mode grows slightly
-  slower at finite amplitude (amplitude ratio 0.998 at |a|≈0.1 falling to
-  0.933 at |a|≈2.5; fitted γ 0.5156 vs 0.5180 mid-range) — two orders of
-  magnitude too weak to saturate the branch before the fluid model itself dies
-  (density cavitation / energy halt). **Depletion is not the saturation route,
-  and the frozen approximation is accurate to a few percent everywhere it
-  matters.**
+  slower at finite amplitude (second config, γ_lin=0.64: amplitude ratio 0.998
+  at |a|≈0.1 falling to 0.933 at |a|≈2.5; fitted mid-range slope 0.5156 vs
+  0.5180) — two orders of magnitude too weak to saturate the branch before the
+  fluid model itself dies (density cavitation / energy halt). **Depletion is
+  not the saturation route for this branch, and the frozen approximation is
+  accurate to a few percent everywhere it matters.**
 - A byproduct of the test: a "quiet" fully self-consistent counter-streaming
   background does not exist in this model — with k_z=0 live, the beams' own
   chromo-Weibel mode (γ=0.284 at the test point) always grows. Two other
@@ -441,6 +441,21 @@ tachyonic-branch configs at α=1.0, V₀=0.05; FINDINGS.md "Self-consistent
   real reason `suppress_kz0=1` is mandatory in production — and a secular By¹
   pump from a non-equilibrium color-1 init) were fixed with `vz_edge_taper`
   and `init_by1_eq`; the Weibel floor is physics, not numerics.
+
+**Scope of the validation** (what a referee should know): the test was run on
+the *tachyonic outer branch*, not on the production shear-layer KH mode — and
+deliberately so. That branch is the stringent case for freezing: its drive
+*is* the background (γ² = α²A_z¹² − k_z²), it grows roughly an order of
+magnitude faster than the KH rates at the same (α, V₀), and it was pushed to
+|a|≈2.5. The transfer to the production KH measurements is a fortiori:
+dispersion fits are made in the linear phase at |a|≪1, where a −0.04·|a|²
+back-reaction is negligible by many further orders of magnitude. Two limits
+remain: (i) both configs sit at a single physical point (α=1.0, V₀=0.05) —
+the quadratic law and its sign are the general content; the −0.04 coefficient
+and the −7% margin are point-specific; (ii) the unfrozen runs are only clean
+inside the pre-Weibel window (~20 TU here), so "validated" covers the linear
+and early-nonlinear phase — genuinely long-time self-consistent evolution
+remains the Kolmogorov-flow program's domain.
 
 Consequence for khaxn: the frozen "infinite battery" is *not* an overestimate
 of the drive — in a self-consistent setting the beams continuously re-supply
@@ -671,7 +686,9 @@ theorist, [N] = computationalist.** Status tags: ✅ solid, ⚠️ partially res
    ✅ §8.2. Standard external-field idealization, exact in the spin-orbit
    mapping — and now quantitatively checked here (T2.6, 2026-07-16): unfrozen
    runs grow at the same rate, and the back-reaction is quadratic
-   (ΔA_z¹ ≈ −0.04·|a|²), wrong-signed for depletion, and ≲7% out to |a|≈2.5.
+   (ΔA_z¹ ≈ −0.04·|a|²), wrong-signed for depletion, and ≲7% out to |a|≈2.5 —
+   tested on the fastest, most background-coupled branch, a stricter test than
+   the small-amplitude production KH fits require.
 
 4. **[P] Your mode grows slower than instabilities you delete every step. Why
    should I believe it exists?**
