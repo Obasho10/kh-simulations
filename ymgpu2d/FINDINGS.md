@@ -2455,3 +2455,65 @@ low α and beyond-peak kz; the low-α end of fig05's 2α trend.
   or model-B-guided σ); re-audit fig05's low-α points.
 - Absorbing-edge (sponge) version of the quantization phase if the few-%
   cut-vs-sponge offsets ever matter quantitatively.
+
+## Full-archive error audit vs σ-chased eigensolver — every measured growth rate, all five V0 (2026-07-17)
+
+Extends the V0=0.05-only suspectfix audit to the **entire measurement archive**:
+all 9,262 mode-6 (`circ_az2seed`) runs across every `remote_data/` node were
+re-fitted (windowed max-R² fit + plateau detector), deduplicated to the best run
+per (V0, α, kz) — plateau-confirmed preferred, then highest R² — giving **4,195
+unique measured points**. Each point was compared against the **σ-chased windowed
+eigensolver** (dominant localised mode of `ym_eigenmode.solve_eigenmode` at the
+run's actual `xi_sponge`, σ re-shifted upward until clear of the returned window
+top — never the default-σ call, never the WKB quartic). Theory pass:
+`analysis/chase_theory_worker.py`, 3,923 fresh solves + 272 reused from the
+suspectfix audit cache, run on the iMac (~60 s total; ARPACK at NX=384 takes
+~50 ms/point single-threaded — the earlier ~10 s/point local estimate was pure
+OpenBLAS thread-thrashing). Metric: `rel_err = |γ_meas − γ_chased|/γ_chased`
+with γ_meas = plateau rate when confirmed, else best-window rate. Full per-point
+table: `sweep/all_points_vs_chased.npz` (one array per column, 4,195 rows).
+
+### Headline: the sim is far more accurate than the sweep tables claimed
+
+The sweep tables' `rel_error` column (vs the crude quartic mislabeled
+`gamma_wkb`/`gamma_exact`) painted ~60% median "error". Against the real theory:
+
+| Population | n | median | p90 | share <20% | old-quartic median |
+|---|---|---|---|---|---|
+| All points | 4,192 | 34.1% | 422% | 34% | 59.9% |
+| Plateau-confirmed only | 1,203 | **13.8%** | 111% | 60% | 65.1% |
+| Clean core V0=0.03 (int-kz, kz≥1, α>0.3, plateau) | 141 | **9.3%** | 26% | 84% | 53.7% |
+| Clean core V0=0.05 | 165 | **10.2%** | 22% | 86% | 36.3% |
+| Clean core V0=0.10 | 34 | **6.0%** | 30% | 76% | 46.6% |
+| Clean core V0=0.20 | 34 | **9.2%** | 14% | 97% | 60.9% |
+| Clean core V0=0.01 | 147 | 23.3% | 34% | 46% | 40.8% |
+
+### Structure of the remaining error (all V0 pooled)
+
+- **kz<1 is the dominant real failure zone** (877 pts, median 106%):
+  kz≤0.5 sim reads a floor ~2.8–4× above theory (median 276%); 0.55<kz<1
+  undershoots (median 56%). Same two-mechanism sign-flip found in the V0=0.05
+  audit, now confirmed at every V0.
+- **Tier hierarchy confirmed and sharpened**: int-tier clean cores 6–10%;
+  half-tier kz≥1 median 26% (odd-k half-integers 39%); **fine-tier (Lz=16π)
+  kz≥1 median 68%** — the fine-tier boxes were never convergence-validated and
+  are now the worst systematic block in the archive.
+- **V0=0.01 undershoot is new**: a broad, mild sim deficit (median ratio
+  0.875, worst 0.75 at α>2.2 and kz=2–4) even in its clean core — weak-signal
+  regime, distinct from the α≤0.2 noise-floor wall.
+- **kz=1 high-α excess is global**: clean-core kz=1 ratio rises 0.99 → 1.21
+  as α goes 0.3→3.0, at all V0 — small, real, still unexplained.
+- **α≤0.3** (429 pts): median 19.8% — mostly fine once chased (the old 157%
+  quartic-based number was baseline artifact), though the α≤0.2 no-signal wall
+  stands.
+- **Plateau coverage is the biggest data-quality lever**: 2,989/4,192 points
+  (71%) lack plateau confirmation (median 53% vs 13.8% with plateau) —
+  V0=0.10/0.20 are worst-covered (34/~220 int-tier clean-core candidates each).
+
+### Method warnings (unchanged from the T1.2 by-product, now enforced archive-wide)
+
+Never quote `sweep/*.npz` `rel_error`, `batch_results.csv` `ratio`/`gamma_exact`,
+or any default-σ eigensolver value as "sim vs theory" — the first two compare
+against the bare quartic (median 1.9× off, up to 29×), and the default-σ call
+rides well-ladder overtones at low α / beyond-peak kz (20% of suspectfix points
+moved >5% when chased, 12.6% moved >50%).
