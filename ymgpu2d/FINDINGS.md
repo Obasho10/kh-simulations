@@ -2994,3 +2994,59 @@ Monitor: `logs/epsscan_{t126,t140}_progress.log`,
 `logs/kz0ext_abi{0,1,2}_progress.log` on each respective node. Collection
 follows the same pattern as recorr/intkz (rsync timeseries + energy CSVs,
 extend `recorr_collect.py`-style fitting once done).
+
+---
+
+## kz=0 extension campaign was CONTAMINATED, not measuring the intended mode
+## — found by checking accuracy, root cause already diagnosed in
+## OUTER_REGION.md, fixed and relaunched (2026-07-19, ~03:00 IST)
+
+User asked how accurate the just-finished kz=0 runs were. Pulled all 72
+`timeseries_k0.csv` from abi and fit γ via a best-window log-linear search
+(`analysis/eps_tachyon_scan.py`-style, requiring ≥3 e-folds of growth and
+≥15% of the series' time span to accept a window, avoiding short-window
+overfits). Result: **only 12/72 fits even had enough rows to attempt** (the
+rest terminated after <10 output rows), and **all 12 fitted γ came out
+3–6× faster than the WKB prediction** (e.g. α=1.0,V0=0.02: fit 1.027 vs
+predicted 0.209; α=3.0,V0=0.01: fit 1.208 vs predicted 0.288) — and,
+tellingly, several fitted values clustered around near-identical numbers
+(≈0.46, ≈0.75, ≈1.21) across *unrelated* (α,V0) pairs, the signature of a
+shared numerical artifact rather than an alpha/V0-dependent physical rate.
+
+Checked `energy.csv` for one of the crashed points (α=1.0, V0=0.1): E/E0
+went 1.0 → 1.23 → 81.0 → 28,483 across four consecutive output steps
+(t≈2.5→3.5) — a genuine catastrophic blowup, not the gentle Weibel growth
+being measured.
+
+**Root cause, already diagnosed and fixed in a prior investigation that
+this campaign forgot to reuse**: OUTER_REGION.md's "Self-consistent
+(unfrozen Az1) test" (2026-07-15/16) found that any `suppress_kz0=0` run
+(mandatory here — the flag would otherwise zero exactly the color-2/3 kz=0
+channel being measured) exposes two OTHER, faster obstructions before the
+genuine kz=0 physics is even reached: (1) the periodic-wrap vz-discontinuity
+collapse (documented as *the real reason* `suppress_kz0=1` is mandatory in
+production, not the Weibel mode itself) and (2) a secular By1 pump from an
+out-of-equilibrium color-1 sector. Both have existing, already-implemented
+fixes: `vz_edge_taper=50` and `init_by1_eq=1`. `gen_kz0_campaign.py` used
+neither. Fixed by adding both to the `.ini` template (no source-code changes
+needed — the fields already existed in `YM_Config.cuh`, just weren't set).
+
+**Verification the fix is correct, not just self-consistent**:
+OUTER_REGION.md's own reference point for these two fixes (α=1.0, V0=0.05)
+reports its measured blowup rate as γ=0.284 — which is *exactly* this
+campaign's WKB-formula prediction at that same (α,V0)
+(`gamma_kz0(1.0,0.05)=0.2842`). I.e. an independent, prior measurement
+using these fixes already lands on the number this campaign is trying to
+reproduce; re-running with the same fixes should now measure the correct
+physics rather than the contamination pattern above. Spot-checked
+immediately after relaunch: `energy.csv` for the slowest point (α=0.5,
+V0=0.01) now stays flat (E/E0 = 1.0000 → 1.00002 over 8 TU) instead of
+exploding — clean, slow growth as expected for this corner (γ_wkb=0.118,
+e-folding time ~8.5 TU).
+
+**Status**: old (contaminated) abi output cleaned, script regenerated and
+relaunched on abi0-2 with both fixes; now taking the originally-estimated
+~1.8h (the contaminated version had crashed within 1-40 TU across the
+board, which is why it deceptively finished in ~2.5 minutes the first
+time — fast completion was itself a red flag in hindsight). Accuracy
+numbers pending completion; rerun `analyze_kz0.py`-style fitting once done.

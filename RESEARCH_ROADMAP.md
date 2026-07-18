@@ -22,7 +22,12 @@ validated to 0.5% at α=2 only (double-well NAB_DTANH geometry artifact
 suppresses γ at lower α — see FINDINGS.md 2026-07-19); a 72-point single-
 shear-layer (NAB_CIRC_AZ2) extension across α∈[0.5,6]×V0∈[0.01,0.2] is
 running now (`gen_kz0_campaign.py`) to remove that artifact and validate the
-WKB polynomial across the full range. All campaigns so far at fixed EPS=0.15
+WKB polynomial across the full range. First attempt was contaminated by two
+OTHER faster instabilities that a `suppress_kz0=0` run exposes (periodic-wrap
+collapse + secular By1 pump, both already diagnosed in OUTER_REGION.md) —
+fixed with the existing `init_by1_eq=1`/`vz_edge_taper=50` keys and
+relaunched; see FINDINGS.md 2026-07-19 "kz=0 extension campaign was
+CONTAMINATED". All campaigns so far at fixed EPS=0.15
 except the T1.1 EPS-scan, also running now (120 pts, α∈{1.0,1.5,2.0}).
 
 ---

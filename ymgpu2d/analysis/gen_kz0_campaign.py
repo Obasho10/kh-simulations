@@ -35,6 +35,26 @@ Technique notes:
     channel every step -- see main_ym.cu step 6c/6e); kz_suppress_max=0 and
     kz_suppress_hi=0 leave the bandpass off (irrelevant to a kz=0
     measurement, the DFT projection is orthogonal to other kz anyway).
+  - **init_by1_eq=1 and vz_edge_taper=50 are BOTH required alongside
+    suppress_kz0=0** -- found the hard way (2026-07-19, first launch):
+    without them the run is dominated within a few TU by a completely
+    different, much faster instability -- exactly the two obstructions
+    documented in OUTER_REGION.md's self-consistent-background test
+    (FINDINGS.md "Self-consistent (unfrozen Az1) test", 2026-07-15/16): (1)
+    the periodic-wrap vz discontinuity collapse (the *actual* reason
+    suppress_kz0=1 is mandatory in production, not the Weibel mode alone),
+    and (2) the secular By1 pump from an out-of-equilibrium color-1 sector.
+    Both were already diagnosed and fixed by these exact two .ini keys
+    during an earlier investigation; this experiment simply needed to reuse
+    them (and didn't, the first time -- see FINDINGS.md 2026-07-19 "kz=0
+    campaign contaminated" for the full story: measured gamma came out
+    3-6x too fast and clustered around near-identical values across
+    unrelated (alpha,V0) pairs, both signatures of a shared numerical
+    artifact rather than the intended alpha/V0-dependent physical rate).
+    With both fixes applied, OUTER_REGION.md's own reference point
+    (alpha=1, V0=0.05) reduces to exactly this experiment's target rate
+    (gamma=0.284, their measured blowup rate) -- i.e. the fix is verified
+    against an independent prior measurement, not just self-consistent.
   - xi_sponge=0 (disabled): the sponge exists to confine a *localised*
     shear-layer eigenmode; this mode is uniform, so sponging part of the
     domain would only reduce the effective sampled volume for no benefit
@@ -97,6 +117,8 @@ perturb_amp = 0.001
 run_mode = 6
 xi_sponge = 0
 suppress_kz0 = 0
+init_by1_eq = 1
+vz_edge_taper = 50
 hyp_diff = 5e-5
 kz_suppress_max = 0
 eps_override = {eps}
@@ -119,6 +141,8 @@ perturb_amp = 0.001
 run_mode = 6
 xi_sponge = 0
 suppress_kz0 = 0
+init_by1_eq = 1
+vz_edge_taper = 50
 hyp_diff = 5e-5
 kz_suppress_max = 0
 eps_override = 0.15
