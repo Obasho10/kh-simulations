@@ -2641,3 +2641,54 @@ Seven anchors, corrected pipeline, γ_chased references at each run's exact
 bp=55 only filters physical kz ≤ 6.875 on the Lz=16π box while the EM band
 extends to 14); genuine fine-box kz=0.25 α=2.0 bp112 (0.1122). Results to be
 appended below.
+
+### Validation results (2026-07-17/18, t140, corrected pipeline) — ALL STRETCHED-BOX ANOMALIES RESOLVED
+
+| anchor (V0=0.05) | box | bp | ξ_s | γ_sim | γ_chased | ratio |
+|---|---|---|---|---|---|---|
+| kz=5, α=2.0 | 2π/NZ64 | 14 | 10 | 0.1454 | 0.1584 | 0.92 |
+| kz=2.5, α=2.0 | 4π/NZ128 | 28 | 10 | 0.1524 | 0.1434 | **1.06** |
+| kz=2.75, α=1.7 | 16π/NZ512 | 55 | 10 | 0.1483 | 0.1405 | **1.06** |
+| kz=2.75, α=1.7 | 16π/NZ512 | 112 | 10 | 0.1483 | 0.1405 | **1.06** |
+| kz=0.25, α=2.0 | 16π/NZ512 | 112 | 8 | 0.1111 | 0.1122 | **0.99** |
+| kz=0.5, α=0.9 | 4π/NZ128 | 28 | 8 | 0.0554 | 0.0455 | 1.22 |
+
+- **The half-tier kz=2.5 "0.30× undershoot", the fine-tier "68% block", and the
+  kz<1 "α-independent floor" are all gone** once the box, the extraction
+  helicity, and (for fine) the sponge are right. Stretched boxes are as
+  accurate as the default box (6% at kz=2.5 and 2.75, 1% at kz=0.25).
+- kz=0.5's 22% excess is within sponge-modeling uncertainty for wide modes
+  (ξ_char≈6.7 ≈ window size; eigensolver γ swings ±10% over ξ_s=6–12 and
+  jumps to 0.30 at ξ_s=24 as the outer branch enters). Not pursued further.
+- Fine-box runs at the production loose sponges (ξ_s=42) blow up at t≈14 at
+  BOTH bp=55 and bp=112 (outer tachyon inside the window) — the fine tier
+  needs vetted-tight sponges like every other tier; with ξ_s=10 the bp=55
+  vs 112 distinction is irrelevant because the sponge already kills the
+  outer-region band spatially.
+
+### NEW numerical constraint: kz_suppress_hi must stay below ≈ NZ/4.5
+
+bp-scan at kz=5, α=2.0, default box (slope in the t=15–30 window):
+hi=14: 0.121 · hi=15: 0.116 · hi=16: 0.115 · hi=18: 0.114 · hi=20: 0.109 ·
+hi=24: 0.096 · hi=28: ~0.001 (mode frozen at seed amplitude for 20 TU, γ
+still <0.02 at t=60). Extending the DFT filter band into the grid's
+dispersive tail (wavelengths ≲ 4–5 cells, i.e. modes ≳ NZ/4.5) bleeds the
+KEPT mode: the FCT limiter continuously deposits mode-correlated content at
+near-Nyquist wavelengths, and zeroing that band every step acts as strong
+effective damping on the physical mode. Confirmed scale-invariant: hi=28 is
+lethal on NZ=64 but perfectly fine on NZ=128 (heli_half, ratio 1.06), and
+hi=112 is fine on NZ=512. **Rule: hi ≤ NZ/4.5 (hi=14@NZ64, 28@NZ128,
+112@NZ512).** This also retroactively explains why suspectfix "half-tier"
+runs (bp28 on the NZ=64 box, by Bug 2) showed suppressed growth in BOTH
+helicity channels, and it means suspectfix "fine-tier" configs (bp55 on
+NZ=64, beyond Nyquist=32!) were aliasing the filter on top of everything
+else.
+
+### Status after this session
+
+Sim + eigensolver agree to ≤8% at every anchor with a tight vetted sponge and
+narrow mode, on every box tier, at integer and fractional kz — measured with
+the fixed extractor. The dispersion-map program is unblocked; the remaining
+work is the recorrection campaign for the ~7.6k invalidated series (reruns:
+correct boxes via fixed generator, tier-scaled bp per the NZ/4.5 rule, tight
+sponges, fixed extraction).
