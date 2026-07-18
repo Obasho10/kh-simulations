@@ -22,7 +22,7 @@ for run_dir in sorted(glob.glob(pattern)):
     # bp28 → Lz=4π (kz_physical = k/2); bp55 → Lz=16π (kz_physical = k/8)
     lz4pi  = bool(re.search(r'lz12\.56|lz4pi|_lz4', run_dir)) or \
              (bool(re.search(r'_bp28', run_dir)) and k % 2 == 1)
-    lz16pi = bool(re.search(r'_bp55', run_dir))
+    lz16pi = bool(re.search(r'_bp55|_bp112', run_dir))
     csvs = sorted(glob.glob(f"{run_dir}/ym_*.csv"))
     if not csvs:
         continue

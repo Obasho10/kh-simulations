@@ -166,7 +166,7 @@ def parse_dir(dname):
     k_mode = int(m_k.group(1))
     lz4pi  = bool(re.search(r'lz12\.56|lz4pi|_lz4', dname)) or \
              (bool(re.search(r'_bp28', dname)) and k_mode % 2 == 1)
-    lz16pi = bool(re.search(r'_bp55', dname))
+    lz16pi = bool(re.search(r'_bp55|_bp112', dname))
     if lz16pi:
         kz = k_mode / 8.0
     elif lz4pi:
@@ -187,7 +187,11 @@ def kz_to_label(kz):
     return f"{kz:.3f}".rstrip('0').replace('.', 'p')
 
 
-def analyze_node(node_dir):
+def analyze_node(node_dir, name_filter=None):
+    """name_filter, if given, is a substring -- only run_dirs whose name
+    contains it are analyzed. Use this to skip re-fitting the (large,
+    slow-growing) historical backlog when only a specific campaign's
+    directories (e.g. 'suspectfix') are needed."""
     node_dir = Path(node_dir)
     rows = []
     # collect run dirs: both direct children and those under outputs/ subdir
@@ -199,6 +203,8 @@ def analyze_node(node_dir):
             run_dirs.extend(sorted(d.iterdir()))
         else:
             run_dirs.append(d)
+    if name_filter:
+        run_dirs = [d for d in run_dirs if name_filter in d.name]
     for run_dir in run_dirs:
         if not run_dir.is_dir():
             continue
@@ -240,10 +246,17 @@ def analyze_node(node_dir):
 
 
 def main():
-    dirs = sys.argv[1:] if len(sys.argv) > 1 else ['remote_data/abi', 'remote_data/t130', 'remote_data/t140']
+    args = sys.argv[1:]
+    name_filter = None
+    for flag in ("--filter",):
+        if flag in args:
+            i = args.index(flag)
+            name_filter = args[i + 1]
+            del args[i:i + 2]
+    dirs = args if args else ['remote_data/abi', 'remote_data/t130', 'remote_data/t140']
     all_rows = []
     for d in dirs:
-        rows = analyze_node(d)
+        rows = analyze_node(d, name_filter=name_filter)
         all_rows.extend(rows)
         print(f"{d}: {len(rows)} runs analyzed")
 
