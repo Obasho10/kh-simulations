@@ -51,7 +51,9 @@ ALPHA = 2.0
 V0 = 0.05
 EPS = 0.15
 XI_SPONGE = 11.0
-KZ_LIST = list(range(1, 7))          # matches C35 exactly
+KZ_LIST = list(range(1, 9))          # C35 was kz=1..6; extended to 1..8 2026-07-19
+                                       # to match the EPS-scan's full kz range (seeds
+                                       # for kz=7,8 generated the same way as C35's)
 TARGET_TU = 100
 BP_OFF = 0
 
@@ -63,9 +65,11 @@ WARM_LEGS = [
     ("wt3p0", round((3.0 * V0) ** 2, 6)),
 ]
 
-# Node this campaign is staged for (separate from the eps-scan's t126 so both
-# can run concurrently once nodes free up). Swap freely at launch time.
-STREAM = ("t130", "/DATA/cm/lcpfct/ymgpu2d")
+# Node this campaign is staged for. 2026-07-19: t130 has an active human
+# session (confirmed live via `who`) -- moved to t133, which is completely
+# idle. Bundled onto the same node as the kz=0 extension (gen_kz0_campaign.py)
+# via gen_batch2_campaign.py's LPT split across t133+abi0-2.
+STREAM = ("t133", "/DATA/ym_kh/ymgpu2d")
 
 
 def build_grid():
@@ -80,7 +84,11 @@ def build_grid():
     return pd.DataFrame(rows)
 
 
-INI_TEMPLATE = """cat > {ini} <<'EOINI'
+# NOTE (bug found + fixed 2026-07-19, see gen_epsscan_campaign.py's INI_TEMPLATE
+# for the full story): heredoc deliberately UNQUOTED so $WDIR expands into
+# seed_profile_file at write time -- a quoted heredoc silently wrote the
+# literal text "$WDIR/seeds/..." and every run crashed at seed-load.
+INI_TEMPLATE = """cat > {ini} <<EOINI
 k_mode = {k_mode}
 alpha_YM = {alpha}
 V0 = {V0}
@@ -105,7 +113,7 @@ echo "[{stream}] kz={kz} warm_T={warm_T} ({warm_label}) done $(date)" >> $LOG
 """
 
 SMOKE_TEMPLATE = """# ---- smoke test: binary + filters-off path + warm_T pressure term all work ----
-cat > /tmp/warmcl_smoke_{stream}.ini <<'EOINI'
+cat > /tmp/warmcl_smoke_{stream}.ini <<EOINI
 k_mode = 2
 alpha_YM = 2.0
 V0 = 0.05
@@ -184,8 +192,9 @@ def main():
           f"crash/saturate early once the unfiltered fast channels take over, "
           f"which only shortens it.")
     print(f"Written scripts/warmclosure_{stream}.sh + sweep/warmclosure_manifest.csv")
-    print("Reuses the 6 existing C35 seeds in seeds/ (a2.00_V0.050_sp11.0) -- no "
-          "new seed generation needed.")
+    print(f"Reuses the {len(KZ_LIST)} existing eigenmode seeds in seeds/ "
+          "(a2.00_V0.050_sp11.0, kz=7,8 generated 2026-07-19 to extend C35's original "
+          "kz=1..6) -- no new seed generation needed at run time.")
 
 
 if __name__ == '__main__':

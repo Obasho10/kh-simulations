@@ -2892,3 +2892,105 @@ t130 for an active human session — see [[campaign-status]]) and, independent
 of that, checks for a logged-in human on t126/t130 via `who` immediately
 before touching either node, aborting per-node rather than assuming GPU-idle
 means machine-free.
+
+---
+
+## Comprehensive post-intkz campaign LAUNCHED (2026-07-19, ~02:47 IST) — 224
+## runs across 6 streams, plus a kz=0 growth-rate extension; 3 real bugs
+## found and fixed in the process (2 pre-existing, 1 introduced same day)
+
+The intkz campaign is PAUSED (user hold), not finished — 988/1134 done, 146
+runs held for later (see [[campaign-status]]). Live `who` + `nvidia-smi` +
+`ps aux` checks (not assumed from memory) on every node found: **t130, t132
+have an active human session (ds_students)** — excluded; **t126, t133,
+t140, abi0-2 are completely idle** (no user, no running job) — these six
+streams are what this campaign uses.
+
+**Expanded scope** (user asked for "a little more comprehensive," ≥6h of
+runs, and a kz=0 growth-rate extension):
+- **T1.1 EPS-scan**: added α=1.5 to the existing {1.0, 2.0} × 5 EPS × 8 kz
+  grid → 120 points (was 80). `gen_epsscan_campaign.py` is now incremental
+  (reuses any (α,V0,kz,EPS) row already in the manifest — the 80 original
+  points cost ~0s to "recompute" this time, only the 40 new α=1.5 points
+  needed a real eigensolver hunt, ~18 min instead of the original ~35).
+  LPT-split across **t126 + t140** (2 A5000s, ~2.5h wall each).
+- **T1.4 warm-closure**: extended kz range from C35's original 1..6 to
+  **1..8** (2 new eigenmode seeds, same α=2.0/V0=0.05/EPS=0.15/ξ_sponge=11.0
+  convention) → 32 runs. Moved off t130 (human present) to **t133**.
+- **NEW: kz=0 chromo-Weibel growth-rate extension** (`gen_kz0_campaign.py`),
+  answering the "more parameter points, latest techniques" ask. Original
+  measurement (Campaign 8, 2026-06-30, 200 pts) used run_mode=3 (NAB_DTANH,
+  a DOUBLE shear layer) and is documented to suppress γ at low α by a
+  geometric bonding/antibonding artifact (factor ~α^0.88), validated to only
+  0.5% at α=2 where the two wells decouple. This extension uses the current
+  production geometry instead (run_mode=6, single shear layer — no
+  double-well artifact), so the WKB polynomial γ=(√(α³/2)·V0)^(1/3)·sin(π/3)
+  can be tested across the FULL range, not just α=2. Technique: k_mode=0
+  hits kernel_ym_init's xi_char formula at kz=0, which blows the seed width
+  up to ~1e6 — i.e. an (to any physical precision) spatially uniform Az2
+  seed, exactly matching the homogeneous-plasma physics being measured; no
+  eigenmode seed file needed. suppress_kz0=0 is mandatory (it normally
+  zeroes exactly this channel every step); xi_sponge=0 (the mode is uniform,
+  not localised, so the shear-confinement sponge doesn't apply and Campaign
+  8 didn't use one either). Grid: α∈{0.5,1,1.5,2,2.5,3,4,5,6} ×
+  V0∈{0.01,0.02,0.03,0.05,0.07,0.08,0.1,0.2} (both the project's standard
+  production grids, for direct comparability) = 72 points, LPT-split across
+  **abi0/1/2** (ABI_SLOWDOWN-aware).
+- **Total: 224 runs, ~5.9 GPU-h (A5000-equivalent), ~1.2–2.5h wall-clock**
+  depending on stream (close to the requested ≥6h of work; wall-clock is
+  much shorter since it's spread across 6 parallel streams).
+
+**Bugs found and fixed before/during launch:**
+1. **Heredoc quoting bug (pre-existing, both epsscan and warmclosure
+   generators)**: `seed_profile_file = $WDIR/seeds/{seed}` was written
+   inside a *quoted* heredoc (`<<'EOINI'`), which suppresses ALL shell
+   expansion — every single run's .ini therefore contained the literal
+   8-character string `$WDIR/seeds/...` instead of the real path, and every
+   run crashed instantly with "cannot open seed profile". This is exactly
+   why "at least 6 hours of runs" would have produced ~0 minutes of real
+   GPU time had it shipped as originally staged (2026-07-18) — caught only
+   because of an accidental early launch (see below), not by the smoke test
+   (epsscan's smoke test doesn't exercise `seed_profile_file` at all — a
+   real gap). Fixed: unquoted the delimiter (`<<EOINI`) in both generators'
+   INI_TEMPLATE (and warmclosure's SMOKE_TEMPLATE, which also referenced
+   `$WDIR`); verified by executing the exact heredoc snippet locally with a
+   fake `$WDIR` and confirming it expands correctly.
+2. **t140's Makefile auto-detect picked a broken `nvcc`**: `which nvcc`
+   resolved to `/usr/bin/nvcc` (missing `cuda_runtime.h` — not a real CUDA
+   toolkit install), while the working one is at
+   `/usr/local/cuda-12.0/bin/nvcc`. Built explicitly with
+   `make NVCC=/usr/local/cuda-12.0/bin/nvcc -B`; the Makefile's PATH-first
+   auto-detect logic is still a latent trap on this node for any future
+   plain `make`.
+3. **ssh backgrounding didn't reliably detach**: `nohup cmd &`, and even
+   `nohup cmd </dev/null &`, `disown`, and `setsid nohup cmd </dev/null &`
+   all left the launch orchestrator's `ssh` call blocked until the
+   *entire multi-hour remote campaign finished* on this cluster, rather
+   than returning once the job was backgrounded (verified: the remote job
+   itself ran correctly the whole time — only the orchestrating `ssh` call
+   hung). Fixed by using `ssh -f` (the documented "background just before
+   command execution" flag) instead — verified to return in <1s regardless
+   of the backgrounded command's duration, for both a plain `sleep` test and
+   the real campaign scripts. `scripts/launch_comprehensive.sh` updated.
+4. **Self-inflicted, not a code bug**: an early attempt to test
+   `launch_comprehensive.sh`'s check functions via `source script.sh`
+   instead of calling them from an already-loaded shell executed the
+   *entire script top-to-bottom*, actually launching the (still-buggy, see
+   #1) EPS-scan on t126 for real. This is how bug #1 was caught — every one
+   of that accidental run's 80 points crashed identically within under two
+   minutes wall-clock (instant crashes, not real runs). Cleaned up (killed,
+   crashed output dirs removed, log reset) and relaunched cleanly with the
+   fixed script once #1 was fixed. Lesson: never `source` an orchestration
+   script meant to be executed — test its functions some other way.
+
+**Verified before moving on**: all 6 streams' progress logs show
+`smoke test OK` with no `CRASHED` line following (t126 specifically
+re-checked after the bug-1 fix and relaunch: `seed_file=` in the sim's own
+startup banner now shows the real expanded absolute path, and the run
+progresses through real timesteps rather than exiting immediately).
+
+Monitor: `logs/epsscan_{t126,t140}_progress.log`,
+`logs/warmclosure_t133_progress.log`,
+`logs/kz0ext_abi{0,1,2}_progress.log` on each respective node. Collection
+follows the same pattern as recorr/intkz (rsync timeseries + energy CSVs,
+extend `recorr_collect.py`-style fitting once done).

@@ -61,7 +61,11 @@ import ym_eigenmode as E
 import find_safe_sponge as F
 
 EPS_LIST = [0.10, 0.15, 0.225, 0.30, 0.45]
-ALPHA_LIST = [1.0, 2.0]
+ALPHA_LIST = [1.0, 1.5, 2.0]   # 1.5 added 2026-07-19 (comprehensive-campaign expansion,
+                                # tests whether the kz_peak(EPS) drift found at 1.0/2.0
+                                # interpolates smoothly or does something structurally
+                                # different in between -- also the alpha already used
+                                # throughout the V0=0.05 production series, e.g. C34)
 V0 = 0.05
 KZ_LIST = list(range(1, 9))
 
@@ -72,9 +76,12 @@ NX_SOLVER_DEFAULT = 384                # standard analysis-grid NX used througho
 BP_INT = 14              # NZ/4.5 rule at default NZ=64
 SEC_PER_TU_A5000 = 0.87
 
-# Node this campaign is staged for (single node -- whole scan is <2 GPU-h,
-# no need to split across the recorr fleet). Swap freely at launch time.
-STREAM = ("t126", "/DATA/cm/lcpfct/ymgpu2d")
+# Nodes this campaign is staged for -- 2026-07-19: confirmed via live `who` +
+# `nvidia-smi` that t130/t132 have an active human session (ds_students) and
+# every other node is completely idle. LPT-split across the two idle A5000s
+# (t133/t140 sit in the other half of this comprehensive campaign, see
+# gen_batch2_campaign.py, so this scan gets its own pair).
+STREAMS = [("t126", "/DATA/cm/lcpfct/ymgpu2d"), ("t140", "/DATA/cm/lcpfct/ymgpu2d")]
 
 # Wide-EPS box-size fix (found 2026-07-18, see eps_tachyon_scan.py "wrap_buffer"
 # check): at the default LX=6pi, the periodic domain's own xi-half-width
@@ -181,7 +188,16 @@ def gen_seed(row):
     return fname
 
 
-INI_TEMPLATE = """cat > {ini} <<'EOINI'
+# NOTE (bug found + fixed 2026-07-19): the heredoc delimiter below is
+# deliberately UNQUOTED (<<EOINI, not <<'EOINI'). seed_profile_file needs
+# $WDIR expanded at generation-time-of-the-.ini (i.e. runtime on the node) --
+# a quoted heredoc suppresses ALL expansion inside it, which silently wrote
+# the literal text "$WDIR/seeds/..." into every .ini and made every single
+# run in the first launch attempt crash at "cannot open seed profile"
+# (caught only because of an accidental early launch, not by the smoke test
+# -- the smoke test doesn't use seed_profile_file, a real gap). Do not
+# requote this without re-adding a seed-loading check to SMOKE_TEMPLATE.
+INI_TEMPLATE = """cat > {ini} <<EOINI
 k_mode = {k_mode}
 alpha_YM = {alpha}
 V0 = {V0}
@@ -268,19 +284,42 @@ def emit_script(stream, wdir, pts, path):
         f.write("\n".join(lines) + "\n")
 
 
+MANIFEST_PATH = os.path.join(SWEEP_DIR, 'epsscan_manifest.csv')
+
+
 def main():
     grid = build_grid()
+
+    cached = None
+    if os.path.exists(MANIFEST_PATH):
+        cached = pd.read_csv(MANIFEST_PATH)
+        print(f"Found existing manifest with {len(cached)} rows -- reusing any that "
+              f"match the current grid (incremental, 2026-07-19 expansion).", file=sys.stderr)
+
     print(f"Analyzing {len(grid)} points (eigensolver safe-sponge hunt, "
           f"NX={NX_SOLVER_DEFAULT} std / {NX_SOLVER_WIDE} wide-EPS)...",
           file=sys.stderr)
     rows = []
+    n_reused = 0
     for i, r in grid.iterrows():
+        hit = None
+        if cached is not None:
+            m = cached[(cached['alpha'] == r['alpha']) & (cached['V0'] == r['V0']) &
+                      (cached['kz'] == r['kz']) & (cached['EPS'] == r['EPS'])]
+            if len(m):
+                hit = m.iloc[0].to_dict()
+        if hit is not None:
+            rows.append(hit)
+            n_reused += 1
+            continue
         rows.append(analyze_point(r['alpha'], r['V0'], r['kz'], r['EPS']))
         print(f"  [{i+1}/{len(grid)}] alpha={r['alpha']} EPS={r['EPS']} kz={r['kz']} "
               f"-> sp={rows[-1]['xi_sponge']:.0f} safe={rows[-1]['sponge_safe']} "
               f"gamma_real={rows[-1]['gamma_eig_real']:.3f} "
               f"gamma_outer={rows[-1]['gamma_eig_outer']:.3f} "
               f"({rows[-1]['hunt_seconds']:.1f}s)", file=sys.stderr)
+    print(f"Reused {n_reused}/{len(grid)} already-vetted points from the existing manifest.",
+          file=sys.stderr)
     df = pd.DataFrame(rows)
 
     unsafe = df[~df['sponge_safe']]
@@ -292,10 +331,15 @@ def main():
         print(unsafe[['alpha', 'EPS', 'kz', 'xi_sponge', 'gamma_eig_outer']].to_string(),
               file=sys.stderr)
 
-    print("\nGenerating eigenmode seeds...", file=sys.stderr)
+    print("\nGenerating eigenmode seeds (skipping any whose file already exists)...",
+          file=sys.stderr)
     os.makedirs(SEED_DIR, exist_ok=True)
     seed_files = []
     for i, r in df.iterrows():
+        existing = r.get('seed_file')
+        if isinstance(existing, str) and os.path.exists(os.path.join(SEED_DIR, existing)):
+            seed_files.append(existing)
+            continue
         fn = gen_seed(r)
         seed_files.append(fn)
         print(f"  [{i+1}/{len(df)}] -> {fn}", file=sys.stderr)
@@ -308,19 +352,35 @@ def main():
     df['tier'] = 'int'
     os.makedirs(SWEEP_DIR, exist_ok=True)
     os.makedirs(SCRIPT_DIR, exist_ok=True)
-    df.to_csv(os.path.join(SWEEP_DIR, 'epsscan_manifest.csv'), index=False)
+    df.to_csv(MANIFEST_PATH, index=False)
 
-    stream, wdir = STREAM
-    emit_script(stream, wdir, df, os.path.join(SCRIPT_DIR, f'epsscan_{stream}.sh'))
+    # LPT-balance across the two idle A5000 streams (cost-aware, both full-speed
+    # A5000s so no slowdown factor needed -- unlike the abi/1080Ti pool used
+    # elsewhere in this comprehensive campaign).
+    finish = {s[0]: 0.0 for s in STREAMS}
+    assign = {}
+    for idx in df.sort_values('cost_a5000', ascending=False).index:
+        best = min(finish, key=finish.get)
+        assign[idx] = best
+        finish[best] += df.at[idx, 'cost_a5000']
+    df['stream'] = pd.Series(assign)
+    df.to_csv(MANIFEST_PATH, index=False)  # rewrite with the stream column
+
+    for stream, wdir in STREAMS:
+        pts = df[df['stream'] == stream].sort_values(['alpha', 'EPS', 'kz'])
+        emit_script(stream, wdir, pts, os.path.join(SCRIPT_DIR, f'epsscan_{stream}.sh'))
 
     tot_cost = df['cost_a5000'].sum()
     print(f"\nTotal runs: {len(df)}  (est. {tot_cost/3600:.2f} GPU-h on an A5000, "
-          f"x1.5 for extraction overhead -> {tot_cost*1.5/3600:.2f} h wall)")
-    print(f"Written scripts/epsscan_{stream}.sh + sweep/epsscan_manifest.csv + "
-          f"{len(df) - missing} seed files in seeds/")
-    print("NOTE: requires the main_ym.cu _nx<N> dir-tag fix and the remote_timeseries.py "
-          "NX-parsing fix (both 2026-07-18) synced + rebuilt on the target node first -- "
-          "see scripts/launch_after_recorr.sh.")
+          f"x1.5 for extraction overhead -> {tot_cost*1.5/3600:.2f} h eq.)")
+    for s, wdir in STREAMS:
+        n = (df['stream'] == s).sum()
+        print(f"  {s}: {n} runs, ~{finish[s]*1.5/3600:.2f} h wall")
+    print(f"Written scripts/epsscan_{{{','.join(s for s,_ in STREAMS)}}}.sh + "
+          f"sweep/epsscan_manifest.csv + {len(df) - missing} seed files in seeds/")
+    print("NOTE: requires the main_ym.cu _nx<N>/_lx<N> dir-tag fix and the "
+          "remote_timeseries.py NX-parsing fix (both 2026-07-18) synced + rebuilt on "
+          "every target node first -- see scripts/launch_comprehensive.sh.")
 
 
 if __name__ == '__main__':

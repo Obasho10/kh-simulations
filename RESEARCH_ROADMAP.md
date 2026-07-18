@@ -18,7 +18,12 @@ kz = 0.25–9, with three-level validation (WKB ← exact 1D eigensolver ← 2D 
 sim/exact = 0.94–0.99). Two novel results in hand: non-monotonic dispersion with
 kz_peak ≈ 2α (V0=0.05 series), and a sharp two-branch structure below kz=1
 (γ=0.32 at kz_phys=0.5 → 0.06 at 0.75, α=2, V0=0.05). kz=0 chromo-Weibel mode
-validated to 0.5%. All campaigns so far at fixed EPS=0.15.
+validated to 0.5% at α=2 only (double-well NAB_DTANH geometry artifact
+suppresses γ at lower α — see FINDINGS.md 2026-07-19); a 72-point single-
+shear-layer (NAB_CIRC_AZ2) extension across α∈[0.5,6]×V0∈[0.01,0.2] is
+running now (`gen_kz0_campaign.py`) to remove that artifact and validate the
+WKB polynomial across the full range. All campaigns so far at fixed EPS=0.15
+except the T1.1 EPS-scan, also running now (120 pts, α∈{1.0,1.5,2.0}).
 
 ---
 
@@ -41,11 +46,12 @@ referee-proofing (cheap, do opportunistically); Tier 3 are follow-on projects.
       `sweep/epsscan_manifest.csv` and the T1.1 tachyonic-branch note below.
 - [x] Run the corresponding Mode-6 campaigns (fast grid; each kz ≈ 90 s, whole
       scan < 2 h of GPU time). Watch DX resolution rule: need EPS/DX ≳ 6, so
-      EPS=0.10 requires NX ≥ 1024 (use `nx_override`). **Staged 2026-07-18**:
-      `scripts/epsscan_t126.sh` (80 runs, single node, ~2 h wall incl.
-      extraction overhead) is generated and ready; launch via
-      `scripts/launch_after_recorr.sh` once the recorrection campaign frees a
-      node. Two correctness fixes required for this to be safe, both applied:
+      EPS=0.10 requires NX ≥ 1024 (use `nx_override`). **LAUNCHED 2026-07-19
+      ~02:47 IST**, expanded to 120 pts (α∈{1.0,1.5,2.0}), running on
+      t126+t140 now (~2.5h wall each) — see FINDINGS.md "Comprehensive
+      post-intkz campaign LAUNCHED" for the heredoc-quoting bug this almost
+      shipped with (every run would have crashed instantly at seed-load).
+      Two correctness fixes were required before that, both applied:
       (1) EPS=0.10 uses `nx_override=1152` (not 1024 — 1024 only gives
       EPS/DX=5.4, just under the ≳6 rule; 1152 clears it at 6.0), and (2) the
       output-directory naming (`main_ym.cu`) now tags `_nx<N>` when
@@ -171,9 +177,10 @@ plasma with v_th ≳ V0 stabilizes the two-stream family.
       full dispersion series (suggest C35 clone: α=2.0, V0=0.05) with
       v_th ≈ 2–3 V0 and **all filters off** (no BP, no memset, no suppress_kz0 —
       keep hyperdiffusion only if needed for grid-scale noise; state it).
-      **Staged 2026-07-18**: `analysis/gen_warmclosure_campaign.py` generates
-      an exact C35 clone (α=2.0, V0=0.05, EPS=0.15, xi_sponge=11.0, kz=1..6,
-      reusing the 6 existing C35 seeds) x 4 warm_T legs — a cold control
+      **LAUNCHED 2026-07-19 ~02:47 IST** (on t133, not t130 — t130 has an
+      active human session): `analysis/gen_warmclosure_campaign.py` generates
+      an exact C35 clone (α=2.0, V0=0.05, EPS=0.15, xi_sponge=11.0, extended
+      to kz=1..8) x 4 warm_T legs — a cold control
       (warm_T=0, filters off, expected to be swamped by the fast channels —
       the point of the comparison) plus v_th/V0 ∈ {2.0, 2.5, 3.0}
       (warm_T=(v_th)², since c_s=√warm_T for this isothermal P=n·T closure).
