@@ -788,6 +788,7 @@ All modes peak at the sponge boundary (ξ=10.14), pure real eigenvalues (Im=0). 
 | Outer-region EM instability at higher α/V0 | C19/C20/C21 failures: growing faster than sponge can damp for α≥3 or V0≥0.2 at xi_sponge=10. Fix: xi_sponge=2/(α·V0), sigma=15. C19b/C20b/C21b running with corrected sponge + corrected binary. |
 | Stale binary on t130/abi | C20b-first and C21b-first also failed because t130 and abi had binaries compiled before Mode 6. Fix: scp all source + recompile with cuda-12.4 (t130 driver=12.8, not 13.0) and sm_61 (abi). C20b now shows E0=7739 (correct). |
 | Tight sponge trade-off for large α | At α=4, xi_sponge=5 prevents outer EM but also damps kz≥2 (ξ_peak≈5.24 at sponge edge). Only kz=1 clean for α=4, V0=0.1. WKB overestimates by factor 10–15 at large α. |
+| `_bp28`/half-integer-kz sweep contamination (2026-07-14) | **PARTIALLY FIXED, scope-limited (root cause: xi_sponge too loose, not a code bug, but V0-dependent).** The blind `xi_sponge_for()` formula pushes xi_sponge toward its 55 ceiling at low kz/low αV0, failing to exclude the already-documented outer-region EM instability (γ≈0.7-1.4 TU⁻¹). `analysis/find_safe_sponge.py` (eigensolver-based candidate finder) fixes this for V0≲0.05 (3/3 CUDA-confirmed points clean or near-clean at tightened sponge) but FAILS for V0=0.10 even at the sponge floor (blows up t≈91 instead of t≈38, not eliminated) — sponge-tightening alone is not universally sufficient, likely V0-dependent. Do not blindly rerun the V0≥0.08 suspect points with a tighter sponge and expect it to work. See dated sections at end of file. |
 
 ---
 
@@ -1703,4 +1704,991 @@ kz=1 dominant at γ=0.967 — likely parasitic kz=0 contamination or rapid nonli
 5. **WKB dramatically overestimates at kz < kz_peak**: ratio<0.1 for kz=1 in strong-coupling campaigns
 6. **Low-α high-V0 corner** (α=0.5, V0=0.20): all ratios>1, system nonlinear before 100 TU; boundary of accessible linear regime
 
+---
+
+## Investigation — `_bp28`/half-integer-kz sweep-table contamination, root cause (2026-07-14)
+
+**Trigger**: sweep-table quality audit (see PRESENTATION.md §8.4) flagged 1159/3458 filled (α,V0,kz) grid
+points as "suspect" (γ_sim > 2·γ_WKB or > 0.6 TU⁻¹). 514 of those (44%, the single largest cluster)
+sit at half-integer kz — the `_bp28` family (Lz=4π, NZ=128, odd k_mode only, reached via
+`lz_override`/`nz_override`) — with ratios up to 25.7× the WKB value.
+
+### Hypothesis 1 (found + fixed, but NOT the cause): seed-width unit bug
+
+`kernel_ym_init` (`YM_Init.cu:84`, mode 6 NAB_CIRC_AZ2 analytic-seed branch) computed the Az2/Az3
+Gaussian width `xi_char = 1/sqrt(alpha_YM * k_mode * V0)` using the raw integer `k_mode` CLI argument
+instead of the physical `k_z` already computed two lines above (`k_z = k_mode*2π/(nz*dz)`). Invisible
+at the default box (Lz=2π, where k_z==k_mode by construction — every integer-kz production campaign
+unaffected) but wrong whenever `lz_override` changes Lz: `_bp28` (kz_phys=k_mode/2) ran with the seed
+width computed for 2× the intended kz, `_bp55` (kz_phys=k_mode/8) for 8×. Fixed (one-line, `k_mode`→`k_z`,
+commit `f38b99b`) and verified by diffing the t=0 Az2(x,z=0) field dump pre/post-fix at k_mode=3
+(kz_phys=1.5, α=1, V0=0.05, bp28): fitted Gaussian σ ratio new/old = 1.4142, matching predicted √2 to
+4 decimals. **But 6 verification reruns (same xi_sponge as the original suspect run, only the binary
+changed) showed no improvement**: new γ_sim within 1-3% of the old (buggy) values in every case, all
+still 8-19× the exact eigensolver value, all still halting on the energy threshold within 16-34 TU
+(e-folding ~0.5 TU — far too fast for the intended eigenmode, whose e-folding is 6-9 TU). Kept the fix
+(it's correct and a no-op for all default-box data) but it does not explain the contamination.
+
+### Hypothesis 2 (confirmed mechanism, not yet fixed): unfilterable on-target color-2/3 instability, race-condition against a weak real signal
+
+Reran one point (α=1.0, V0=0.05, k_mode=3/kz_phys=1.5, bp28, xi_sponge=52) keeping raw field dumps
+(normally deleted by `remote_timeseries.py`) and DFT-decomposed every field at every dump. `By1/Ex1/Ez1`
+(color-1 EM) correctly stay exactly zero throughout (the existing Campaign-15 mitigation —
+`cudaMemset` every step, gated on `suppress_kz0` — works fine). But `By2/By3/Ex2/Ex3/Ez2/Ez3`
+(color-2/3 EM) all peak **exactly at the target bin** (kz=3) and grow from numerical-floor level
+(~1e-9 at t=1 TU) through 8 decades by t=21 TU. `Az2/Az3` — the field the "amp" timeseries actually
+measures — stays flat at its seed value for ~14 TU (tracking the true slow eigenmode, consistent with
+γ_exact=0.1125), then gets swamped once By2/By3 becomes large enough to back-react through the
+Ez2→Az2 coupling. **The reported anomalous γ is this second-order effect**: a By2/By3 instability that
+isn't even the field being measured, catching up to and overwhelming the real signal partway through
+the run. This is the same *category* of failure already documented and fixed for color-1
+(`main_ym.cu` comment, line ~413: "By1[kz=1] grows at γ≈1.1 TU⁻¹ — a color-1 EM instability at the
+target kz that the bandpass filter cannot suppress"). No equivalent protection exists for color-2/3,
+and structurally can't (in mode 6) — color-2/3 growing at the target kz bin *is* the signal being
+measured, so no kz-selective filter can separate the wanted mode from the parasitic one at the same bin.
+
+**Control matrix ruling out resolution/box mechanics** (same α=1.0, V0=0.05, kz_phys=1.5 target unless noted; all on t130):
+
+| NZ | Lz | NX | courant | filters | onset (E/E0>100) |
+|----|----|----|---------|---------|-------------------|
+| 128 | 4π (bp28) | 768 | 0.1 | on (production) | t≈21.4 |
+| 256 | 4π (bp28) | 768 | 0.1 | on | t≈21.9 (~same) |
+| 64  | 4π (bp28, via lz_override only) | 768 | 0.1 | on | t≈21.4 (~same) |
+| 128 | 4π (bp28), even k_mode=2 (kz_phys=1) | 768 | 0.1 | on | t≈60.8 (later, still broken) |
+| 128 | 2π (default, nz_override only) | 768 | 0.1 | on | t≈86 (much later, still broken) |
+| 128 | 4π (bp28) | 768 | 0.1 | **off** (no sponge/suppress/hyp_diff) | t≈13.5 |
+| 128 | 4π (bp28) | 768 | **0.01** | off | t≈13.5 (identical — rules out CFL/courant) |
+| 128 | 2π (default), NX=384, courant=0.01 — **exact RESOLUTION_FINDINGS.md NZ=128 row** | 384 | 0.01 | off | t≈14.0 (run past their target_tu=25 cutoff) |
+| 64 | 4π (bp28), α=2.0, **kz_phys=4** (near kz_peak≈2α) | 768 | 0.1 | on | **no blowup, clean 60 TU** |
+
+Onset is essentially identical (t≈13.5-22) across NZ=64/128/256, Lz=2π/4π, NX=384/768, and a 10× change
+in courant — **grid resolution is not the variable**. `RESOLUTION_FINDINGS.md`'s own NZ=128 convergence
+test (perfect energy conservation reported) used `target_tu=25`; every onset measured here is inside
+that window when the exact same parameters are reused, so that result is not contradicted, just never
+ran long enough to see this — the code has also evolved since that study (e.g. the Campaign-15
+color-1 mitigation postdates it).
+
+The one variable that *does* matter: **target kz itself**. The identical `lz_override` mechanism, run
+at kz_phys=4 (α=2.0, near kz_peak) instead of kz_phys=1.5, is completely clean for the full 60 TU
+tested. This is a **race between the real eigenmode (γ_exact, weak at low kz_phys, strong near
+kz_peak≈2α) and a competing color-2/3 on-target instability whose rate is ~0.7-0.8 TU⁻¹ regardless of
+grid/box parameters**. Near kz_peak the real signal is fast enough to win outright; at low kz_phys
+(0.5-2.5ish — exactly the region the half-kz campaigns targeted, since it's unreachable at integer kz
+in the default box) it isn't.
+
+### Mitigation attempts — both FAILED, and made things worse (2026-07-14)
+
+Tried giving the real signal a head start, expecting a linear race to be winnable with enough of one:
+
+| attempt | onset |
+|---|---|
+| baseline (analytic Gaussian seed, perturb_amp=0.001) | t≈21.4 |
+| true eigenfunction seed file (`ym_eigenmode.py --export-seed`, correct shape incl. By2/qA/qB, same amplitude) | t≈14.0 — **earlier** |
+| same Gaussian seed, perturb_amp=0.1 (100× bigger, still 10% of V0) | t≈18.4 — **earlier** |
+
+Both a shape-correct seed (which also gives By2/qA/qB a small nonzero starting value, unlike the
+default zero) and a 100× amplitude boost made the blowup happen *sooner*. This rules out a simple
+"independent modes racing from fixed, amplitude-independent floors" model — if that were right, a
+bigger head start for the real signal should buy more time, not less. The parasitic mode's effective
+onset appears coupled to the perturbation amplitude itself (plausibly via the quadratic non-Abelian
+coupling terms, e.g. α·(Az×By)^a in Ampere/Faraday, which are directly proportional to field
+amplitude — a bigger seed is a bigger drive for any nonlinearly-coupled channel, not just for the
+mode being measured). **No cheap mitigation currently known.**
+
+### Root cause found and FIXED (2026-07-14, same session): `is_localised()` / xi_sponge formula, not a code bug
+
+Queried `ym_eigenmode.py`'s full eigenvalue spectrum at the failing point (α=1.0, V0=0.05, kz_phys=1.5,
+xi_sponge=52 — the value the production `xi_sponge_for()` formula actually assigned) with a shift near
+the observed parasitic rate (`sigma=0.75`) instead of the default shift near γ_WKB. **Found real
+eigenvalues at γ=1.4284, 0.3415, 0.3316, 0.2075 — all reported `is_localised()=True`** — alongside the
+intended mode at γ=0.1125. Checked their eigenvectors: all four peak at |ξ|≈37-48, far from the shear
+layer (the real mode peaks at ξ=-1.31). **These are the already-documented "outer-region EM instability"**
+(see `## Outer-region EM instability — sponge design rule`, Campaigns 19-21 above) — genuine linear
+eigenmodes of the same background, just not the shear-localised KH mode. `is_localised()`'s bound
+(`xi_peak < 1.15 × xi_inner`, i.e. scaled by xi_sponge itself) is far too loose whenever xi_sponge is
+large: at xi_sponge=52 it accepts anything peaking within ξ<60, which comfortably includes these outer
+branches. The production `xi_sponge_for()` formula (`max(5, min(55, 1.3·kz/(α·V0)))`) pushes xi_sponge
+toward the 55 ceiling for exactly the low-kz/low-αV0 corner the half-kz campaigns targeted — so the
+sponge meant to *contain* the measurement window instead left the outer branch essentially unconstrained,
+and its γ≈0.75-1.4 range matches the ~0.7-0.8 TU⁻¹ parasitic rate measured in the CUDA field decomposition
+almost exactly.
+
+**Confirmed by direct fix-and-rerun, not just theory.** Re-ran the same two points with `xi_sponge`
+tightened to 15 (nothing else changed) and re-checked the eigensolver first to confirm the outer branch
+disappears at that sponge:
+
+| point | xi_sponge=52/orig | xi_sponge=15, eigensolver outer branch | xi_sponge=15, CUDA result |
+|---|---|---|---|
+| α=1.0, V0=0.05, kz_phys=1.5 (bp28, k_mode=3) | γ_sim=1.494 (8.25× exact), halts t≈21 TU | gone — top eigenvalue found is 0.1074 (the real mode) | **completes full 100 TU, E/E0=1.0000 throughout**; plateau fit γ=0.1192 over t=48-100 TU (52 TU duration) vs γ_exact≈0.107-0.11 — **~8-11% agreement**, in the same class as the trusted C25 series |
+| α=0.5, V0=0.05, kz_phys=0.5 (bp28, k_mode=1) | γ_sim=0.786 (5.2× WKB), halts within run | outer branch at γ=0.75-0.76 (matches the CUDA rate almost exactly) present at sp=52, gone by sp=25/15 (top eigenvalue 0.0504-0.0511) | **completes full 100 TU cleanly**; plateau fit γ=0.0585 over t=69-100 TU (31 TU duration) vs γ_exact≈0.0504 — **~16% agreement** |
+
+**This is a fix, not a workaround**: the mode-6 physics and measurement methodology are sound: the bug is
+in *sponge selection*, not the simulator. The current `xi_sponge_for()` formula (`analysis/gen_multigpu_campaign.py`,
+also embedded in the `reference_xi_sponge_formula` memory) needs to stop scaling *up* with low kz/low
+αV0 — at minimum it should be checked against the eigensolver's own outer-branch-detection (sweep xi_sponge
+downward from the formula's value until the fast/far-peaked eigenvalues disappear, same diagnostic used
+here) before being trusted, rather than applying a blind formula. This plausibly explains a large fraction
+of the ~1159 suspect sweep-table points generally (not just the 514 half-integer ones) — many of the
+"integer kz≥1" suspects clustered at low α (§ suspect-points breakdown, PRESENTATION.md §8.4) are exactly
+where this same formula pushes xi_sponge toward its ceiling.
+
+**Not yet done** (as of the entry above): a proper replacement formula or systematic per-point sponge
+search across the sweep; confirming the fix generalizes beyond two spot-checks; understanding why the
+outer branch's rate is ~0.7-0.8 physically; rerunning the broader suspect set with corrected sponges.
+Continued directly below.
+
+---
+
+## `find_safe_sponge.py` — eigensolver-based sponge selection tool, and its scope (2026-07-14)
+
+Built `analysis/find_safe_sponge.py` to replace the blind `xi_sponge_for()` formula: for a given
+(α, V0, kz), it screens a decreasing ladder of candidate xi_sponge values through the eigensolver
+(which already includes the sponge as the identical damping term `kernel_ym_sponge` applies, so this is
+a faithful, cheap CPU proxy), hunting each candidate with several shift-invert probes to catch outer-branch
+eigenvalues a single default-shift search would miss. Classifies growing eigenvalues as "outer branch" if
+their rate exceeds ~1.3×γ_WKB (calibrated, not derived), requires 2 CONSECUTIVE clean ladder rungs, then
+applies a further 0.75× empirical margin — added after the two-point calibration below showed even a
+"2-consecutive-clean" reading isn't reliably enough (see the sp=20 result).
+
+**Calibration** (the two points already fix-verified above): tool recommends xi_sponge=15 for BOTH,
+exactly matching the independently-confirmed-clean value, with γ_exact=0.1074 and 0.0504 — matching the
+earlier hand-checks exactly.
+
+**A one-shot "clean" reading is not sufficient — direct evidence.** Before settling on the 0.75× margin,
+tested the *unmargined* ladder pick for α=1.0/V0=0.05/kz=1.5: sp=26 (a single clean rung) blew up at
+t=57 of the 100-TU run; sp=20 (TWO consecutive clean rungs — the "properly conservative" stopping rule)
+*still* blew up, later, at t=84.7. Only sp=15 (0.75× the 2-consecutive pick) held the full 100 TU clean.
+The one-shot linear eigenvalue check is measurably optimistic relative to what the nonlinear 100-TU CUDA
+run needs — there is slowly-growing residual outer-branch contamination invisible to a single snapshot
+that only shows up given enough integration time.
+
+### Scope confirmation — 5 points, full 100-TU CUDA runs
+
+| point | tool's sp | CUDA result |
+|---|---|---|
+| α=1.0, V0=0.05, kz=1.5 | 15 | clean (calibration point) |
+| α=0.5, V0=0.05, kz=0.5 | 15 | clean (calibration point) |
+| α=0.3, V0=0.05, kz=0.5 | 11 | **clean**, flat E/E0=1.0000 the entire 100 TU |
+| α=2.0, V0=0.03, kz=1.5 | 16 | **near-miss** — flat to t≈90, then a slow creep (E/E0 1.0000→31.05 by t=99.6); would very likely exceed the halt threshold given more TU. Not a clean pass. |
+| α=1.5, V0=0.10, kz=2.5 | 12 | **fails**, blows up t=38.4. Retried at sp=8 (near the SP_MIN=5 floor, well past what the tool would ever recommend) — still blows up, just later (t=91.2). Tightening delays but does not eliminate it at this point. |
+
+**Every V0=0.03-0.05 point tested passed or nearly passed; the one V0=0.10 point failed outright, even
+near the sponge floor.** This strongly suggests the outer-region instability's strength scales with V0 in
+a way the tool doesn't currently model — sponge-tightening alone may be structurally insufficient once V0
+gets large enough (compare the original Campaign 19-21 finding: "growing faster than sponge can damp for
+α≥3 or V0≥0.2" — this V0=0.10/α=1.5 failure suggests that boundary is joint in α and V0 and starts lower
+than previously characterized, not a clean single-parameter cutoff).
+
+**Practical scope, as validated**: trust the tool's recommendation as a strong starting candidate for
+V0≲0.05 (still spot-check the first point of any new series against a full-length CUDA run — the gen1
+near-miss shows even this regime isn't risk-free). For V0≳0.08, do not trust it — either a full per-point
+CUDA verification is required, or a different mechanism entirely (the eigensolver's untried `xi_cut`
+hard-wall Dirichlet option, which kills the outer region rather than just damping it, is the next thing to
+try) is needed before those points can be measured cleanly at all.
+
+**Still not understood**: what the outer-region branch physically *is* (a genuine secondary instability of
+the shear+Az1 background vs. a numerical artifact of the linearization/discretization), why its rate
+appears to scale with V0, and whether `xi_cut` (or some other mechanism) can exclude it without also
+suppressing the physical KH mode at higher V0. This is flagged as an open deep-investigation item in
+PRESENTATION.md — do not treat the sponge-tightening fix as a complete understanding of the mechanism,
+only as an empirically-useful (and scope-limited) mitigation.
+
 **Gap to fill**: α=0.5-1.0 at V0=0.05 (kz_peak < 2 requires Lz > 2π); α=1.0-2.0 at V0=0.10 for denser V0 coverage.
+
+---
+
+## Boundary-mapping the sponge fix around the (α=2.0, V0=0.03, kz=1.5) near-miss (2026-07-14)
+
+Perturbed each of α, V0, kz independently up and down from the near-miss point, one axis at a time, all
+in the bp28 box (Lz=4π, NZ=128), each run the tool's then-current (0.75x-margin) recommendation, full
+100-TU CUDA:
+
+| direction | point | tool sp | result |
+|---|---|---|---|
+| (center) | α=2.0, V0=0.03, kz=1.5 | 16 | near-miss (flat to t≈90, then creeping) |
+| α up | α=2.5, V0=0.03, kz=1.5 | 11 | **clean** |
+| α down | α=1.5, V0=0.03, kz=1.5 | 21 | fails, t=94.7 |
+| V0 up | α=2.0, V0=0.05, kz=1.5 | 11 | fails, t=94.7 (same timing as α down) |
+| V0 down | α=2.0, V0=0.02, kz=1.5 | 21 | **clean** (E/E0→1.0046, negligible) |
+| kz up | α=2.0, V0=0.03, kz=2.0 | 21 | fails, t=61.8 (worse than center — surprising) |
+| kz down | α=2.0, V0=0.03, kz=1.0 | 11 | **clean** |
+
+Naive reading: α up / V0 down / kz down = safer, α down / V0 up / kz up = less safe, matching an
+intuitive "closer to where γ_exact is strong relative to the ~fixed-rate outer branch" picture — except
+kz up should have moved *toward* kz_peak≈2α=4 and gotten safer, not failed worse. That contradiction was
+the tell that something was off with the *tool's margin*, not the physics.
+
+**Resolved by retesting all 4 problem points at a much tighter fixed sponge (values in the sp=6-10
+range) — every single one came back fully clean over the full 100 TU:**
+
+| point | rescued at sp | result |
+|---|---|---|
+| center (α=2.0, V0=0.03, kz=1.5) | 10 | **clean**, E/E0=1.0000 flat to t=99.6 |
+| α down (α=1.5, V0=0.03, kz=1.5) | 10 | **clean** |
+| V0 up (α=2.0, V0=0.05, kz=1.5) | 6 | **clean**, E/E0 even drifts slightly down (0.9991 by t=99.6) |
+| kz up (α=2.0, V0=0.03, kz=2.0) | 10 | **clean** |
+
+**Conclusion: there is no hard physical boundary anywhere in this tested neighborhood** (α=1.5-2.5,
+V0=0.02-0.05, kz=1.0-2.0) — every point is measurable with a properly tight sponge. What looked like a
+near-miss/failure boundary in the first pass was the *tool's 0.75x margin being insufficient*, not a real
+edge of the safe region. This is good news for the "how big is the volume we can now trust" question: at
+least within V0≤0.05, the volume is much larger and more forgiving than the boundary-mapping's first
+pass suggested — it just needs the margin fixed.
+
+**But this isn't free — sponge compression is real and was checked directly** (eigensolver only, no
+GPU): at the rescuing sponge values, γ_exact reads systematically lower than at a looser (but unsafe)
+sponge — e.g. the V0-up point: γ=0.172 at sp=30 (unsafe) vs γ=0.115 at sp=10 (safe), a 33% reduction.
+This is the already-documented sponge-compression tradeoff (PRESENTATION.md §8.3), now shown to bind
+harder than expected in this corner: you cannot have both "definitely excludes the outer branch" and "no
+compression" simultaneously at these points — the safe margin costs real amplitude accuracy.
+
+**Revised the tool's SAFETY_MARGIN from 0.75x to 0.5x** based on this 7-point dataset (3/6 new points
+needed roughly 0.4-0.6x their own ladder pick, not 0.75x). Re-running the tool at 0.5x recommends sp=10
+for the center point (exactly the confirmed-safe value) and sp=8/14 for two others (close to, not
+exactly matching, the manually-confirmed 6/10 — extrapolated, not independently re-verified by a fresh
+CUDA run). The two original calibration points now get sp=10 instead of the previously-confirmed sp=15
+— tighter is monotonically safer based on all evidence so far, so this should if anything be more
+conservative, but wasn't re-run to confirm.
+
+**Net picture for "what volume can we trust now"**: for V0≤0.05, roughly α=0.3-2.5 and kz=0.5-2.5 (the
+union of everything tested across both fix-fix threads) now looks like a genuinely safe, contiguous
+region once the sponge is set properly tight (~sp 6-14 depending on point, not the old formula's 21-55) —
+at the cost of the known compression bias, not yet separately corrected for. V0=0.10 remains a hard wall
+(failed even at the sponge floor in the earlier test) — the V0=0.05→0.10 transition has not been mapped
+in between (e.g. V0=0.07-0.08 untested) and is the natural next boundary-mapping direction if that's
+wanted.
+
+---
+
+## Mapping the V0=0.05→0.10 transition (2026-07-14)
+
+Fixed α=1.5, k_z=2.5 — the exact point that originally failed at V0=0.10 — and swept V0 upward
+(0.06, 0.07, 0.08, 0.09), first at the tool's own recommendation, then retested at the sponge floor
+(sp=5) whenever the first attempt still showed contamination. One cross-check at a different (α, k_z)
+(α=2.0, V0=0.07, k_z=1.5) confirms the V0=0.07 result isn't specific to the first point.
+
+| V0 | tool's sp | tool result | floor (sp=5) result |
+|---|---|---|---|
+| 0.05 | ~15 | clean (established earlier) | — |
+| 0.06 | 11 | near-miss (E/E0→3.52 by t=99.6, "completed" but climbing) | **clean** — E/E0 stays 0.99-1.01 the whole 100 TU |
+| 0.07 | 9 | near-miss, milder (E/E0→1.52, appears to plateau near the end) | **clean** (confirmed at α=1.5 AND independently at α=2.0/kz=1.5) |
+| 0.08 | 8 | near-miss (E/E0→2.03, still rising) | **near-miss, mild** — flat to t≈96, creeps to E/E0≈1.22 |
+| 0.09 | 9 | **fails outright**, t=82.7 | **near-miss, moderate** — E/E0≈1.28-1.35, visible contamination by t≈90, not eliminated |
+| 0.10 | 12 / 8 | fails, t=38 / t=91 | fails (already established; sp=8 was effectively at-floor for that point too) |
+
+**This is a gradual transition, not a step function.** V0≤0.07 is genuinely usable — every point
+tested there is fully rescuable to a clean 100-TU run (though 0.06-0.07 needed the sponge floor, not
+just a moderate value, to get there — the tool's own recommendation undershot at both). V0=0.08-0.09 is
+a real transition zone: even the tightest sponge tried leaves measurable, non-catastrophic residual
+contamination (mild at 0.08, moderate at 0.09) that would bias any quoted γ upward, not a clean
+measurement but also not an outright failure. V0≥0.10 is a hard wall where tightening no longer helps at
+all, confirmed independently at two sponge values.
+
+**Practical takeaway**: the sponge-tightening fix is trustworthy for V0≤0.07 (still spot-check new
+points, and expect to need floor-level sponges near the top of that range, with the associated
+compression cost). V0=0.08-0.09 should be treated as "measurable but biased" at best — not safe to quote
+without heavy caveats, and probably not worth rerunning until a better mechanism exists. V0≥0.10 needs a
+fundamentally different approach — updated `find_safe_sponge.py` to warn accordingly (transition-zone
+warning for 0.07<V0≤0.09, hard-wall warning above that). Next: try the eigensolver's `xi_cut` hard-wall
+option (Dirichlet BC, kills the outer region rather than damping it) on a V0=0.09 or V0=0.10 point to
+see whether it does better than the soft sponge in this zone.
+
+---
+
+## `xi_cut` implemented in CUDA — solves the V0=0.09-0.10 hard-wall zone (2026-07-15)
+
+### Eigensolver experiments first (CPU-only, before touching CUDA)
+
+Compared `xi_cut` (hard Dirichlet wall, `build_matrix`'s existing option) against `xi_sponge` (soft
+exponential damping) in `ym_eigenmode.py`, at matched radii, for α=1.5, k_z=2.5 across V0=0.05-0.10:
+
+1. **Compression cost, quantified**: at the same radius, `xi_cut` systematically retains more of γ_exact
+   than `xi_sponge` — the gap widens as the radius tightens: ~4% at radius=15, ~10% at radius=10, ~30%
+   at radius=5 (V0=0.05/0.07, α=1.5, k_z=2.5). A hard wall doesn't touch the interior at all; a soft
+   sponge's damping term bleeds into the mode's tail even before its nominal start radius.
+2. **A critical limitation of the eigensolver screen itself, found by direct comparison to known CUDA
+   ground truth**: `xi_sponge=8` at V0=0.10 shows **zero** outer-branch eigenvalues in an exhaustive
+   multi-shift search (12 shifts up to γ=12, 10 eigenvalues each) — yet this exact configuration is
+   *confirmed by CUDA* to blow up at t≈91. The linear eigenvalue problem the eigensolver solves does not
+   contain whatever actually kills the V0≥0.09 CUDA run. This means the eigensolver's "xi_cut also reads
+   safe there" result **could not be trusted on its own** — the tool that would tell us is demonstrably
+   blind in exactly that regime for the soft-sponge case, so real CUDA testing was required before
+   drawing any conclusion for xi_cut in the V0=0.09-0.10 zone. (It turned out xi_cut's readings there
+   *were* trustworthy — see below — but this could not have been known without testing.)
+
+### Implemented `kernel_ym_xicut` in CUDA
+
+Added a genuine hard-wall Dirichlet kernel (`YM_Physics.cu`), matching `ym_eigenmode.py`'s `xi_cut`
+exactly: unconditionally zeroes By2/By3/Ex2/Ex3/Ez2/Ez3/Az2/Az3/Q2A/Q3A/Q2B/Q3B for `|ξ| > xi_cut` every
+step (no damping ramp, no dt-dependence — the same 12 fields `kernel_ym_sponge` touches, just forced to
+exactly zero instead of decayed). New `xi_cut` config key (`YM_Config`), `YMParams.xi_cut`, called
+right after the existing sponge kernel in the main loop — can be used alone or together with
+`xi_sponge`. Verified correctness directly: a t=2 TU field dump at `xi_cut=8, eps_override=0.15` shows
+all touched fields exactly `0.0` for `|ξ|>8` and untouched inside.
+
+**Note on deployment**: found t130's `YM_Fluid.cuh/.cu` had diverged from git — an unrelated, uncommitted
+warm-fluid-closure prototype (`kernel_ym_lorentz` with extra `warm_T, dx, dz` params, not present
+anywhere else: not in git, not on t132/t140/t126/abi). User confirmed (2026-07-15) this was a failed
+experiment, safe to overwrite — done, all three build nodes (t130/t132/t140) now match git exactly.
+
+### CUDA results — the actual hard-wall zone, for real this time
+
+Same protocol as the V0-transition mapping (α=1.5, k_z=2.5 fixed, xi_cut=5 — deliberately the *same*
+tight radius the soft sponge floor used, for a fair comparison), full 100-TU runs:
+
+| V0 | soft xi_sponge=5-8 (established) | xi_cut=5 (new) |
+|---|---|---|
+| 0.09 | near-miss even at floor: E/E0≈1.28-1.35, visible contamination by t≈90 | **E/E0≈1.01-1.02, flat the whole run** |
+| 0.10 (the confirmed hard wall) | **outright failure**, E/E0>100, at every sponge tried down to the floor | **E/E0≈1.09-1.10, bounded and stable, no runaway** |
+
+Fitted growth rates, using the plateau method (not max-R², per the established §8.5 fit-methodology
+finding) — both points found a genuine, multi-decade-spanning plateau:
+
+- V0=0.09: plateau γ=0.1995 (15 TU duration, t=38-54) vs. eigensolver γ_exact(xi_cut=5)=0.2016 —
+  **ratio 0.99, essentially exact.**
+- V0=0.10: plateau γ=0.2141 (15 TU duration, t=35-50) vs. eigensolver γ_exact(xi_cut=5)=0.2163 —
+  **ratio 0.99, essentially exact.**
+
+This is not "bounded but messy" — it's a clean, accurate measurement, in the exact regime the soft
+sponge could never reach at any tightness. The hard Dirichlet wall is qualitatively different from the
+soft sponge, not just a tighter version of it: because it forces the outer fields to *exactly* zero every
+step regardless of amplitude, it can't be defeated by whatever nonlinear/finite-amplitude effect was
+apparently leaking past the soft sponge's damping (the mechanism the linear eigensolver couldn't see in
+the xi_sponge case, per the limitation noted above) — it simply removes the outer region's influence
+outright, unconditionally.
+
+**Accuracy check (why implement it even in the already-working regime)**: α=2.0, V0=0.07, k_z=1.5,
+xi_cut=5 — the same point independently confirmed clean under `xi_sponge=5`. This one is *not* a clean
+plateau story: the local-slope trace shows a genuine multi-regime curve (seed-transient decay from t=0-30,
+a bumpy growth phase peaking γ≈0.20 around t=42-48, a slow decline, then nonlinear rolloff after t≈75).
+max-R² landed on the peak (γ=0.193) and does not represent a verified rate — consistent with the
+project's own established §8.5 finding that max-R² is attracted to transients. The later, flatter part of
+the curve (t=65-72, local slope≈0.15-0.16) sits close to the eigensolver's own γ_exact(xi_cut=5)=0.156,
+which is the more defensible read. Not as clean a confirmation as V0=0.09/0.10, but not a contradiction
+either — just a reminder that plateau/local-slope reading, not max-R², is required here too.
+
+### Practical consequence — this reopens the whole V0≥0.08 suspect population
+
+`xi_cut=5` (or similar) should be tried as the default exclusion mechanism going forward, not just a
+V0≥0.08 patch — it's strictly more accurate than the soft sponge everywhere tested, and it just
+solved the one class of point (V0=0.09-0.10) that sponge-tightening structurally could not touch.
+**Not yet done**: test xi_cut at V0>0.10 to find where (if anywhere) it too has a limit; re-verify the
+V0≤0.07 boundary-mapped points with xi_cut instead of xi_sponge for the accuracy win; combine xi_cut
+(outer, hard) with a mild xi_sponge (inner, soft) to see if that's better than either alone; update
+`find_safe_sponge.py`-style tooling to search xi_cut candidates, not just xi_sponge. Radius sweep done
+below.
+
+---
+
+## xi_cut radius sweep at V0=0.09-0.10 — corrects the "solved" framing above (2026-07-15)
+
+Swept xi_cut from 5 up to 15 at the same α=1.5, k_z=2.5, V0=0.09/0.10 points, full 100-TU CUDA:
+
+| xi_cut | V0 | (α,k_z) | result |
+|---|---|---|---|
+| 5 | 0.10 | 1.5, 2.5 | clean, plateau γ=0.2141 (t=35-50), no catastrophe within 100 TU |
+| 5 | 0.09 | 1.5, 2.5 | clean, plateau γ=0.1995 (t=38-54), no catastrophe within 100 TU |
+| **5** | **0.10** | **2.0, 1.5 (cross-check)** | **catastrophic jump at t=97.7 — barely inside the 100-TU window** |
+| 5.5 | 0.10 | 1.5, 2.5 | catastrophic jump at t=90.2 |
+| 6 | 0.10 | 1.5, 2.5 | catastrophic jump at t=89.7 |
+| 7 | 0.10 | 1.5, 2.5 | catastrophic jump at t=91.7 |
+| 7 | 0.09 | 1.5, 2.5 | catastrophic jump at t=92.2 |
+| 10 | 0.09 | 1.5, 2.5 | catastrophic jump at t=57.3 |
+| 10 | 0.10 | 1.5, 2.5 | catastrophic jump at t=47.8 |
+| 10, hyp_diff=2.5e-4 (5×) | 0.10 | 1.5, 2.5 | catastrophic jump at t=87.7 (delayed vs. default hyp_diff, not eliminated) |
+| 15 | 0.10 | 1.5, 2.5 | catastrophic jump at t=26.9 (earliest/worst) |
+
+**Every failure has the same distinctive signature**: bounded, mildly elevated E/E0 (typically 1.4-3.5×)
+for most of the run, then a sudden jump of 4-6 orders of magnitude within a single ~0.5 TU output
+interval — qualitatively different from the smooth exponential blowup the soft sponge showed. Increasing
+hyperdiffusion 5× did not fix it (only delayed it modestly), ruling out "grid-scale/near-Nyquist noise
+from the wall's field discontinuity, fixable by more dissipation" as the mechanism.
+
+**This corrects the earlier framing**: `xi_cut` does **not** have a hard safe/unsafe cliff at radius 5 —
+it is the **same underlying late-onset instability that dominates the soft-sponge failures**, just
+delayed far more effectively by the hard wall, with onset time falling sharply as the radius loosens
+(t≈27 at radius 15 → t≈48-92 at radius 6-10 → past 90-100 at radius 5, but **not reliably past 100 for
+every point** — the α=2.0/k_z=1.5 cross-check at xi_cut=5 hit the same catastrophe at t=97.7). xi_cut=5
+is not "solved and stable," it is "delays onset long enough, in most tested cases, for a clean plateau
+measurement to complete with comfortable margin before the eventual catastrophe."
+
+**Why this is still a real, practically important result, not a retraction**: the plateaus at xi_cut=5
+are established early (t=35-54) and hold for 15+ TU with a clean fit matching the eigensolver to ~1% —
+well before any observed catastrophe onset (earliest observed at radius 5 was t=97.7, still >40 TU of
+margin past the plateau). The soft sponge, by contrast, **never established a clean plateau at V0=0.10 at
+any radius tested, including its own floor** — its failures overlapped the measurement window itself, not
+just the tail of a long run. So the practical conclusion holds even though the "fully stable" framing
+does not: **for production use at V0=0.09-0.10, use xi_cut=5 (not looser) and cap target_tu well below
+where the catastrophe has been observed** (comfortably under 90 TU, with the plateau itself typically
+readable by t≈55) **rather than running to the old default's full-length/energy-threshold behavior.**
+
+**Not yet done**: characterize the catastrophe mechanism itself (still unknown — ruled out hyperdiffusion
+as a fix, not yet checked whether it's an FP32 precision-accumulation effect, a genuine secondary
+bifurcation, or something else); find xi_cut's onset-time dependence on (α, k_z) more systematically
+(only one cross-check point so far); check whether target_tu capped below the observed onset is
+sufficient for reliable production use, or whether the onset time itself needs to be predicted per-point
+before trusting a run not to hit it mid-measurement.
+
+---
+
+## Outer-region growth rates: mechanisms identified (2026-07-15 investigation)
+
+Dedicated investigation into what the "outer-region instability" physically is
+(the open item flagged in the 2026-07-14 sections above and PRESENTATION.md
+item 3b). Summary hub: `OUTER_REGION.md`. Derivations: `PHYSICS.md` §10.
+Analysis ran on the lab iMac (new CPU work machine — see CLAUDE.md §Server
+Setup); tools: `analysis/outer_region_theory.py`,
+`analysis/catastrophe_forensics.py`, `analysis/onset_census.py`.
+
+**Headline: two unrelated mechanisms were being conflated.** The fast
+contamination at loose sponges is a *linear, outer-region, purely-EM
+tachyonic instability of the frozen Az1 background* (physical in-model,
+predictable, correctly excluded by windowing). The late-onset catastrophe
+(the "V0≥0.08 hard wall", the xi_cut radius-sweep failures) is *not an
+outer-region effect at all* — it is finite-amplitude **density cavitation of
+the physical KH mode at the shear layer**, followed by a long-lived
+floored-density state and a delayed terminal blowup.
+
+### 1. The linear outer branch is the tachyonic charged-wave instability
+
+At kx=0 the linearized color-2/3 Faraday/Ampere pair closes on itself:
+γb = −iΩ_F·ex, γex = −iΩ_A·b ⇒ **γ² = −Ω_A·Ω_F = α²Az1² − kz²** — growth
+wherever |α·Az1(ξ)| > kz, i.e. |ξ| > ξ_crit ≈ kz/(αV0) + ln2. This is the
+γ_outer ≈ √(|Ω_A|·Ω_F) empirical rule of the 2026-07-02 sponge-design section,
+now derived and identified: the covariant derivative gives the two circular
+polarizations kz_eff = kz ± αAz1; past ξ_crit one of them is tachyonic
+(Nielsen-Olesen-type mechanism). It is the same α²V0kz-type term that forms
+the WKB confining well — the outer branch is the trapping term continued past
+the well rim.
+
+Quantitative check (`outer_region_theory.py validate`, iMac) at the
+documented worst case α=1.0, V0=0.05, kz_phys=1.5, xi_sponge=52, NX=384 — the
+full 6-field local dispersion γ_loc(ξ) (numerically maximized over kx) equals
+the analytic tachyonic law **exactly** at every outer eigenmode peak (fluid
+terms contribute nothing out there — pure EM mechanism):
+
+| γ_eigensolver | ξ_peak | γ_loc(ξ_peak)=γ_tac | eig/local |
+|---|---|---|---|
+| 1.4598 | +48.4 | 1.857 | 0.79 |
+| 1.4284 | −48.1 | 1.836 | 0.78 |
+| 0.3415 | −38.0 | 1.106 | 0.31 |
+| 0.3316 | +38.0 | 1.106 | 0.30 |
+| 0.2075 | +37.3 | 1.049 | 0.20 |
+
+The global (eigensolver) rates sit *below* the local envelope in a discrete
+ladder — standard global-mode structure: finite-width kx-quantization inside
+the tachyonic annulus [ξ_crit, wall] costs growth (Airy-type quenching; this
+is also why a tight sponge/cut kills the branch entirely even though γ_loc>0
+pointwise there — the annulus becomes too narrow to hold a bound state).
+
+**Not a numerical artifact** — three independent confirmations: analytic
+local law; float64 scipy eigensolver; float32 CUDA rates (documented
+2026-07-14: CUDA 0.786 vs eigensolver 0.75-0.76 at this point). Rates scale
+with physics (αAz1 product — cf. C19 vs C20 identical γ_outer at equal
+α·Az1), not with resolution. **Physical caveat**: its unbounded energy source
+is the *frozen* Az1 — an external battery. Self-consistently the branch would
+deplete the background (chromo-background decay by charged-wave emission);
+its presence is a property of the idealized model, so excluding it by
+windowing is legitimate, not sweeping physics under the rug.
+
+### 2. The late catastrophe is density cavitation at the shear layer
+
+Direct forensics on the one failing run with dense snapshots retained —
+`ym_k3_a2.000_..._v0.1000_xc5.0_..._xc5_v10_diffkz` on t140 (α=2.0,
+kz_phys=1.5, V0=0.10, xi_cut=5, 98 snapshots ≈1/TU, terminal jump t=97.7).
+Reduction: `catastrophe_forensics.py extract` on t140 → 9 MB npz → analyzed
+on the iMac (`~/ym_kh/forensics_diffkz.npz`). Snapshot format now carries 25
+columns incl. nA/nB densities and all E fields.
+
+Timeline (all at the **shear layer**, inside the xi_cut window):
+
+- t≈30–55: physical KH mode grows (By2@k_mode local slope ≈0.19,
+  eigensolver γ_exact(xc5)≈0.19-0.20 for this point) — the documented clean
+  plateau.
+- **min-density trace: nA_min = 1.0 (t≤32) → 0.9987 (t=40) → 0.975 (t=48) →
+  0.64 (t=56) → 0.0500 = the code's density floor (t=64), and stays pinned
+  there for the remaining ~34 TU.** Cavitation completes ~35 TU before the
+  energy catastrophe.
+- The density perturbation nA@k_mode is the cleanest-growing channel
+  (γ=0.160, r²=0.98 over t=40-97 — consistent with the δn ~ mode-quadratic
+  compressive response at ≈2×the saturating mode rate). Its x-power is 96%
+  inside |ξ|<5 by t=57, 99.9% by t=81. **The outer region is quiet.**
+- t=64→97: bounded floored-pocket state (E/E0 creeps 1.00→1.09 — energy.csv
+  only sees the tail of this); t=97.7: terminal 6-order jump (p/n divisions
+  against the floor).
+
+**Amplitude threshold confirmed across sibling runs** (same-method
+comparisons): the V0=0.07 sibling (`xicut_acc`, clean full 100 TU) peaked at
+timeseries-amp 1.0×10⁻³ — an order of magnitude below cavitation; the
+V0=0.10 survivor (`xicut_v10`, kz=2.5) reached 9.4×10⁻³ at t=99.6, just
+approaching threshold exactly as its E/E0 creep appeared (t≳70). In
+spectral-amp units the diffkz cavitation threshold is ~1–2×10⁻² (By2-channel,
+this config). So **V0 sets whether the drive reaches cavitation amplitude
+within the run** — the gradual V0=0.05→0.10 transition mapped on 2026-07-14
+is an amplitude competition (benign saturation vs cavitation), not a
+distinct outer instability turning on.
+
+**Why the eigensolver is blind** (the previously-unexplained 2026-07-15
+limitation): both because the effect is nonlinear *and* because the
+eigensolver's state vector [b,ex,ez,a,qA,qB] contains no fluid density or
+momentum dof at all — by construction it cannot represent cavitation at any
+amplitude.
+
+**xi_cut radius ordering explained-in-part**: eigensolver γ_exact across
+xc=5→15 (α=1.5, kz=2.5, V0=0.10, measured on iMac): 0.2163, 0.2187, 0.2225,
+0.2262, 0.2294, 0.2234 — only a 6% spread, so the radius trend of the
+*terminal* jump (t≈27 at r=15 vs >100 at r=5) is **not** a growth-rate
+(compression) effect: cavitation happens at ≈the same time regardless of
+radius; the radius controls how long the *post-cavitation floored state*
+survives (empirical; suspect cavitated-volume size / wall proximity
+quenching). Practical rule unchanged: xi_cut=5, cap target_tu past the
+plateau.
+
+### 3. Tested and rejected: outer two-stream as the catastrophe driver
+
+The color-1 cold two-stream at the retained kz was a strong a-priori
+candidate (α-independent, rate γ_ts ∝ kzV0 at small kV — the right V0
+scaling; exact code-units dispersion γ² = √(4(kV)²+1) − (kV)² − 1 with
+per-beam ωp=1, whose kV<√2 cutoff *exactly* reproduces the documented
+kz_ts≈14 band at V0=0.1; predicted time-to-blowup 14/γ_ts: 59 TU at V0=0.10
+→ 114 TU at V0=0.05, eerily matching the observed V0 ladder). **Forensics
+rejects it**: PzA/nA growth localizes at the shear layer, not in the
+|vz|≈V0 outer region, and the implied-seed consistency breaks on the α=2.0
+cross-check. Kept documented here because the onset-time coincidence is a
+trap future analysis could re-fall into; `outer_region_theory.py twostream`
+prints the full table.
+
+### 4. Population census (context, weaker evidence)
+
+`onset_census.py` over all 1,365 parseable t130+t140 runs (2026-07-15 pull,
+mirrored to iMac `~/ym_kh/energy_pull/`): 901 catastrophes / 45 creep / 419
+clean. Splitting by tachyon exposure (ξ_crit vs window radius) shows the
+loose-window population's creep rates (~1-2.5 TU⁻¹) in the documented
+global-tachyonic range, but the census creep fits conflate physical-mode
+saturation with contamination and mix Lz/bp conventions — treat as context
+only; the controlled-series + forensics evidence above is what the
+conclusions rest on.
+
+### Consequences for the program
+
+1. Windowed measurements are legitimate; plateaus completing before
+   cavitation are clean. xi_cut=5 remains the production mechanism.
+2. For V0≥0.08: predict/monitor cavitation via mode amplitude (timeseries
+   amp approaching ~10⁻² in this config), not via a fixed safe time; cap
+   target_tu accordingly. `find_safe_sponge.py`-style linear screens can
+   never certify against mechanism 2.
+3. The V0≤0.07 "safe zone" is not mechanistically different — it is where
+   saturation stays below the cavitation amplitude within 100 TU.
+4. Open: post-cavitation survival-time mechanism; a V0=0.08-0.09 run with
+   snapshots retained to watch marginal cavitation; self-consistent Az1
+   depletion by the tachyonic branch (khaxn-relevant) — *the depletion item
+   is resolved in the next section (2026-07-15/16): no depletion occurs.*
+
+---
+
+## Self-consistent (unfrozen Az1) test of the tachyonic branch — depletion does NOT occur; the back-reaction DEEPENS the background (2026-07-15/16, t133)
+
+Follow-up to the mechanism identification above (OUTER_REGION.md open item
+#3). New node t133 set up for this (see CLAUDE.md §Server Setup). Reference
+point: α=1.0, V0=0.05, kz_phys=1.5 (bp28 box), the documented tachyonic
+configuration. Code additions (committed): Az1 snapshot export column,
+`init_by1_eq`, `vz_edge_taper` — see those commits for details.
+
+### Result 1 — the frozen approximation is validated for the linear phase
+
+Frozen reference (sp=52, suppress_kz0=1) reproduces the documented blowup
+exactly (halt t=21.4, γ from snapshots 1.45 vs eigensolver 1.43-1.46).
+Unfrozen + color-1-live variants grow at the same rate, halting only ~3 TU
+earlier (extra seeding via color-1 noise). Freezing Az1 does not
+meaningfully distort the tachyonic branch's linear growth.
+
+### Result 2 — three obstructions to a self-consistent color-1 sector,
+two fixed, one physical
+
+Any depletion measurement needs `suppress_kz0=0` (the sponge/filters never
+touch Az1, and the depletion channel is mode² → By1/Ez1 @ kz=0 → Az1).
+Doing that exposed, in order:
+
+1. **Periodic-wrap collapse** (dominant): the single-tanh vz jumps ±V0
+   across the wrap at |ξ|=62.8; with kz=0 live this drives nA → floor at the
+   box edge by t≈6, junk propagating inward at c. **This — not the Weibel
+   alone — is the real reason suppress_kz0=1 is mandatory in production.**
+   Fixed by `vz_edge_taper=50` (+ By1_eq integrating the tapered current).
+2. **Secular By1 pump at the shear layer**: with By1=0 init the color-1
+   sector is out of equilibrium (∂x By1 ≠ Jz1 = −2V0 tanh ξ); the screened
+   DC of Ez1 pumps By1 at the layer (dBy1≈0.45 by t=12) → collapse. Fixed by
+   `init_by1_eq=1` (current-consistent By1, half-cell-shifted to make the
+   backward-difference Ampere stencil exact to O(dx²)). Az1 needs no fix —
+   ∂x Az1 never enters the dynamics.
+3. **kz=0 chromo-Weibel of the beams themselves** (irreducible physics):
+   γ=0.284 at this (α,V0) per the documented formula, seeded at O(10⁻²) by
+   the residual equilibration transient → E/E0 blowup at t≈23 in every
+   sk0=0 run regardless of seed/freeze. This is the hard floor: a "quiet"
+   self-consistent counter-streaming background does not exist — some kz=0
+   channel is always growing.
+
+### Result 3 — the back-reaction is real, quadratic, and has the WRONG SIGN
+for depletion
+
+Differencing unfrozen seeded vs unfrozen unseeded runs (identical
+deterministic background dynamics cancels; B−C in the run tags) isolates the
+tachyon's own imprint on Az1@kz=0:
+
+| t | mode max\|a\| (annulus) | max\|ΔAz1\| (annulus) |
+|---|---|---|
+| 12 | 1.4e-4 | < 1e-6 |
+| 14 | 3.0e-3 | 3.6e-6 |
+| 16 | 6.1e-2 | 1.6e-4 |
+| 17 | 2.9e-1 | 3.6e-3 |
+
+Clean quadratic scaling: **ΔAz1 ≈ −0.04·|a|²**, localized at the mode peak
+(ξ≈+49). The sign is *negative where Az1<0*: the wave makes the background
+**deeper** (|αAz1| larger), not shallower — the opposite of depletion.
+
+**Confirmed and refined at a second, independent configuration** (sp=42,
+γ_lin=0.642, outer eigenvector seeded at |a|₀=0.02 to push |a|→O(1) inside
+the pre-Weibel window; unfrozen G vs frozen H vs unfrozen-unseeded I, each
+20-TU/halt, t133): the G−I differencing tracks −0.04·|a|² over four decades
+of |a|², landing **exactly on the prediction at the endpoint** (t=9,
+|a|=2.46: measured ΔAz1=−0.242 vs −0.04·|a|²=−0.242), pinned at the mode
+peak ξ=+38.6 the whole way. The control I (taper + By1_eq background, no
+seed) survived its full 20 TU cleanly — the equilibrium fixes hold on this
+timescale.
+
+**Feedback direction, settled by the clean G/H pair**: despite the local
+deepening, the unfrozen mode grows slightly *slower* at finite amplitude
+(amplitude ratio G/H = 0.998 at |a|≈0.1 falling to 0.933 at |a|≈2.5; fitted
+γ 0.5156 vs 0.5180 mid-range) — deepening at the peak with the damping
+boundary fixed compresses the annulus rather than accelerating the wave.
+(The earlier inference "unfrozen dies earlier ⇒ positive feedback" from the
+sp=52 halts was wrong in detail — that ordering came from seeding
+differences.) Net: the back-reaction is weakly stabilizing in the global
+sense, at the −7%-by-|a|≈2.5 level — **two orders of magnitude too weak to
+saturate the branch** before the fluid model dies (density cavitation /
+energy halt). **Depletion is not the saturation route for this branch in
+this model**, and the frozen-Az1 approximation is accurate to a few percent
+everywhere it matters.
+
+**Physics interpretation for khaxn**: in a fully self-consistent setting the
+counter-streaming beams continuously re-supply the color-1 background (and
+the charged waves locally deepen it); the frozen-background "infinite
+battery" is therefore not an overestimate of the drive — the instability of
+such backgrounds is robust, and its endpoint is fluid-scale (cavitation)
+rather than field-scale (depletion).
+
+## T1.2 resolved — exact-action WKB theory of the shear branch: drive ceiling γ³ ≤ αV0², no intrinsic kz peak, kz_peak is confinement-set (2026-07-17, theory + eigensolver only)
+
+**Full derivation: PHYSICS.md §11. Companion code: `analysis/exact_action_wkb.py`.
+Validation figure: `plots/exact_action_wkb_validation.png`. No new simulations —
+the one queued CUDA check is listed at the end.**
+
+### What was derived
+
+1. **The 6-field eigensolver system reduces exactly to one scalar ODE**
+   (γ²a′/D)′ = (γ²+g)a, D = γ²+kz²−α²Az1², with the two-beam
+   precession-charge drive g = 2αvz³Ω_A/(γ²+vz²Ω_A²). Exact at the discrete
+   level too: the reduced dense operator reproduces the ARPACK 6-field
+   eigenvalues to **rel. diff 0.0** at 7 points spanning α=1–3,
+   V0=0.03–0.1, kz=1–7. Also established: the xi_cut wall is zero-flux
+   (Neumann) on the mode side and Dirichlet on the other.
+
+2. **Exact drive ceiling γ³ ≤ αV0²**: the drive G(w)=2αV0³w/(γ²+V0²w²),
+   w=Ω_A, is maximized on the precession-resonance surface w*=γ/V0 (beam
+   Doppler-shifted precession frequency = growth rate). Measured
+   dominant-branch peaks reach 95–99% of (αV0²)^{1/3} in every series.
+
+3. **T2.5 collapse variables**: γ=(αV0²)^{1/3}γ̂, kz=(α/V0)^{1/3}k̂, plus
+   window group αV0ξ_w and budget (αV0²)^{1/3}/EPS. α and V0 provably do
+   not combine as αV0.
+
+4. **Quantization**: the branch is quantization-marginal (well holds under
+   a quarter wave): tan S = κ/k_edge. Exact-action model matches σ-chased
+   dominant eigenvalues to ≤2% (median ≤0.2%) for kz ≥ 1.5 across 12
+   series (α=1–5, V0=0.03–0.2, windows 5–40); a closed-form square-well
+   model (PHYSICS.md eq. 11.7) is within ~3% near/above the peak.
+
+5. **The kz peak is NOT intrinsic.** Unbounded, γ(kz) saturates
+   monotonically at the ceiling while the mode migrates outward riding the
+   resonance surface ξ_res ≈ (kz−γ/V0)/(αV0) (verified out to ξ=−36,
+   γ=0.9955×ceiling at kz=10, cut=40). The measured non-monotonic
+   dispersion is windowed physics, and the peak is the crossover
+   "resonance surface = window radius":
+
+       kz_peak ≈ αV0(ξ_w − ln 2) + c·(α/V0)^{1/3},   c = 1.0 ± 0.1
+
+   Verified to ±0.6 in kz on 11 series, including a direct window test:
+   cut 11→25 at fixed physics (α=2, V0=0.05) moved the peak 4.5→5.5
+   (formula 4.45→5.85). Both terms are EPS-free. Over the surveyed
+   (α, V0, sponge) box this expression happens to track ≈2α — **the
+   "kz_peak ≈ 2α law" is a serviceable mnemonic inside the surveyed box,
+   not a fundamental coupling selection**; coupling and containment radius
+   select the wavelength together.
+
+6. **WKB gap of eq. 33 diagnosed**: its drive term −α²V0kz does not match
+   the true beam response (three powers of v, Doppler-resonant,
+   ceiling-bounded). Low-kz 10–20× overestimates and weak-coupling-corner
+   ~25% underestimates (ceiling saturation) both follow. The kz=0
+   chromo-Weibel 0.5% anchor is untouched (different geometry, outside the
+   reduction's regime).
+
+### Data-quality by-product (referee-critical)
+
+**The eigensolver's default shift-invert target (σ=0.55·γ_WKB-quartic)
+lands on well-ladder overtones wherever the quartic underestimates** — low
+α and/or kz above the quartic's peak. At (α=1, V0=0.05, kz=4, window 20)
+the dominant mode is γ=0.134 (cut) / 0.131 (production sponge); default-σ
+returns 0.106; the cached C25 curve carries 0.082 — an n≈3 overtone. The
+eigenmode-seeded simulation grew exactly the overtone it was seeded with
+(plateau-audited 0.081): sim-vs-solver agreement certifies numerics, not
+dominant-mode selection. True C25-window peak: kz=3.5, γ=0.135 (99% of
+ceiling) — not kz=2, γ=0.122. α≥2 series are unaffected near their peaks.
+Affected: eigensolver_grid_cache / exact_grid_cache (figs 03/04/05/13) at
+low α and beyond-peak kz; the low-α end of fig05's 2α trend.
+
+### Queued follow-ups
+
+- **CUDA falsification check** (cheap): rerun one C25 point (α=1, V0=0.05,
+  kz=4, sponge 20) with a broadband or true-n0 seed
+  (`ym_eigenmode.py --sigma 0.14 --export-seed`) and confirm the plateau
+  moves 0.081 → ≈0.13.
+- Regenerate reference caches with σ-chasing (`exact_action_wkb.gamma_true`
+  or model-B-guided σ); re-audit fig05's low-α points.
+- Absorbing-edge (sponge) version of the quantization phase if the few-%
+  cut-vs-sponge offsets ever matter quantitatively.
+
+## Full-archive error audit vs σ-chased eigensolver — every measured growth rate, all five V0 (2026-07-17)
+
+Extends the V0=0.05-only suspectfix audit to the **entire measurement archive**:
+all 9,262 mode-6 (`circ_az2seed`) runs across every `remote_data/` node were
+re-fitted (windowed max-R² fit + plateau detector), deduplicated to the best run
+per (V0, α, kz) — plateau-confirmed preferred, then highest R² — giving **4,195
+unique measured points**. Each point was compared against the **σ-chased windowed
+eigensolver** (dominant localised mode of `ym_eigenmode.solve_eigenmode` at the
+run's actual `xi_sponge`, σ re-shifted upward until clear of the returned window
+top — never the default-σ call, never the WKB quartic). Theory pass:
+`analysis/chase_theory_worker.py`, 3,923 fresh solves + 272 reused from the
+suspectfix audit cache, run on the iMac (~60 s total; ARPACK at NX=384 takes
+~50 ms/point single-threaded — the earlier ~10 s/point local estimate was pure
+OpenBLAS thread-thrashing). Metric: `rel_err = |γ_meas − γ_chased|/γ_chased`
+with γ_meas = plateau rate when confirmed, else best-window rate. Full per-point
+table: `sweep/all_points_vs_chased.npz` (one array per column, 4,195 rows).
+
+### Headline: the sim is far more accurate than the sweep tables claimed
+
+The sweep tables' `rel_error` column (vs the crude quartic mislabeled
+`gamma_wkb`/`gamma_exact`) painted ~60% median "error". Against the real theory:
+
+| Population | n | median | p90 | share <20% | old-quartic median |
+|---|---|---|---|---|---|
+| All points | 4,192 | 34.1% | 422% | 34% | 59.9% |
+| Plateau-confirmed only | 1,203 | **13.8%** | 111% | 60% | 65.1% |
+| Clean core V0=0.03 (int-kz, kz≥1, α>0.3, plateau) | 141 | **9.3%** | 26% | 84% | 53.7% |
+| Clean core V0=0.05 | 165 | **10.2%** | 22% | 86% | 36.3% |
+| Clean core V0=0.10 | 34 | **6.0%** | 30% | 76% | 46.6% |
+| Clean core V0=0.20 | 34 | **9.2%** | 14% | 97% | 60.9% |
+| Clean core V0=0.01 | 147 | 23.3% | 34% | 46% | 40.8% |
+
+### Structure of the remaining error (all V0 pooled)
+
+- **kz<1 is the dominant real failure zone** (877 pts, median 106%):
+  kz≤0.5 sim reads a floor ~2.8–4× above theory (median 276%); 0.55<kz<1
+  undershoots (median 56%). Same two-mechanism sign-flip found in the V0=0.05
+  audit, now confirmed at every V0.
+- **Tier hierarchy confirmed and sharpened**: int-tier clean cores 6–10%;
+  half-tier kz≥1 median 26% (odd-k half-integers 39%); **fine-tier (Lz=16π)
+  kz≥1 median 68%** — the fine-tier boxes were never convergence-validated and
+  are now the worst systematic block in the archive.
+- **V0=0.01 undershoot is new**: a broad, mild sim deficit (median ratio
+  0.875, worst 0.75 at α>2.2 and kz=2–4) even in its clean core — weak-signal
+  regime, distinct from the α≤0.2 noise-floor wall.
+- **kz=1 high-α excess is global**: clean-core kz=1 ratio rises 0.99 → 1.21
+  as α goes 0.3→3.0, at all V0 — small, real, still unexplained.
+- **α≤0.3** (429 pts): median 19.8% — mostly fine once chased (the old 157%
+  quartic-based number was baseline artifact), though the α≤0.2 no-signal wall
+  stands.
+- **Plateau coverage is the biggest data-quality lever**: 2,989/4,192 points
+  (71%) lack plateau confirmation (median 53% vs 13.8% with plateau) —
+  V0=0.10/0.20 are worst-covered (34/~220 int-tier clean-core candidates each).
+
+### Method warnings (unchanged from the T1.2 by-product, now enforced archive-wide)
+
+Never quote `sweep/*.npz` `rel_error`, `batch_results.csv` `ratio`/`gamma_exact`,
+or any default-σ eigensolver value as "sim vs theory" — the first two compare
+against the bare quartic (median 1.9× off, up to 29×), and the default-σ call
+rides well-ladder overtones at low α / beyond-peak kz (20% of suspectfix points
+moved >5% when chased, 12.6% moved >50%).
+
+### Diagnosis of the >50%-error cells (integer kz, α>0.3 population)
+
+185/1123 cells exceed 50% error vs chased theory. **Every one lacks plateau
+confirmation**, and they fall into three mechanisms (plot:
+`plots/relerr_heatmap_int_kz.png`, 100%-capped scale):
+
+1. **Cavitation blow-up, V0=0.1/0.2 low-kz/high-α wedge — 146 cells (79%)**.
+   The runs die at median t=9 TU (90% before 15 TU) with super-exponential
+   amplitude growth (e.g. V0=0.1, α=2.3, kz=3: 1.3e-13 → 2e-3 in 8 TU); the
+   max-R² fitter reports the blow-up rate (γ 1–5 TU⁻¹, 3–15× any eigenmode).
+   This is the documented V0≥0.08 KH density-cavitation failure — the linear
+   KH mode is simply never measured in these runs, so the "error" is a
+   data-coverage hole, not a sim-accuracy statement.
+
+2. **Wide-window (sp55) outer-region contamination — ~29 cells**: the V0=0.01
+   kz=1 α≥2.3 column, the V0=0.03 kz=4–6 α≥2.1 band, and a few V0=0.05
+   strays. All are old blind-formula runs with xi_sponge=55 that never got a
+   vetted-sponge suspectfix rerun. The outer tachyonic frozen-Az1 branch grows
+   inside the huge window, outruns the shear mode (V0=0.01 kz=1: γ_meas rises
+   linearly with α, 0.30→0.84 over α=2.3→3.0, vs shear-mode γ≈0.04), and the
+   fit locks onto it at t≈11–25 before the energy-threshold halt. At sp55 the
+   eigensolver's is_localised(xi_inner=55) is nearly vacuous, so γ_chased is
+   also unreliable there (γ_chased jumps 0.04→0.10→0.23 across α=2.2→2.4;
+   at V0=0.1 kz=1 sp25-27 it returns the tachyon itself, γ≈5–6). Fix = rerun
+   with find_safe_sponge.py windows, not a theory problem.
+
+3. **Overtone-seeded runs read as undershoots — the ~5 clean R²=1.0 cells**
+   (V0=0.05 α=1.0 kz=5–7 sp25; V0=0.03 α=1.5 kz=8; V0=0.1 α=0.5 kz=5–6).
+   Confirmed quantitatively: at V0=0.05 α=1.0 sp25, sim matches the
+   default-σ (overtone) eigenvalue to 6–23% (kz=5: 0.064 vs 0.068; kz=6:
+   0.054 vs 0.060; kz=7: 0.042 vs 0.055) while sitting at 0.36–0.50× the
+   chased dominant mode — the T1.2 seeding by-product: the run grows exactly
+   the overtone its eigenmode seed selected. Sim numerics fine; re-seed with
+   σ-chased n=0 profiles to measure the dominant branch.
+
+**Bottom line: not one of the >50% cells indicates a simulation-accuracy
+problem.** They are (1) runs destroyed by cavitation before any linear phase,
+(2) runs measuring a different (outer, physical) instability admitted by an
+oversized window, and (3) runs measuring a different (overtone) branch of the
+correct instability. The honest sim-vs-theory benchmark remains the
+plateau-confirmed population: median 9–14%.
+
+## CRITICAL: two pipeline bugs invalidate most post-07-04 measurements — helicity-conjugate extraction + missing lz_override in suspectfix (2026-07-17)
+
+Asked "what is the most important experiment to make this solid", the answer
+turned out to be: none of the physics experiments — first verify the
+measurement pipeline itself. Two independent bugs were found, each alone
+serious enough to invalidate whole campaign blocks. Both are now fixed; a
+7-run validation campaign (`scripts/heli_validation_t140.sh`, tag `heli_*`)
+re-measures representative anchors with the corrected pipeline.
+
+### Bug 1 — remote_timeseries.py extracted the CONJUGATE helicity (2026-07-04 03:29 → 2026-07-17)
+
+The stdlib-DFT rewrite (`e414da3`) replaced the numpy extraction
+`|rfft(Az2)[k] + i·rfft(Az3)[k]|` with an explicit loop that had one sign
+error: `re += az2*c - az3*(-s)` instead of `re += az2*c - az3*s`. For the
+(+)-helicity circular seed (Az2,Az3) ∝ (cos kz, sin kz) the buggy expression
+returns **exactly zero** — verified on a fresh k5/α2.0/V0=0.05 run:
+step-0 snapshot has max|Az2| = 5.000e-05 (the seed, perfectly deposited), the
++helicity amplitude is e^-13.5, and the −helicity amplitude the buggy code
+measured is e^-29.8 (FP32 noise).
+
+Blast radius, measured by scanning all 7,909 archived timeseries for their
+first amplitude: **7,589 (96%) start at logamp < −25** — i.e. they tracked
+the initially-empty wrong-helicity component, not the seeded mode. Only ~320
+series (extracted before 07-04: parts of abi/t130/t136/t140 int-kz) start at
+the healthy ≈ −13. Everything extracted after — 2/3 of half-kz, all
+eighth-kz, all epsscan, all xi_cut probes, all tierprobe, ALL suspectfix —
+measured the wrong component. Because the auto-cleanup deletes field dumps
+after extraction, these cannot be re-extracted; affected points need reruns.
+
+Why this wasn't obvious: in many regimes the wrong-helicity component is
+slaved to the growing mode at an FP32-rounding offset and grows at the same
+γ, so fits often *look* clean and even agree with theory (this is how the
+"clean core" survived the audit). But the two components genuinely diverge in
+slow-growth/competing-mode regimes — e.g. the k5 α2.0 sp10 bp28 suspectfix
+run: wrong component grows at 0.042 for 100 TU while the true mode grows at
+0.155 (eigensolver: 0.158) — which is exactly where the audit's mystery
+buckets lived. **Sim was fine; the tape recorder was pointed at the wrong
+channel.** Fixed in `analysis/remote_timeseries.py` (also now emits
+`amp_conj` as a diagnostic and honors `KEEP_DUMPS=1`).
+
+### Bug 2 — suspectfix scripts never set lz_override/nz_override
+
+`gen_suspectfix_campaign.py` defines `LZ_HALF/LZ_FINE/NZ_HALF/NZ_FINE` but
+its INI template never emitted them: **all 18 suspectfix_*.sh scripts (all
+waves) ran "half-tier" and "fine-tier" points on the default Lz=2π box**, at
+physical kz = k_mode = 2× (half) or 8× (fine) the labeled kz. Numerical
+proof: labeled-kz=0.5 suspectfix γ_sim matches int-tier kz=1 (e.g. α=2.0:
+0.0887 vs 0.0852) point by point. The audit's "kz<1 floor" ratios are just
+γ(kz)/γ_theory(kz/2 or kz/8) bookkeeping artifacts on top of Bug 1. Old
+(pre-suspectfix) half/eighth-kz campaigns DID set the box correctly — only
+suspectfix-sourced rows (313 best-per-point rows in
+`sweep/all_points_vs_chased.npz`, plus everything the V0=0.05 audit's
+non-int-tier buckets used) carry wrong labels. Fixed in
+`gen_suspectfix_campaign.py` (`lz_nz_block()`).
+
+### Consequences for prior conclusions
+
+- The V0=0.05 audit's four buckets (2026-07-17, earlier today) need
+  re-reading: the "kz<1 floor + sign-flip", the "half-tier kz=2.5 0.30×
+  undershoot", and the fine-tier 68% block are all measurements of the wrong
+  helicity at the wrong physical kz. They are NOT sim deficiencies and NOT
+  physics. The clean-core numbers survive only where wrong-helicity slaving
+  tracked the true γ; treat all suspectfix-derived γ as unreliable.
+- `project_low_alpha_noise_floor` ("seed decays into noise before growth")
+  needs re-examination: the "noise floor" observed was partly the wrong
+  component starting AT the noise floor by construction.
+- The tierprobe conclusions (int-vs-half accuracy gap, resolution ruled out)
+  were also extracted with the buggy script and need re-running.
+- `sweep/all_points_vs_chased.npz` rel_err/ratio columns are only meaningful
+  for the ~320 pre-07-04-extracted series; a fresh audit needs the rerun
+  campaign.
+
+### Validation campaign (running on t140, 2026-07-17)
+
+Seven anchors, corrected pipeline, γ_chased references at each run's exact
+(kz, xi_sponge): int-box k5 bp14 vs bp28 (0.1584); genuine half-box kz=2.5
+(0.1434); genuine half-box kz=0.5 α=0.9 (0.0455); genuine fine-box kz=2.75
+α=1.7 at bp55 vs bp112 (0.1511; tests the fine-tier band-coverage question —
+bp=55 only filters physical kz ≤ 6.875 on the Lz=16π box while the EM band
+extends to 14); genuine fine-box kz=0.25 α=2.0 bp112 (0.1122). Results to be
+appended below.
+
+### Validation results (2026-07-17/18, t140, corrected pipeline) — ALL STRETCHED-BOX ANOMALIES RESOLVED
+
+| anchor (V0=0.05) | box | bp | ξ_s | γ_sim | γ_chased | ratio |
+|---|---|---|---|---|---|---|
+| kz=5, α=2.0 | 2π/NZ64 | 14 | 10 | 0.1454 | 0.1584 | 0.92 |
+| kz=2.5, α=2.0 | 4π/NZ128 | 28 | 10 | 0.1524 | 0.1434 | **1.06** |
+| kz=2.75, α=1.7 | 16π/NZ512 | 55 | 10 | 0.1483 | 0.1405 | **1.06** |
+| kz=2.75, α=1.7 | 16π/NZ512 | 112 | 10 | 0.1483 | 0.1405 | **1.06** |
+| kz=0.25, α=2.0 | 16π/NZ512 | 112 | 8 | 0.1111 | 0.1122 | **0.99** |
+| kz=0.5, α=0.9 | 4π/NZ128 | 28 | 8 | 0.0554 | 0.0455 | 1.22 |
+
+- **The half-tier kz=2.5 "0.30× undershoot", the fine-tier "68% block", and the
+  kz<1 "α-independent floor" are all gone** once the box, the extraction
+  helicity, and (for fine) the sponge are right. Stretched boxes are as
+  accurate as the default box (6% at kz=2.5 and 2.75, 1% at kz=0.25).
+- kz=0.5's 22% excess is within sponge-modeling uncertainty for wide modes
+  (ξ_char≈6.7 ≈ window size; eigensolver γ swings ±10% over ξ_s=6–12 and
+  jumps to 0.30 at ξ_s=24 as the outer branch enters). Not pursued further.
+- Fine-box runs at the production loose sponges (ξ_s=42) blow up at t≈14 at
+  BOTH bp=55 and bp=112 (outer tachyon inside the window) — the fine tier
+  needs vetted-tight sponges like every other tier; with ξ_s=10 the bp=55
+  vs 112 distinction is irrelevant because the sponge already kills the
+  outer-region band spatially.
+
+### NEW numerical constraint: kz_suppress_hi must stay below ≈ NZ/4.5
+
+bp-scan at kz=5, α=2.0, default box (slope in the t=15–30 window):
+hi=14: 0.121 · hi=15: 0.116 · hi=16: 0.115 · hi=18: 0.114 · hi=20: 0.109 ·
+hi=24: 0.096 · hi=28: ~0.001 (mode frozen at seed amplitude for 20 TU, γ
+still <0.02 at t=60). Extending the DFT filter band into the grid's
+dispersive tail (wavelengths ≲ 4–5 cells, i.e. modes ≳ NZ/4.5) bleeds the
+KEPT mode: the FCT limiter continuously deposits mode-correlated content at
+near-Nyquist wavelengths, and zeroing that band every step acts as strong
+effective damping on the physical mode. Confirmed scale-invariant: hi=28 is
+lethal on NZ=64 but perfectly fine on NZ=128 (heli_half, ratio 1.06), and
+hi=112 is fine on NZ=512. **Rule: hi ≤ NZ/4.5 (hi=14@NZ64, 28@NZ128,
+112@NZ512).** This also retroactively explains why suspectfix "half-tier"
+runs (bp28 on the NZ=64 box, by Bug 2) showed suppressed growth in BOTH
+helicity channels, and it means suspectfix "fine-tier" configs (bp55 on
+NZ=64, beyond Nyquist=32!) were aliasing the filter on top of everything
+else.
+
+### Status after this session
+
+Sim + eigensolver agree to ≤8% at every anchor with a tight vetted sponge and
+narrow mode, on every box tier, at integer and fractional kz — measured with
+the fixed extractor. The dispersion-map program is unblocked; the remaining
+work is the recorrection campaign for the ~7.6k invalidated series (reruns:
+correct boxes via fixed generator, tier-scaled bp per the NZ/4.5 rule, tight
+sponges, fixed extraction).

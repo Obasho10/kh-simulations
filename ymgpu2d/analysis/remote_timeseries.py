@@ -9,6 +9,13 @@ Usage: python3 remote_timeseries.py [glob_pattern]
 import csv, cmath, glob, math, os, re, sys
 from pathlib import Path
 
+try:  # fast path when numpy/pandas exist (all cluster nodes have them)
+    import numpy as _np
+    import pandas as _pd
+    _FAST = os.environ.get('NO_FAST_DFT') is None
+except ImportError:
+    _FAST = False
+
 NX = 768
 
 pattern = sys.argv[1] if len(sys.argv) > 1 else "ym_k*_a*_circ_az2seed*"
@@ -22,7 +29,7 @@ for run_dir in sorted(glob.glob(pattern)):
     # bp28 → Lz=4π (kz_physical = k/2); bp55 → Lz=16π (kz_physical = k/8)
     lz4pi  = bool(re.search(r'lz12\.56|lz4pi|_lz4', run_dir)) or \
              (bool(re.search(r'_bp28', run_dir)) and k % 2 == 1)
-    lz16pi = bool(re.search(r'_bp55', run_dir))
+    lz16pi = bool(re.search(r'_bp55|_bp112', run_dir))
     csvs = sorted(glob.glob(f"{run_dir}/ym_*.csv"))
     if not csvs:
         continue
@@ -45,6 +52,23 @@ for run_dir in sorted(glob.glob(pattern)):
         try:
             step = int(re.search(r'\d+', Path(csv_path).stem).group())
             t = step * dt_run
+            if _FAST:
+                # numpy/pandas fast path (~100x): identical math to the stdlib
+                # loop below — F = sum_z (Az2 + i*Az3) e^{-i 2pi k z/nz} per x
+                # column, amp = mean_x |F| / nz; conjugate uses (Az2 - i*Az3).
+                df_ = _pd.read_csv(csv_path, usecols=['Az2', 'Az3'])
+                n_total = len(df_)
+                nz = n_total // NX
+                if nz < k + 1:
+                    continue
+                sig = (df_['Az2'].values + 1j * df_['Az3'].values).reshape(nz, NX)
+                ker = _np.exp(-2j * math.pi * k * _np.arange(nz) / nz)
+                F = ker @ sig
+                Fc = ker @ _np.conj(sig)
+                amp = float(_np.abs(F).mean() / nz)
+                amp_conj = float(_np.abs(Fc).mean() / nz)
+                rows_out.append({'t': t, 'amp': amp, 'amp_conj': amp_conj})
+                continue
             with open(csv_path) as f:
                 reader = csv.DictReader(f)
                 az2_col = []
@@ -61,17 +85,32 @@ for run_dir in sorted(glob.glob(pattern)):
             two_pi_k_over_nz = 2.0 * math.pi * k / nz
             re_k = [0.0] * NX
             im_k = [0.0] * NX
+            re_c = [0.0] * NX
+            im_c = [0.0] * NX
             for iz in range(nz):
                 angle = two_pi_k_over_nz * iz
                 c = math.cos(angle)
                 s = -math.sin(angle)  # rfft convention: exp(-2πikn/N)
                 base = iz * NX
                 for ix in range(NX):
-                    re_k[ix] += az2_col[base + ix] * c - az3_col[base + ix] * (-s)
-                    im_k[ix] += az2_col[base + ix] * s + az3_col[base + ix] * c
+                    v2 = az2_col[base + ix]
+                    v3 = az3_col[base + ix]
+                    # amp: rfft(Az2)[k] + i*rfft(Az3)[k] — the (+)-helicity
+                    # component the mode-1/6 seed excites (Az2+iAz3 ~ e^{+ikz}).
+                    # HISTORY: 2026-07-04..17 this line had `- v3 * (-s)`, i.e.
+                    # the CONJUGATE (−helicity) component, which is ~zero for the
+                    # seeded mode — every timeseries extracted in that window
+                    # starts at FP32 noise (logamp≈−30) and tracks the wrong
+                    # component. See FINDINGS.md 2026-07-17 helicity-bug entry.
+                    re_k[ix] += v2 * c - v3 * s
+                    im_k[ix] += v2 * s + v3 * c
+                    # conjugate (−helicity) amplitude kept as a diagnostic
+                    re_c[ix] += v2 * c + v3 * s
+                    im_c[ix] += v2 * s - v3 * c
             # mean amplitude across x
             amp = sum(math.sqrt(re_k[ix]**2 + im_k[ix]**2) for ix in range(NX)) / (NX * nz)
-            rows_out.append({'t': t, 'amp': amp})
+            amp_conj = sum(math.sqrt(re_c[ix]**2 + im_c[ix]**2) for ix in range(NX)) / (NX * nz)
+            rows_out.append({'t': t, 'amp': amp, 'amp_conj': amp_conj})
         except Exception:
             pass
 
@@ -92,12 +131,16 @@ for run_dir in sorted(glob.glob(pattern)):
         kz_label = f"{kz_r:.3f}".rstrip('0').replace('.', 'p')
     out = f"{run_dir}/timeseries_k{kz_label}.csv"
     with open(out, 'w', newline='') as f:
-        w = csv.DictWriter(f, fieldnames=['t', 'amp'])
+        w = csv.DictWriter(f, fieldnames=['t', 'amp', 'amp_conj'])
         w.writeheader()
         w.writerows(rows_out)
     print(f"Wrote {len(rows_out)} pts → {out}")
 
     # Delete large field dumps now that timeseries is extracted
+    # (set KEEP_DUMPS=1 to skip deletion, e.g. for validation runs)
+    if os.environ.get('KEEP_DUMPS'):
+        print(f"  KEEP_DUMPS set — leaving {len(csvs)} field dumps in {run_dir}")
+        continue
     cleaned = 0
     for csv_path in csvs:
         try:

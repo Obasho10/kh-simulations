@@ -36,6 +36,7 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
                                 int k_mode, fct_real_t perturb_amp,
                                 fct_real_t V0, fct_real_t epsilon,
                                 int run_mode, fct_real_t alpha_YM,
+                                int init_by1_eq, fct_real_t vz_edge_taper,
                                 YMSeedProfiles seed) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int z = blockIdx.y * blockDim.y + threadIdx.y;
@@ -98,11 +99,20 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
             if (seed.qA) qA_amp   = perturb_amp * V0 * seed.qA[x];
             if (seed.qB) qB_amp   = perturb_amp * V0 * seed.qB[x];
         } else {
-            fct_real_t xi_char = 1.0f / sqrtf(alpha_YM * (fct_real_t)k_mode * V0 + 1e-12f);
+            fct_real_t xi_char = 1.0f / sqrtf(alpha_YM * k_z * V0 + 1e-12f);
             az_amp = perturb_amp * V0 * expf(-0.5f * xi * xi / (xi_char * xi_char));
         }
         az2_init = az_amp * cosf(k_z * z_val);
         az3_init = az_amp * sinf(k_z * z_val);
+
+        // Current-consistent color-1 equilibrium (opt-in, needed for
+        // suppress_kz0=0): ∂x By1 = Jz1 = -2 V0 tanh(ξ) ⇒
+        // By1 = -2 V0 EPS (log cosh ξ - <log cosh>), zero-mean so no uniform
+        // v×B force. <log cosh> over the periodic box ≈ Lx/(4 EPS) - ln 2.
+        if (init_by1_eq) {
+            fct_real_t mean_lc = (nx * dx) / (4.0f * epsilon) - 0.693147f;
+            by1_init = -2.0f * V0 * epsilon * (logf(coshf(xi)) - mean_lc);
+        }
 
     } else if (run_mode == 2) {
         // EMHD_KH: color-1 Kelvin-Helmholtz; no Az1 coupling
@@ -185,6 +195,37 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
         fct_real_t base_dt = perturb_amp * V0 * (sech1 + sech2);
         by2_init = base_dt * cosf(k_z * z_val);
         by3_init = base_dt * sinf(k_z * z_val);
+    }
+
+    // Optional smooth edge taper of vz (modes 1/6, 2026-07-15): removes the
+    // periodic-wrap velocity discontinuity that drives the kz=0 color-1
+    // collapse when suppress_kz0=0 (see OUTER_REGION.md). Width 3 ξ-units.
+    // ∂x Az1 never enters the dynamics, so Az1 needs no matching taper.
+    if (vz_edge_taper > 0.0f && (run_mode == 1 || run_mode == 6)) {
+        const fct_real_t dt_tap = 3.0f;
+        fct_real_t axi = fabsf(xi);
+        fct_real_t w = 0.5f * (1.0f - tanhf((axi - vz_edge_taper) / dt_tap));
+        vz_A *= w;
+        if (init_by1_eq) {
+            // By1_eq for the tapered current: ∂x By1 = Jz1 = -2 V0 tanh(ξ) w(ξ).
+            // I(|ξ|) = ∫ tanh·w = log cosh|ξ| − (dt/2)(u + log cosh u + ln2),
+            // u = (|ξ|−ξ_t)/dt  (exact in the tanh≈1 regime, ξ_t ≳ 10).
+            // Evaluated at ξ + dx/2 so the code's BACKWARD difference
+            // (By1[i]−By1[i−1])/dx lands on Jz1(ξ_i) to O(dx²) — the
+            // cell-centered version leaves a first-order sech²(ξ)·dx residual
+            // that the DC screening converts into a secular By1 pump at the
+            // shear layer (observed: dBy1≈0.45 by t=12, 2026-07-15).
+            fct_real_t axi_h = fabsf(xi + 0.5f * dx / epsilon);
+            fct_real_t u  = (axi_h - vz_edge_taper) / dt_tap;
+            fct_real_t I  = logf(coshf(axi_h))
+                            - 0.5f * dt_tap * (u + logf(coshf(u)) + 0.693147f);
+            fct_real_t Lxi = (nx * dx) * 0.5f / epsilon;
+            fct_real_t mean_I = (0.5f * vz_edge_taper * vz_edge_taper
+                                 - vz_edge_taper * 0.693147f
+                                 + (Lxi - vz_edge_taper) * (vz_edge_taper - 0.693147f))
+                                / Lxi;
+            by1_init = -2.0f * V0 * epsilon * (I - mean_I);
+        }
     }
 
     f.By1[idx] = by1_init;

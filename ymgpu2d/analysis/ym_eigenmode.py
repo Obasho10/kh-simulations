@@ -43,7 +43,6 @@ Usage examples:
 import numpy as np
 import scipy.sparse as sp
 import scipy.sparse.linalg as spla
-from scipy.optimize import brentq
 import argparse
 import sys
 
@@ -56,35 +55,34 @@ ALPHA_DEFAULT = 2.0
 NX_DEFAULT  = 384              # 1-D grid points (768 = full sim resolution)
 
 
-# ── WKB reference (step-potential parabolic well, wkb.pdf eq. 33) ────────────
+# ── WKB reference (step-potential parabolic well, wkb.pdf eq. 33 /
+#    wkbfull.pdf eq. 4) ────────────────────────────────────────────────────
 def wkb_growth_rate(kz, alpha, V0=V0_DEFAULT, n_wkb=0):
     """
-    Solve the WKB quantisation condition for the log-cosh / parabolic well
-    (wkb.pdf, eq. 33):
-        Q0    = -γ² - kz² + α²·V0·kz / γ²
-        |C1|  =  α³·V0² / (2·γ²)
-        Q0    = (2n+1)·√|C1|   (n=0 for ground state)
-    Returns γ (real, positive growth rate).
+    Solve the WKB quantisation condition, in its cleared-denominator quartic
+    form (wkbfull.pdf eq. 4):
+        ω⁴ − kz²ω² − (2n+1)·√(α³/2)·V0·ω − α²·V0·kz = 0
+    and return Im(ω) of the fastest-growing root.
+
+    Returns γ = Im(ω) (real, positive growth rate), or NaN if no growing
+    root exists.
+
+    Note: an earlier version of this function assumed the growing root is
+    purely imaginary (Re(ω)=0) to reduce the search to a 1-D bisection over
+    real γ. That is exact at kz=0 (verified: matches the cubic ω³=C chromo-
+    Weibel result to machine precision) but the true fastest-growing root
+    generally has Re(ω)≠0 away from kz=0 -- the discrepancy was up to ~50%
+    at kz=0.25 and ~10% at kz=1, shrinking at higher kz. Solving the full
+    complex quartic (as here) is exact for the harmonic-core WKB result at
+    every kz, not just kz=0.
     """
-    if alpha == 0 or kz == 0:
+    if alpha == 0:
         return float('nan')
-
-    def residual(g):
-        if g <= 0:
-            return 1.0
-        Q0  = -g**2 - kz**2 + alpha**2 * V0 * kz / g**2
-        C1  =  alpha**3 * V0**2 / (2.0 * g**2)
-        return Q0 - (2*n_wkb + 1) * np.sqrt(max(C1, 0.0))
-
-    gvals = np.logspace(-4, 0, 500)
-    rvals = [residual(g) for g in gvals]
-    for i in range(len(rvals) - 1):
-        if rvals[i] * rvals[i+1] < 0:
-            try:
-                return brentq(residual, gvals[i], gvals[i+1])
-            except ValueError:
-                pass
-    return float('nan')
+    C = (2 * n_wkb + 1) * np.sqrt(alpha**3 / 2.0) * V0
+    coeffs = [1.0, 0.0, -kz**2, -C, -alpha**2 * V0 * kz]
+    roots = np.roots(coeffs)
+    growing = roots[roots.imag > 1e-10]
+    return float(np.max(growing.imag)) if len(growing) else float('nan')
 
 
 # ── Build sparse complex matrix L  (γ ψ = L ψ) ───────────────────────────────

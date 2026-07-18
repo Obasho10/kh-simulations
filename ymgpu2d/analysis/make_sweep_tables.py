@@ -4,7 +4,7 @@ Create parameter-sweep data tables as npz files, one per V0 value.
 Each file contains:
   alpha_vals  : shape (Na,)   — alpha = 0.1, 0.2, ..., 3.0
   kz_vals     : shape (Nk,)   — kz   = 0.125, 0.250, ..., 10.0 (step 0.125)
-  gamma_wkb   : shape (Na,Nk) — WKB analytic growth rate (max over n branches)
+  gamma_wkb   : shape (Na,Nk) — WKB analytic growth rate (n=0 fundamental mode)
   gamma_sim   : shape (Na,Nk) — simulation result (NaN until filled)
   rel_error   : shape (Na,Nk) — |gamma_sim - gamma_wkb| / gamma_wkb (NaN until filled)
 
@@ -31,20 +31,21 @@ KZ_VALS    = np.round(np.arange(0.125, 10.001, 0.125), 6)  # 80 values
 
 
 def wkb_gamma(alpha, V0, kz):
-    """Max Im(omega) from WKB quartic, scanning n=0..n_max."""
-    best = 0.0
-    n_max_f = 0.5 * (np.sqrt(2) * alpha**2.5 / (V0**2 * kz**3) - 1)
-    n_max = min(int(np.floor(n_max_f)), 200) if n_max_f >= 0 else -1
-    for n in range(n_max + 1):
-        C = (2*n + 1) * np.sqrt(alpha**3 / 2.0) * V0
-        coeffs = [1.0, 0.0, -kz**2, -C, -alpha**2 * V0 * kz]
-        roots = np.roots(coeffs)
-        growing = roots[roots.imag > 1e-10]
-        if len(growing):
-            g = float(np.max(growing.imag))
-            if g > best:
-                best = g
-    return best
+    """Max Im(omega) from the WKB quartic (wkb.pdf eq.33 / wkbfull.pdf eq.4)
+    at n=0 (fundamental mode) only. n=0 is dominant: the bare quartic used
+    here omits the anharmonic C2*x^4 correction that extends validity to
+    higher n, so a scan-and-max over n>0 does not track real subdominant
+    excited states -- it diverges without bound, asymptoting to the
+    delocalized kz=0 chromo-Weibel cubic (gamma ~ C(n)^(1/3)), which is a
+    sign the harmonic-well/localization assumption has broken down, not
+    that a higher-n bound state genuinely dominates. Solving the corrected
+    quantization condition (wkbfull.pdf eq.12) instead gives a properly
+    monotonically-decreasing ladder with n=0 on top, confirming this."""
+    C = np.sqrt(alpha**3 / 2.0) * V0  # n=0: (2*0+1) = 1
+    coeffs = [1.0, 0.0, -kz**2, -C, -alpha**2 * V0 * kz]
+    roots = np.roots(coeffs)
+    growing = roots[roots.imag > 1e-10]
+    return float(np.max(growing.imag)) if len(growing) else 0.0
 
 
 def make_file(V0, tag, outdir="sweep"):

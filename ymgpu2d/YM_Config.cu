@@ -48,12 +48,15 @@ RunConfig load_config(const std::string& path) {
         else if (key == "V0")                cfg.V0                 = std::stof(val);
         else if (key == "xi_sponge")         cfg.xi_sponge          = std::stof(val);
         else if (key == "sigma_sponge")      cfg.sigma_sponge       = std::stof(val);
+        else if (key == "xi_cut")            cfg.xi_cut             = std::stof(val);
         else if (key == "freeze_override")   cfg.freeze_override    = std::stoi(val);
         else if (key == "suppress_kz0")      cfg.suppress_kz0       = std::stoi(val);
         else if (key == "hyp_diff")          cfg.hyp_diff           = std::stof(val);
         else if (key == "kz_suppress_max")   cfg.kz_suppress_max    = std::stoi(val);
         else if (key == "eps_override")      cfg.eps_override       = std::stof(val);
         else if (key == "kz_suppress_hi")    cfg.kz_suppress_hi     = std::stoi(val);
+        else if (key == "init_by1_eq")       cfg.init_by1_eq        = std::stoi(val);
+        else if (key == "vz_edge_taper")     cfg.vz_edge_taper      = std::stof(val);
         else if (key == "nz_override")       cfg.nz_override        = std::stoi(val);
         else if (key == "nx_override")       cfg.nx_override        = std::stoi(val);
         else if (key == "courant_override")  cfg.courant_override   = std::stof(val);
@@ -92,12 +95,15 @@ RunConfig load_config(const std::string& path) {
               << "  mode="      << mname << "\n"
               << " xi_sponge="  << cfg.xi_sponge
               << "  sigma_sponge=" << cfg.sigma_sponge
+              << "  xi_cut=" << cfg.xi_cut
               << "  freeze_override=" << cfg.freeze_override
               << "  suppress_kz0=" << cfg.suppress_kz0 << "\n"
               << " hyp_diff="   << cfg.hyp_diff
               << "  kz_suppress_max=" << cfg.kz_suppress_max
               << "  kz_suppress_hi="  << cfg.kz_suppress_hi
-              << "  eps_override=" << cfg.eps_override << "\n"
+              << "  eps_override=" << cfg.eps_override
+              << "  init_by1_eq=" << cfg.init_by1_eq
+              << "  vz_edge_taper=" << cfg.vz_edge_taper << "\n"
               << " NX=" << NX << "  NZ=" << NZ
               << "  LX=" << LX << "  LZ=" << LZ
               << "  DX=" << DX << "  DZ=" << DZ

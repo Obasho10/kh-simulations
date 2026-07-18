@@ -14,12 +14,26 @@ struct RunConfig {
     float V0             = 0.1f;
     float xi_sponge      = 0.0f;    // 0 = disabled
     float sigma_sponge   = 5.0f;
+    float xi_cut         = 0.0f;    // 0 = disabled; hard-wall Dirichlet BC, |xi|>xi_cut forced to zero
     int   freeze_override = -1;     // -1 = use run_mode default
     int   suppress_kz0   = 0;
     float hyp_diff       = 0.0f;
     int   kz_suppress_max = 0;
     float eps_override   = -1.0f;   // -1 = Lx/6
     int   kz_suppress_hi  = 0;
+    float vz_edge_taper  = 0.0f;    // >0: taper vz smoothly to 0 for |ξ| beyond this
+                                    // (width 3 ξ-units), modes 1/6 — removes the
+                                    // periodic-wrap vz discontinuity that destroys
+                                    // suppress_kz0=0 runs (kz=0 wrap collapse, see
+                                    // OUTER_REGION.md). Put it well outside the
+                                    // measurement window (e.g. 50).
+    int   init_by1_eq    = 0;       // 1 = initialize By1 to the current-consistent
+                                    // color-1 equilibrium (∂x By1 = Jz1) in modes 1/6.
+                                    // Required for suppress_kz0=0 runs: with By1=0 the
+                                    // color-1 background is out of equilibrium and the
+                                    // screened DC of Ez1 secularly pumps By1 at the
+                                    // shear layer → kz=0 density collapse by t≈12
+                                    // (2026-07-15 depletion experiment, OUTER_REGION.md)
 
     // ── Grid / timestep ───────────────────────────────────────────────────────
     int   nz_override      = -1;    // -1 = default 64

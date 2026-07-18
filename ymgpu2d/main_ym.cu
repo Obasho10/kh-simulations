@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
     const int   run_mode          = cfg.run_mode;
     const fct_real_t xi_sponge    = cfg.xi_sponge;
     const fct_real_t sigma_sponge = cfg.sigma_sponge;
+    const fct_real_t xi_cut       = cfg.xi_cut;
     const int   freeze_override   = cfg.freeze_override;
     const int   suppress_kz0      = cfg.suppress_kz0;
     const fct_real_t hyp_diff     = cfg.hyp_diff;
@@ -73,6 +74,7 @@ int main(int argc, char* argv[]) {
     params.periodic_x    = (run_mode >= 1) ? 1 : 0;
     params.xi_sponge     = xi_sponge;
     params.sigma_sponge  = sigma_sponge;
+    params.xi_cut        = xi_cut;
     params.suppress_kz0    = suppress_kz0;
     params.hyp_diff_coeff  = hyp_diff;
     params.kz_suppress_max = kz_suppress_max;
@@ -129,6 +131,11 @@ int main(int argc, char* argv[]) {
     std::vector<fct_real_t> h_nA(num_cells), h_nB(num_cells);
     std::vector<fct_real_t> h_Q2A(num_cells), h_Q3A(num_cells);
     std::vector<fct_real_t> h_Q2B(num_cells), h_Q3B(num_cells);
+    // Az1 appended last (2026-07-15): static under freeze_az1=1, but the
+    // unfrozen background-depletion runs need its actual evolution — By1 is
+    // not slaved to ∂x Az1 once color-1 evolves. Name-based readers are
+    // unaffected by the extra trailing column.
+    std::vector<fct_real_t> h_Az1(num_cells);
 
     // ── Output directory ──
     std::ostringstream dir_ss;
@@ -138,6 +145,8 @@ int main(int argc, char* argv[]) {
     if (V0 != 0.1) dir_ss << "_v" << std::setprecision(4) << V0;
     if (xi_sponge > 0.0)
         dir_ss << "_sp" << std::setprecision(1) << xi_sponge;
+    if (xi_cut > 0.0)
+        dir_ss << "_xc" << std::setprecision(1) << xi_cut;
     if (params.freeze_az1 && run_mode == 0)
         dir_ss << "_frz";  // only tag when freeze is non-default for this run_mode
     if (cfg.eps_override > 0.0f)
@@ -207,7 +216,7 @@ int main(int argc, char* argv[]) {
 
     kernel_ym_init<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB,
                                              NX, NZ, DX, DZ, k_mode, p_amp, V0, EPS, run_mode, (float)aYM,
-                                             h_seed);
+                                             cfg.init_by1_eq, cfg.vz_edge_taper, h_seed);
     cudaDeviceSynchronize();
 
     // Derive velocities and precompute initial sources
@@ -265,13 +274,14 @@ int main(int argc, char* argv[]) {
         CUDA_CHECK(cudaMemcpy(h_Q3A.data(), d_flA.Q3,     bytes, cudaMemcpyDeviceToHost));
         CUDA_CHECK(cudaMemcpy(h_Q2B.data(), d_flB.Q2,     bytes, cudaMemcpyDeviceToHost));
         CUDA_CHECK(cudaMemcpy(h_Q3B.data(), d_flB.Q3,     bytes, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaMemcpy(h_Az1.data(), d_fields.Az1, bytes, cudaMemcpyDeviceToHost));
 
         std::thread t([=]() {
             std::ostringstream fn;
             fn << out_dir << "/ym_" << std::setfill('0') << std::setw(6) << step << ".csv";
             std::ofstream out(fn.str());
             out << "X,Z,By1,By2,By3,Az2,Az3,PzA,PxA,Q1A,PzB,PxB,Q1B,"
-                   "Ex1,Ex2,Ex3,Ez1,Ez2,Ez3,nA,nB,Q2A,Q3A,Q2B,Q3B\n";
+                   "Ex1,Ex2,Ex3,Ez1,Ez2,Ez3,nA,nB,Q2A,Q3A,Q2B,Q3B,Az1\n";
             for (int z = 0; z < NZ; ++z)
                 for (int x = 0; x < NX; ++x) {
                     int i = x + z * NX;
@@ -284,7 +294,8 @@ int main(int argc, char* argv[]) {
                         << h_Ez1[i] << ',' << h_Ez2[i] << ',' << h_Ez3[i] << ','
                         << h_nA[i]  << ',' << h_nB[i]  << ','
                         << h_Q2A[i] << ',' << h_Q3A[i] << ','
-                        << h_Q2B[i] << ',' << h_Q3B[i] << '\n';
+                        << h_Q2B[i] << ',' << h_Q3B[i] << ','
+                        << h_Az1[i] << '\n';
                 }
         });
         export_threads.push_back(std::move(t));
@@ -347,6 +358,13 @@ int main(int argc, char* argv[]) {
         //     This prevents the outer non-Abelian coupling from masking the inner WKB mode.
         if (params.xi_sponge > 0.0)
             kernel_ym_sponge<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB, NX, NZ, params);
+
+        // 6b2. xi_cut: hard-wall Dirichlet alternative/complement to the soft sponge —
+        //      unconditionally zero color-2/3 fields for |ξ| > xi_cut. Retains more of
+        //      the true growth rate than the sponge at matched radius (no damping bleed
+        //      into the interior); see FINDINGS.md 2026-07-15.
+        if (params.xi_cut > 0.0)
+            kernel_ym_xicut<<<blocks2d, threads2d>>>(d_fields, d_flA, d_flB, NX, NZ, params);
 
         // 6c. kz=0 suppression: subtract z-mean of color-1 EM (By1,Ex1,Ez1) AND color-2/3
         //     fields each step.  Kills both the color-1 Weibel filamentation instability

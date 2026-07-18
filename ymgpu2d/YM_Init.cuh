@@ -23,6 +23,7 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
                                 int k_mode, fct_real_t perturb_amp,
                                 fct_real_t V0, fct_real_t epsilon,
                                 int run_mode, fct_real_t alpha_YM,
+                                int init_by1_eq, fct_real_t vz_edge_taper,
                                 YMSeedProfiles seed = YMSeedProfiles{});
 
 #endif // YM_INIT_CUH

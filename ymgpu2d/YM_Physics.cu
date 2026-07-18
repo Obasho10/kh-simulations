@@ -182,6 +182,34 @@ __global__ void kernel_ym_sponge(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB
 }
 
 // =====================================================================
+// KERNEL: xi_cut hard wall — unconditionally zero color-2/3 fields for
+// |ξ| > xi_cut. Same field set as kernel_ym_sponge; no damping ramp, no
+// dt dependence — a genuine Dirichlet wall, matching ym_eigenmode.py's
+// xi_cut exactly (build_matrix's outer rows are forced to eigenvalue-0,
+// field-0). Can be used instead of or together with kernel_ym_sponge
+// (e.g. a hard wall further out, soft damping closer in).
+// =====================================================================
+__global__ void kernel_ym_xicut(YMFieldPtrs f, YMFluidPtrs flA, YMFluidPtrs flB,
+                                 int nx, int nz, YMParams p) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int z = blockIdx.y * blockDim.y + threadIdx.y;
+    if (x >= nx || z >= nz) return;
+    int idx = IDX(x, z, nx);
+
+    fct_real_t x_c = (nx * p.dx) * 0.5;
+    fct_real_t xi  = fabs((x * p.dx - x_c) / p.epsilon);
+    if (xi <= p.xi_cut) return;
+
+    f.By2[idx] = 0.0f;  f.By3[idx] = 0.0f;
+    f.Ex2[idx] = 0.0f;  f.Ex3[idx] = 0.0f;
+    f.Ez2[idx] = 0.0f;  f.Ez3[idx] = 0.0f;
+    f.Az2[idx] = 0.0f;  f.Az3[idx] = 0.0f;
+
+    flA.Q2[idx] = 0.0f;  flA.Q3[idx] = 0.0f;
+    flB.Q2[idx] = 0.0f;  flB.Q3[idx] = 0.0f;
+}
+
+// =====================================================================
 // KERNEL: z-hyperdiffusion — 4th-order dissipation on color-2/3 fields
 //
 // Applies F[z] -= mu * (F[z-2] - 4F[z-1] + 6F[z] - 4F[z+1] + F[z+2])
