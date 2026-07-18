@@ -30,13 +30,72 @@ referee-proofing (cheap, do opportunistically); Tier 3 are follow-on projects.
 ## Tier 1 — Headline experiments and theory
 
 ### T1.1 EPS scan — is wavelength selection set by α or by the shear width? ⭐ HIGHEST PRIORITY
-- [ ] Generate 6-field eigenmode seeds for EPS ∈ {0.10, 0.15, 0.225, 0.30, 0.45}
+- [x] Generate 6-field eigenmode seeds for EPS ∈ {0.10, 0.15, 0.225, 0.30, 0.45}
       at (α=2.0, V0=0.05) and (α=1.0, V0=0.05), kz=1..8 (`ym_eigenmode.py` already
-      takes EPS as a parameter — verify seed filenames disambiguate EPS).
-- [ ] Run the corresponding Mode-6 campaigns (fast grid; each kz ≈ 90 s, whole
+      takes EPS as a parameter — verify seed filenames disambiguate EPS). **Done
+      2026-07-18**: `analysis/gen_epsscan_campaign.py` generates all 80 seeds
+      (EPS-tagged filenames — the old naming had no EPS marker at all and would
+      have silently collided; fixed in `ym_eigenmode.py`) plus a per-point
+      eigensolver safe-sponge hunt that also classifies the real (intended,
+      localised) vs outer (tachyonic) branch at each point — see
+      `sweep/epsscan_manifest.csv` and the T1.1 tachyonic-branch note below.
+- [x] Run the corresponding Mode-6 campaigns (fast grid; each kz ≈ 90 s, whole
       scan < 2 h of GPU time). Watch DX resolution rule: need EPS/DX ≳ 6, so
-      EPS=0.10 requires NX ≥ 1024 (use `nx_override`).
-- [ ] Extract kz_peak(EPS) at fixed α, and kz_peak(α) at 2–3 EPS values.
+      EPS=0.10 requires NX ≥ 1024 (use `nx_override`). **Staged 2026-07-18**:
+      `scripts/epsscan_t126.sh` (80 runs, single node, ~2 h wall incl.
+      extraction overhead) is generated and ready; launch via
+      `scripts/launch_after_recorr.sh` once the recorrection campaign frees a
+      node. Two correctness fixes required for this to be safe, both applied:
+      (1) EPS=0.10 uses `nx_override=1152` (not 1024 — 1024 only gives
+      EPS/DX=5.4, just under the ≳6 rule; 1152 clears it at 6.0), and (2) the
+      output-directory naming (`main_ym.cu`) now tags `_nx<N>` when
+      `nx_override` is set, and `remote_timeseries.py` now reads NX from that
+      tag instead of a hardcoded 768 — untagged, every `nx_override` run's
+      field dumps would have been silently misread (wrong reshape, wrong
+      amplitudes, no crash) since `nx_override` had never actually been
+      exercised by a prior campaign. A third issue found and fixed the same
+      day: at the default `Lx=6π` box, the periodic domain's own ξ-half-width
+      (`3π/EPS`) shrinks faster than the vetted `xi_sponge` does as EPS grows,
+      and by EPS=0.45 the vetted sponge (ξ=21 at the old, buggy fallback) sat
+      AT the domain edge (ξ=20.94) — it never activated, so the "clean, no
+      outer branch" verdict there was a false negative, not a real check.
+      Fixed by doubling the box for EPS≥0.30 (`lx_override=12π`,
+      `nx_override=1536` to hold dx fixed at the same value as every other
+      leg — a pure box-size fix, not a resolution change); re-hunting then
+      found real, much tighter sponges there (e.g. α=2,EPS=0.45,kz=1:
+      ξ_sponge 21→5, now genuinely vetted). `ym_eigenmode.py`'s seed-export
+      filename also gained an `_lx<N>` tag for the same collision reason as
+      the EPS tag above.
+- [ ] Extract kz_peak(EPS) at fixed α, and kz_peak(α) at 2–3 EPS values. GPU
+      confirmation still pending (queued next after recorrection); an
+      eigensolver-only prediction (no GPU time) is already in hand from the
+      safe-sponge hunt above — see `analysis/eps_tachyon_scan.py` and
+      FINDINGS.md 2026-07-18. **Headline of that prediction: kz_peak DRIFTS**
+      (α=1.0: 5→4→4→3→3, α=2.0: 5→5→4→4→4, as EPS runs
+      0.10→0.15→0.225→0.30→0.45) — the opposite of the T1.2 EPS-free
+      prediction. Caveat: the peak is broad/flat (γ within a few % across
+      2–3 adjacent kz at every EPS), so this eigensolver argmax is fragile;
+      the GPU campaign's own fit noise could move it independent of physics
+      — read the whole γ(kz) shape, not just which integer wins. A second,
+      independent effect also showed up: γ(kz) at *fixed* kz and *fixed*
+      xi_sponge still rises 10–39% from EPS=0.10→0.45 (not a sponge or
+      box-size artifact — both controlled for) — EPS affects the *magnitude*
+      of the growth rate on top of whatever it does to the wavelength
+      selection, unexplained by the current ξ_char/ξ_crit picture alone.
+
+**Tachyonic-branch note (added 2026-07-18, `analysis/eps_tachyon_scan.py`)**:
+the scan doubles as a check of how EPS affects the outer Nielsen–Olesen
+tachyonic branch (OUTER_REGION.md), not just the intended shear mode. Both
+`ξ_crit = kz/(αV0) + ln2` (tachyonic onset) and `ξ_char = 1/√(αkz V0)` (KH
+mode width) are exactly EPS-independent — EPS only sets the overall physical
+(x) scale that both branches share, so their *ratio*, and therefore whether
+the sponge can separate them, does not change with EPS in principle. What
+*does* change with EPS is the grid's ability to resolve that shared ξ-scale
+(dξ = DX/EPS grows as EPS shrinks) — i.e. the EPS/DX≳6 rule protects the
+tachyonic-branch/sponge separation exactly as much as it protects the KH
+mode's own shape, not just the latter. See the manifest's `sponge_safe`,
+`gamma_eig_outer`, and `xi_crit` columns for the per-point check across all
+80 (α,EPS,kz) combinations before any GPU time is spent.
 
 **Decision point**: In classical (Abelian) KH, kz_peak·EPS ≈ 0.4–0.6 — the shear
 width sets the wavelength. If kz_peak stays ≈ 2α as EPS varies, the claim
@@ -108,13 +167,32 @@ plasma with v_th ≳ V0 stabilizes the two-stream family.
       6e memsets By1/Ex1/Ez1, which in mode 2 are the whole physics). The
       mode-2 threshold scan is therefore not the right validation path — skip
       it and go straight to the filters-off mode-6 test below.
-- [ ] **QUEUED NEXT after the recorrection campaign** (with T1.1): rerun ONE
+- [x] **QUEUED NEXT after the recorrection campaign** (with T1.1): rerun ONE
       full dispersion series (suggest C35 clone: α=2.0, V0=0.05) with
       v_th ≈ 2–3 V0 and **all filters off** (no BP, no memset, no suppress_kz0 —
       keep hyperdiffusion only if needed for grid-scale noise; state it).
+      **Staged 2026-07-18**: `analysis/gen_warmclosure_campaign.py` generates
+      an exact C35 clone (α=2.0, V0=0.05, EPS=0.15, xi_sponge=11.0, kz=1..6,
+      reusing the 6 existing C35 seeds) x 4 warm_T legs — a cold control
+      (warm_T=0, filters off, expected to be swamped by the fast channels —
+      the point of the comparison) plus v_th/V0 ∈ {2.0, 2.5, 3.0}
+      (warm_T=(v_th)², since c_s=√warm_T for this isothermal P=n·T closure).
+      suppress_kz0=0 disables *both* the kz=0 z-mean subtraction and the
+      color-1 EM memset (they share one flag in `main_ym.cu`); kz_suppress_max
+      =kz_suppress_hi=0 disables the bandpass; hyp_diff kept at the standard
+      5e-5 (stated per the roadmap ask — needed for grid-scale noise, <0.6%
+      attenuation of kz=1..8). Since warm_T carries no tag of its own in the
+      output-directory naming, the 4 legs are disambiguated via `run_tag`
+      instead (`warmcl_cold`/`warmcl_wt2p0`/`warmcl_wt2p5`/`warmcl_wt3p0`) —
+      24 runs total, ~0.6 GPU-h, `scripts/warmclosure_t130.sh`, launched
+      alongside the EPS scan by `scripts/launch_after_recorr.sh`.
 - [ ] Compare γ(kz) with the filtered cold runs and with a warm eigensolver
-      (add the pressure term to `ym_eigenmode.py` — small change: sound-speed
-      term in the fluid block).
+      (add the pressure term to `ym_eigenmode.py` — **not** a small change on
+      reflection: the 6-field eigensolver state vector [b,ex,ez,a,qA,qB] has
+      no fluid n/p degrees of freedom at all, so a warm cross-check needs a
+      real extension of the state vector, not a one-line sound-speed term;
+      left for after the GPU results are in hand). GPU run itself still
+      pending — queued next after recorrection frees t130.
 
 **Outcome**: if γ(kz) survives within ~10–20%, the filtered cold-plasma campaign
 results are validated as the T→0 limit and the whole objection dissolves. This is

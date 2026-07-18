@@ -2801,3 +2801,94 @@ not cover it.
    sound-speed addition to `ym_eigenmode.py`, not yet implemented). The mode-2
    threshold scan is NOT a prerequisite (see the 07-12 section: wrong
    validation path).
+
+---
+
+## T1.1 EPS-scan + T1.4 warm-closure: fully staged, three correctness bugs
+## found and fixed before any GPU time spent (2026-07-18, evening)
+
+Both campaigns queued above are now generated, seeded, and launch-ready —
+`analysis/gen_epsscan_campaign.py` (80 runs, `scripts/epsscan_t126.sh`) and
+`analysis/gen_warmclosure_campaign.py` (24 runs, `scripts/warmclosure_t130.sh`),
+with `scripts/launch_after_recorr.sh` to sync/rebuild/smoke-test/launch both
+the moment the current campaign frees a node. Building the EPS-scan generator
+surfaced three real bugs, all fixed in source before generating anything:
+
+1. **Seed-filename collision (`ym_eigenmode.py`)**: `--export-seed` encoded
+   kz/α/V0/sponge/Lz in the filename but never EPS (or Lx) — a narrow- or
+   wide-EPS seed would have silently overwritten the default-EPS one for the
+   same (α,V0,kz,sponge). Fixed: filenames now carry `_EPS<val>` and `_lx<val>`
+   tags whenever they differ from the project defaults (0.15, 6π).
+2. **`remote_timeseries.py` hardcoded NX=768.** `nx_override` had never
+   actually been exercised by any prior campaign, so this never bit until
+   now: the EPS=0.10 leg needs `nx_override=1152` (EPS/DX≳6 needs a genuinely
+   finer grid than the 768 default — 1024 only gives EPS/DX=5.4, still under
+   the rule; 1152 clears it at 6.0). Reshaping the flat CSV with the wrong NX
+   would have silently misread every such run's field dumps (wrong stride,
+   wrong amplitudes, no crash). Fixed two ways: `main_ym.cu` now tags the
+   output directory `_nx<N>` (and `_lx<N>`, provenance only — extraction
+   doesn't depend on Lx) whenever an override is set, and
+   `remote_timeseries.py` parses NX from that tag instead of assuming 768.
+3. **Wide-EPS periodic-box-too-small (found via the eigensolver hunt, not
+   inspection).** `analysis/find_safe_sponge.py`'s ladder search validated a
+   sponge at every EPS by walking down from a formula-based starting guess
+   until two consecutive candidates showed no separate "outer" eigenvalue.
+   At the default `Lx=6π` box, the domain's own ξ-half-width (`3π/EPS`)
+   shrinks faster than the sponge radius does as EPS grows — by EPS=0.45 the
+   picked sponge (ξ_sponge=21, from the then-current fallback) sat almost
+   exactly *at* the domain edge (ξ_edge=20.94). A sponge that never activates
+   trivially can't produce a distinguishable "outer branch" for `classify()`
+   to flag, so the "clean, 2-consecutive" verdict there was a false negative,
+   not evidence the point is actually clean. Fixed by doubling the box for
+   EPS≥0.30 (`lx_override=12π`) with NX doubled in lockstep
+   (`nx_override=1536` at EPS≥0.30, vs the 768 default) so dx is *identical*
+   across every EPS leg — a pure box-size fix, not a resolution change.
+   Re-hunting then found genuinely tight, validated sponges at the wide end
+   (e.g. α=2, EPS=0.45, kz=1: ξ_sponge 21→5; α=1, EPS=0.45, kz=1: ξ_sponge
+   21→10) with healthy positive wrap buffer (8–13 ξ-units, vs the −0.06 the
+   old fallback gave). `analysis/eps_tachyon_scan.py`'s `wrap_buffer` column
+   is exactly this check, kept in the manifest for future scans.
+
+**Eigensolver-only prediction (no GPU time; `analysis/eps_tachyon_scan.py`
+output, `plots/epsscan_eigensolver_prediction.png`)** — a pre-registered
+check ahead of the real campaign, not a substitute for it (sim/exact has
+historically run 0.5–0.7×, never 1×):
+
+- **kz_peak(EPS) genuinely drifts**, at both α: α=1.0 goes 5→4→4→3→3 and
+  α=2.0 goes 5→5→4→4→4 as EPS runs 0.10→0.15→0.225→0.30→0.45. This is the
+  opposite of the T1.2 exact-action prediction that kz_peak≈2α should be
+  EPS-free — **if the GPU campaign confirms this, it overturns rather than
+  confirms the current headline claim.** Caveat worth stating up front: the
+  peak is broad and flat (γ(kz) varies only a few % across 2–3 adjacent
+  integer kz near the max at every EPS), so which integer kz "wins" the
+  argmax is a fragile statistic on top of a real signal — the GPU run's own
+  fit noise could shift the observed peak by ±1 kz independent of any real
+  physics. Look at the whole γ(kz) curve shape, not just argmax, before
+  concluding anything.
+- **γ(kz) at *fixed* kz and *fixed* xi_sponge still rises substantially with
+  EPS** — e.g. α=2, kz=2: 0.109→0.151 (+39%) from EPS=0.10→0.45; α=1, kz=3:
+  0.101→0.131 (+30%). Because xi_sponge is unchanged across the comparison
+  this is not the known sponge-compression artifact, and because the box-size
+  bug above is now fixed it is not the wrap-buffer artifact either — it looks
+  like a real, so-far-unexplained EPS-dependence of the growth rate itself,
+  on top of (and independent from) whatever is happening to kz_peak. ξ_char
+  and ξ_crit (both EPS-invariant by construction) evidently aren't the whole
+  story for the actual eigenvalue; worth a term in the T1.2 exact-action
+  follow-up.
+- **No distinct tachyonic/outer branch survives at any of the 80 vetted
+  points** (`gamma_eig_outer` is NaN everywhere in the manifest) — the
+  production sponge choice is doing its job across the whole grid. It was
+  visible at looser candidate sponges during the ladder search itself (e.g.
+  α=2, EPS=0.45, kz=1: outer branch ~2.9–3.4 TU⁻¹ at ξ_sponge=52→20, roughly
+  30× the real branch's 0.107, before the ladder walked down to ξ_sponge=5
+  and it disappeared) — consistent with OUTER_REGION.md's account of the
+  tachyonic branch as a real, sponge-suppressible mode, not a discretization
+  artifact, at every EPS tested here.
+
+Launch readiness: `scripts/launch_after_recorr.sh` now checks both
+`recorr_*` and `intkz_*` progress-log naming (the active campaign was
+relaunched mid-way as a trimmed integer-kz-only run on 7 streams, excluding
+t130 for an active human session — see [[campaign-status]]) and, independent
+of that, checks for a logged-in human on t126/t130 via `who` immediately
+before touching either node, aborting per-node rather than assuming GPU-idle
+means machine-free.

@@ -16,7 +16,7 @@ try:  # fast path when numpy/pandas exist (all cluster nodes have them)
 except ImportError:
     _FAST = False
 
-NX = 768
+NX_DEFAULT = 768
 
 pattern = sys.argv[1] if len(sys.argv) > 1 else "ym_k*_a*_circ_az2seed*"
 
@@ -25,6 +25,10 @@ for run_dir in sorted(glob.glob(pattern)):
     if not m:
         continue
     k = int(m.group(1))
+    # NX must match the sim's actual grid (nx_override tagged as _nx<N> in the
+    # output dir name since 2026-07-18); default 768 for every run before that.
+    nx_m = re.search(r'_nx(\d+)', run_dir)
+    NX = int(nx_m.group(1)) if nx_m else NX_DEFAULT
     # Detect Lz multiplier from bandpass marker in dir name
     # bp28 → Lz=4π (kz_physical = k/2); bp55 → Lz=16π (kz_physical = k/8)
     lz4pi  = bool(re.search(r'lz12\.56|lz4pi|_lz4', run_dir)) or \
