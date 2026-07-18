@@ -30,7 +30,8 @@ __global__ void kernel_enforce_boundaries(YMFieldPtrs f, YMFluidPtrs flA, YMFlui
 }
 
 __global__ void kernel_ym_lorentz(YMFluidPtrs src, YMFieldPtrs f, YMFluidPtrs fl,
-                                   int nx, int nz, int periodic_x) {
+                                   int nx, int nz, int periodic_x,
+                                   fct_real_t warm_T, fct_real_t dx, fct_real_t dz) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int z = blockIdx.y * blockDim.y + threadIdx.y;
     if (x >= nx || z >= nz) return;
@@ -62,8 +63,24 @@ __global__ void kernel_ym_lorentz(YMFluidPtrs src, YMFieldPtrs f, YMFluidPtrs fl
 
     fct_real_t Q1 = fl.Q1[idx], Q2 = fl.Q2[idx], Q3 = fl.Q3[idx];
 
-    src.px[idx] = -(Q1*(Ex1 + vz*By1) + Q2*(Ex2 + vz*By2) + Q3*(Ex3 + vz*By3));
-    src.pz[idx] = -(Q1*(Ez1 - vx*By1) + Q2*(Ez2 - vx*By2) + Q3*(Ez3 - vx*By3));
+    fct_real_t src_px = -(Q1*(Ex1 + vz*By1) + Q2*(Ex2 + vz*By2) + Q3*(Ex3 + vz*By3));
+    fct_real_t src_pz = -(Q1*(Ez1 - vx*By1) + Q2*(Ez2 - vx*By2) + Q3*(Ez3 - vx*By3));
+
+    // Isothermal pressure closure: P = n*T, force/volume = -grad(P) = -T*grad(n).
+    // Centered difference on the node-centered n; periodic in z always, x follows periodic_x.
+    if (warm_T > (fct_real_t)0.0) {
+        int xp = periodic_x ? (x + 1) % nx : min(nx - 1, x + 1);
+        int xm2 = periodic_x ? (x + nx - 1) % nx : max(0, x - 1);
+        int zp = (z == nz - 1) ? 0 : z + 1;
+        int zm2 = (z == 0) ? nz - 1 : z - 1;
+        fct_real_t dndx = (fl.n[IDX(xp,z,nx)] - fl.n[IDX(xm2,z,nx)]) / ((fct_real_t)2.0 * dx);
+        fct_real_t dndz = (fl.n[IDX(x,zp,nx)] - fl.n[IDX(x,zm2,nx)]) / ((fct_real_t)2.0 * dz);
+        src_px -= warm_T * dndx;
+        src_pz -= warm_T * dndz;
+    }
+
+    src.px[idx] = src_px;
+    src.pz[idx] = src_pz;
 }
 
 __global__ void kernel_ym_precession(fct_real_t* src_Q1, fct_real_t* src_Q2, fct_real_t* src_Q3,

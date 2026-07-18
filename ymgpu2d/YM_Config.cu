@@ -49,6 +49,7 @@ RunConfig load_config(const std::string& path) {
         else if (key == "xi_sponge")         cfg.xi_sponge          = std::stof(val);
         else if (key == "sigma_sponge")      cfg.sigma_sponge       = std::stof(val);
         else if (key == "xi_cut")            cfg.xi_cut             = std::stof(val);
+        else if (key == "warm_T")            cfg.warm_T             = std::stof(val);
         else if (key == "freeze_override")   cfg.freeze_override    = std::stoi(val);
         else if (key == "suppress_kz0")      cfg.suppress_kz0       = std::stoi(val);
         else if (key == "hyp_diff")          cfg.hyp_diff           = std::stof(val);
@@ -97,7 +98,8 @@ RunConfig load_config(const std::string& path) {
               << "  sigma_sponge=" << cfg.sigma_sponge
               << "  xi_cut=" << cfg.xi_cut
               << "  freeze_override=" << cfg.freeze_override
-              << "  suppress_kz0=" << cfg.suppress_kz0 << "\n"
+              << "  suppress_kz0=" << cfg.suppress_kz0
+              << "  warm_T=" << cfg.warm_T << "\n"
               << " hyp_diff="   << cfg.hyp_diff
               << "  kz_suppress_max=" << cfg.kz_suppress_max
               << "  kz_suppress_hi="  << cfg.kz_suppress_hi
