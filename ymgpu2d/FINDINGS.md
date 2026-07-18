@@ -2801,3 +2801,58 @@ not cover it.
    sound-speed addition to `ym_eigenmode.py`, not yet implemented). The mode-2
    threshold scan is NOT a prerequisite (see the 07-12 section: wrong
    validation path).
+
+---
+
+## intkz Campaign — trimmed integer-kz map (2026-07-18/19, PAUSED at 87%)
+
+Focused replacement for the stalled full recorrection campaign (which lost 5/8
+streams to a t-node reboot at ~14:30 on 07-18). User-directed clean integer-kz
+dispersion map, run_mode=6, eps=0.15, run_tag=recorr (so `recorr_collect.py`
+ingests it unchanged). Generator `analysis/gen_intkz_campaign.py`.
+
+**Grid**: integer kz **1..9**; α = 0.3..1.0 step 0.1 then 1.5..6.0 step 0.5 (18
+vals, all >0.3); V0 = {0.03, 0.04, 0.05, 0.07, 0.08, 0.10, 0.20} (0.01 & 0.02
+dropped as noise-floor-dominated; 0.04/0.07/0.08 added below 0.1). 1134 grid pts.
+**7 streams**: t126/t132/t133/t140 (A5000) + abi0/1/2 (1080 Ti); t130 excluded
+(user logged in). t132 workspace recreated at `/DATA/ym_kh/ymgpu2d` (the recorr
+generator's `/DATA/ym_kh` path bug — missing `/ymgpu2d` — was why t132 produced
+nothing) and rebuilt (cuda-12.0, sm_86).
+
+**kz ≥ 10 resolution cliff (why the map stops at kz=9).** First tried kz 1..12.
+On the default NZ=64 / Lz=2π int grid, **kz 1–9 grow 100%, but kz 10/11/12 return
+γ=0 — the seed actively decays** (kz=12, α=5.5, V0=0.04: Δlog-amp = −1.2 over
+40 TU). At kz≥10 the mode is only ~5–6 cells/wavelength, so FCT numerical
+diffusion kills it. Verified fix requires NZ≥256: at kz=12/α=5.5/V0=0.04, NZ=64
+decays, NZ=128 gives γ≈0.06, NZ=256 γ≈0.09 — still under theory (0.18) and γ still
+climbing with resolution, i.e. not converged even at NZ=256 (4× cost). User chose
+to **drop kz≥10** rather than chase resolution. Practical rule: **NZ=64 int grid
+is good to kz≤9; kz≥10 needs NZ≥256 (and even then convergence is uncertain).**
+The ~30 γ=0 kz≥10 points sitting in `recorr_results.csv` are invalid — ignore.
+
+**Results at pause (988/1134 = 87% measured, γ>0).** No NaN/corrupt; every kz≤9
+point grows. Plateau-confirmed clean-core (kz1-9, α>0.3, n=637): **overall median
+rel_err 8.1%**, monotonically improving with V0:
+
+| V0 | median rel_err | 90th pct | n |
+|----|------|------|----|
+| 0.03 | 9.4% | 24% | 117 |
+| 0.04 | 8.6% | 23% | 113 |
+| 0.05 | 8.6% | 22% | 101 |
+| 0.07 | 5.9% | 18% | 86 |
+| 0.08 | 7.0% | 18% | 81 |
+| 0.10 | 5.7% | 18% | 79 |
+| 0.20 | 4.3% | 16% | 60 |
+
+(All-measured incl. no-plateau, n=958: 11.3% median — the no-plateau tail is
+noisier; 637/958 are plateau-confirmed.) Error vs the σ-chased eigensolver
+reference (`gamma_chased`), sim uses plateau fit else max-R2 window.
+
+**PAUSED 2026-07-19 ~01:55 IST (user hold).** 146 runs remaining, saved to
+`sweep/intkz_remaining.csv` (alpha,V0,kz). All streams stopped/idle. **Resume**:
+re-run `gen_intkz_campaign.py` (its reuse rule = any measured γ>0, so it emits
+exactly the not-yet-measured points, LPT-balanced across the 7 streams including
+abi) → scp `scripts/intkz_<node>.sh` per node → `nohup bash scripts/intkz_<node>.sh
+> logs/intkz_<node>.log 2>&1 &`. Each stream self-smoke-tests before running.
+Remaining makespan ~2.7 h on all 7 streams. After completion: rerun the
+chased-eigensolver audit and fill the clean map.
