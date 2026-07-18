@@ -924,6 +924,18 @@ linear paper B (model + validation stack + maps; blocked on warm closure T1.4 an
 Tier-2 referee-proofing), nonlinear paper C (Kolmogorov flow, T1.6), then the
 application papers D/E.
 
+**Novelty survey (2026-07-18, `../LITERATURE.md`)**: ~11 targeted searches
+found no prior KH/shear-driven non-Abelian plasma instability work — the
+configuration, the dispersion program, and the selection law all appear
+unclaimed. Closest prior art, now on the must-cite list: Manuel–Mrówczyński
+chromohydrodynamics (colored two-fluid equations + two-stream, no shear),
+the Nielsen–Olesen family (our outer tachyonic branch belongs to it —
+§8/PHYSICS §10a now say so), the Abelian EMHD-KH lineage (Das & Kaw), and
+Csernai's Abelian KH in QGP. Two urgency signals: dark-U(1) merger-plasma PIC
+reached the nonlinear/σ-m stage in 2025 (arXiv:2411.11958) with non-Abelian
+flagged as future work, and BEC counterflow-KH published a three-component
+generalization in 2026 — neighboring fields are moving toward the same ground.
+
 ---
 
 ## 11. Priority list — what would most improve this work now

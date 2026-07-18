@@ -2741,3 +2741,63 @@ the fixed extractor. The dispersion-map program is unblocked; the remaining
 work is the recorrection campaign for the ~7.6k invalidated series (reruns:
 correct boxes via fixed generator, tier-scaled bp per the NZ/4.5 rule, tight
 sponges, fixed extraction).
+
+---
+
+## Program close-out: literature survey + stranded-branch recovery + next-up queue (2026-07-18)
+
+Three housekeeping results, closing the loop on the novelty question and on two
+experiments that had been run but never landed in main.
+
+### 1. Novelty survey → `../LITERATURE.md`
+
+~11 targeted searches across the plasma / heavy-ion / cosmology / dark-matter /
+cold-atom literatures. **No prior KH/shear-driven non-Abelian plasma
+instability found**; the configuration, the γ(k_z; α, V0) dispersion program,
+and the selection law (ceiling (αV0²)^{1/3}, confinement-set k_z,peak) appear
+unclaimed. Closest prior art, now on the must-cite list: Manuel–Mrówczyński
+chromohydrodynamics (hep-ph/0606276 — colored two-fluid equations + two-stream,
+no shear), the **Nielsen–Olesen** family (our outer tachyonic branch is a
+member — PHYSICS.md §10a and OUTER_REGION.md now say so), the Abelian EMHD-KH
+lineage (Das & Kaw 2001 = `4518_1_online.pdf`, this code's ancestor), Csernai's
+Abelian KH in QGP (PRC 85, 054901), and the 2025 dark-U(1) merger-plasma PIC
+paper (arXiv:2411.11958) which explicitly flags non-Abelian dark sectors as
+open — both the template and the urgency signal for Paper D. Residual
+diligence before submission: INSPIRE citation-trail audit (LITERATURE.md §3).
+
+### 2. Stranded-branch recovery (merged to main today)
+
+- **`worktree-warm-fluid-closure`** (2 commits, 2026-07-12): the T1.4 `warm_T`
+  isothermal closure implementation + the mode-2 stabilization-scan findings
+  (see the "T1.4 Warm-fluid closure" section above, now in chronological
+  position). Was never merged; the node-side copy on t130 had been overwritten
+  on 07-15 — the branch preserved it.
+- **`worktree-eps-instability-debug`** (1 commit, 2026-07-13): the float32
+  `cosh()` overflow fix (`log_cosh_stable`) — without it every EPS < ~0.105
+  run NaN'd at step 1. Prerequisite for any narrow-EPS scan.
+- Merge conflicts (xi_cut vs warm_T .ini/param plumbing) were purely additive;
+  both features coexist. **Nodes must be re-synced + `make -B` + 1-TU smoke
+  test before the next campaign launch** (standard rule) since main's source
+  now differs from every node's build.
+
+### 3. EPS-scan status + next-up queue
+
+The epsscan campaign (~07-13→16) is fully invalid: wrong-helicity extraction
+(bug 1 above) on every timeseries, dumps auto-deleted, and the narrow-EPS legs
+additionally predate the cosh fix. Nothing to salvage — no results section was
+ever written, correctly. The recorrection campaign hardcodes eps=0.15 and does
+not cover it.
+
+**Queued next, after the recorrection campaign finishes (~07-21/22):**
+
+1. **T1.1 EPS-scan redo** (<1 GPU-day): EPS ∈ {0.10, 0.15, 0.225, 0.30, 0.45}
+   at (α=2.0, V0=0.05) and (α=1.0, V0=0.05), fixed extractor, NZ/4.5 filter
+   rule, vetted-tight sponges, NX ≥ 1024 for EPS=0.10 (EPS/DX ≳ 6). The
+   exact-action theory now predicts the outcome (both k_z,peak terms are
+   EPS-free) — the scan is a theory test, no longer exploratory.
+2. **T1.4 filters-off warm rerun** (~1 GPU-day): C35 clone (α=2.0, V0=0.05,
+   mode 6) with warm_T giving v_th ≈ 2–3 V0, all filters off; compare γ(kz)
+   against filtered cold results (and eventually a warm eigensolver — small
+   sound-speed addition to `ym_eigenmode.py`, not yet implemented). The mode-2
+   threshold scan is NOT a prerequisite (see the 07-12 section: wrong
+   validation path).

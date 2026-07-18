@@ -5,6 +5,14 @@ program to publication standard, and the physical systems this work maps onto.
 Task IDs (T-x.y) are referenced in the publication plan at the end. Check boxes
 off as campaigns/analyses complete; record results in `ymgpu2d/FINDINGS.md` as usual.
 
+**Novelty survey done 2026-07-18 → `LITERATURE.md`** (repo root): no prior
+KH/shear-driven non-Abelian plasma instability work found across ~11 targeted
+searches; closest prior art is Manuel–Mrówczyński chromohydrodynamics (model
+equations + two-stream, no shear), the Nielsen–Olesen family (our outer
+tachyonic branch — cite it), and the Abelian EMHD-KH lineage (Das & Kaw). See
+LITERATURE.md §3 for the citation to-do list and the INSPIRE trail audit that
+must happen before submission.
+
 **Status snapshot**: Linear dispersion γ(kz; α, V0) measured for ~12 (α,V0) points,
 kz = 0.25–9, with three-level validation (WKB ← exact 1D eigensolver ← 2D GPU sim,
 sim/exact = 0.94–0.99). Two novel results in hand: non-monotonic dispersion with
@@ -37,6 +45,18 @@ coupling, not the flow profile"* is confirmed and becomes the title-level result
 the Letter (Paper A). If kz_peak drifts with 1/EPS, the correct dimensionless
 combination must be identified before any paper is written. Either way this scan
 is mandatory and cheap. **Do this first.**
+
+**Status 2026-07-18 — QUEUED NEXT after the recorrection campaign.** An epsscan
+campaign was run (~07-13→07-16) but every timeseries was extracted with the
+conjugate-helicity bug (FINDINGS.md 2026-07-17) and the field dumps were
+auto-deleted — all invalid, must be rerun. Prerequisite now in main: the
+float32 `cosh()` overflow fix (`log_cosh_stable`, commit b8e65ba) — without it
+every EPS < ~0.105 run NaN'd at step 1, which silently poisoned the narrow-EPS
+leg of the first attempt. The exact-action theory (T1.2, PHYSICS.md §11)
+sharpens the prediction to test: both terms of k_z,peak ≈ αV0·ξ_w + (α/V0)^{1/3}
+are EPS-free, so the scan now *tests the theory* rather than exploring blind.
+Note the recorrection campaign hardcodes eps=0.15 — this scan needs its own
+(small, <1 GPU-day) campaign with the fixed extractor + NZ/4.5 filter rule.
 
 ### T1.2 Analytic theory upgrade — exact-action WKB
 The current WKB (eq. 33, wkb.pdf) overestimates γ by 2–6× because it approximates
@@ -75,13 +95,21 @@ all grow faster and are removed by numerical filters (bandpass BP=14, cudaMemset
 color-1 EM, kz=0 suppression, hyperdiffusion). A referee's first question will be
 "would this mode ever be observed?" The physical answer is temperature: a warm
 plasma with v_th ≳ V0 stabilizes the two-stream family.
-- [ ] Implement a pressure term: isothermal P = n·T (or adiabatic) with −∇P/n
-      added to the momentum sources in the FCT sweeps. The `E_therm` array already
-      exists in `YMFluidPtrs` (FCT heritage) — use it or a compile-time T parameter.
-- [ ] Verify numerically that the two-stream threshold behaves as expected:
-      scan T at V0=0.05 in mode 2 (EMHD_KH / plain two-beam) and find the
-      stabilization boundary v_th/V0.
-- [ ] Rerun ONE full dispersion series (suggest C35 clone: α=2.0, V0=0.05) with
+- [x] Implement a pressure term: isothermal P = n·T with −T∇n added to the
+      momentum sources (runtime `warm_T` .ini key; warm_T=0 takes the exact old
+      cold code path). Done 2026-07-12, smoke-tested on t130; merged to main
+      2026-07-18 from the `worktree-warm-fluid-closure` branch.
+- [x] ~~Verify the two-stream threshold in mode 2~~ — attempted 2026-07-12
+      (FINDINGS.md "T1.4 Warm-fluid closure" section): at V0=0.05 without
+      filters only the kz=0 chromo-Weibel grows (finite-kz seeds decay), and
+      isotropic warm_T barely touches that channel (~11% over v_th/V0=0–3,
+      physically expected — Weibel is anisotropy-driven, not pressure-limited).
+      Also found: suppress_kz0 is structurally incompatible with mode 2 (step
+      6e memsets By1/Ex1/Ez1, which in mode 2 are the whole physics). The
+      mode-2 threshold scan is therefore not the right validation path — skip
+      it and go straight to the filters-off mode-6 test below.
+- [ ] **QUEUED NEXT after the recorrection campaign** (with T1.1): rerun ONE
+      full dispersion series (suggest C35 clone: α=2.0, V0=0.05) with
       v_th ≈ 2–3 V0 and **all filters off** (no BP, no memset, no suppress_kz0 —
       keep hyperdiffusion only if needed for grid-scale noise; state it).
 - [ ] Compare γ(kz) with the filtered cold runs and with a warm eigensolver
@@ -198,7 +226,13 @@ V0=0.03–0.05 campaigns (one V0=0.01 series would bracket it). Non-relativistic
 cold are *correct* here, not approximations. The Abelian version of this analysis
 exists (dark U(1): Ackerman, Buckley, Carroll & Kamionkowski, PRD 79, 023519 (2009);
 Heikinheimo, Raidal, Spethmann & Veermäe, PLB 749, 236 (2015); Lasenby 2020) —
-the non-Abelian version appears to be open.
+the non-Abelian version appears to be open. **Update 2026-07-18 (LITERATURE.md
+§1e): the U(1) program advanced to full nonlinear PIC in 2025 — "Dark plasmas
+in the nonlinear regime", PRD 111, 095031 / arXiv:2411.11958 — simulating dark
+U(1) streams in cluster mergers through saturation to an effective σ/m, and
+explicitly flagging non-Abelian dark sectors as future work. That paper is both
+the template for Paper D and the urgency signal: the non-Abelian version is
+confirmed open, and that group is closest to it.**
 
 **What to do**:
 1. Unit mapping note (no simulation needed): dark plasma frequency

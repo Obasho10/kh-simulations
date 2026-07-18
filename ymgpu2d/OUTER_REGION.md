@@ -24,6 +24,9 @@ unrelated mechanisms**, and only one of them is an outer-region effect:
    (sponge/xi_cut) inside ξ_crit. Energy source is the frozen Az1 — an
    infinite external battery; a self-consistent run would deplete it instead
    (physically: frozen chromo-backgrounds decay by charged-wave emission).
+   *Literature note (2026-07-18)*: this is a Nielsen–Olesen-class instability
+   (charged gauge modes on a strong color background, NPB 144, 376 (1978)) —
+   cite it as such; see LITERATURE.md §1d and PHYSICS.md §10a.
 
 2. **The late-onset catastrophe (the "V0≥0.08 hard wall") is NOT an
    outer-region effect at all.** Direct 98-snapshot forensics on a failing

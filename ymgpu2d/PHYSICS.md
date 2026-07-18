@@ -394,6 +394,16 @@ the branch grows until the box dies. Self-consistently it would deplete Az1
 mode of the model as posed, but its runaway character is an artifact of the
 freeze, which justifies excluding it from measurement windows.
 
+**Literature family (added 2026-07-18, see LITERATURE.md §1d)**: this
+mechanism — charged vector modes destabilized on a strong color background,
+growth ~ coupling×field, stabilized where the background's effective
+wavenumber exceeds the coupling scale — is the **Nielsen–Olesen instability**
+class (Nielsen & Olesen, NPB 144, 376 (1978); active descendants in
+glasma-decay work, e.g. arXiv:1308.3914, 1406.2051). Papers should cite it as
+such: the class is known (independent corroboration of this piece of the
+physics), while the well/tachyon duality across ξ_crit and its role in
+shear-branch confinement and window design are this program's contribution.
+
 ### 10b. Color-1 cold two-stream in code units (for reference; NOT the
 late-catastrophe mechanism)
 
