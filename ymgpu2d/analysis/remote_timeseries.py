@@ -9,6 +9,13 @@ Usage: python3 remote_timeseries.py [glob_pattern]
 import csv, cmath, glob, math, os, re, sys
 from pathlib import Path
 
+try:  # fast path when numpy/pandas exist (all cluster nodes have them)
+    import numpy as _np
+    import pandas as _pd
+    _FAST = os.environ.get('NO_FAST_DFT') is None
+except ImportError:
+    _FAST = False
+
 NX = 768
 
 pattern = sys.argv[1] if len(sys.argv) > 1 else "ym_k*_a*_circ_az2seed*"
@@ -45,6 +52,23 @@ for run_dir in sorted(glob.glob(pattern)):
         try:
             step = int(re.search(r'\d+', Path(csv_path).stem).group())
             t = step * dt_run
+            if _FAST:
+                # numpy/pandas fast path (~100x): identical math to the stdlib
+                # loop below — F = sum_z (Az2 + i*Az3) e^{-i 2pi k z/nz} per x
+                # column, amp = mean_x |F| / nz; conjugate uses (Az2 - i*Az3).
+                df_ = _pd.read_csv(csv_path, usecols=['Az2', 'Az3'])
+                n_total = len(df_)
+                nz = n_total // NX
+                if nz < k + 1:
+                    continue
+                sig = (df_['Az2'].values + 1j * df_['Az3'].values).reshape(nz, NX)
+                ker = _np.exp(-2j * math.pi * k * _np.arange(nz) / nz)
+                F = ker @ sig
+                Fc = ker @ _np.conj(sig)
+                amp = float(_np.abs(F).mean() / nz)
+                amp_conj = float(_np.abs(Fc).mean() / nz)
+                rows_out.append({'t': t, 'amp': amp, 'amp_conj': amp_conj})
+                continue
             with open(csv_path) as f:
                 reader = csv.DictReader(f)
                 az2_col = []
