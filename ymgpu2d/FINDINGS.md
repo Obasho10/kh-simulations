@@ -3401,3 +3401,83 @@ from any single point in this grid as ground truth; the α≈2.6-3.6, V0≈0.08-
 0.12 region is where the automatic fit happens to be least wrong, which is
 useful for knowing where a manual/careful re-measurement would be cheapest
 to validate, not a substitute for one.
+
+---
+
+## kz0v4: corner-anomaly check + valley power-law characterization (2026-07-19)
+
+Follow-up to kz0v3 after inspecting `plots/kz0v3_relerr_map.png`: two things
+stood out — an isolated near-zero-error pixel at (α=0.8, V0=0.04) sitting
+inside a sea of −60% points, and what looked like a clean α-V0 valley worth
+resolving further. 144 more runs (25-pt corner grid: α∈{0.6,0.7,0.8,0.9,1.0}
+× V0∈{0.030,0.035,0.040,0.045,0.050}; 119-pt valley refinement: α∈{1.7,1.9,
+2.1,...,4.3,4.6,5.0,5.4} × V0∈{0.04,...,0.10}), same method, on abi
+GPU1+GPU2 (GPU0 was mid-job for another user throughout, left alone). Zero
+crashes. Scripts: `gen_kz0_grid3_valley.py`; analysis via
+`measure_kz0_grid2_accuracy.py`'s functions (glob adapted for `kz0v4`).
+Plot: `plots/kz0v4_valley_detail.png`.
+
+**Corner anomaly: NOT real, confirmed knife-edge fit-window artifact.**
+The 5×5 fine grid around (0.8, 0.04) shows no smooth structure at all —
+immediate V0 neighbors 0.005 apart swing wildly: α=0.8 gives −64.7% (V0=
+0.030), −23.3% (0.035), **+7.1%** (0.040), −70.3% (0.045), −66.5% (0.050).
+Same story at α=0.6 (−55%, −15%, −59%, **+25%**, −61%). This is a
+checkerboard, not a dip. Also reran (0.8, 0.04) itself as an independent
+launch: gamma_fit shifted from 0.2454 (original) to 0.2527 (rerun) —
+**not** bit-identical despite zero RNG in the source, so GPU floating-point
+reduction order differs run-to-run at the ~3% level, and 140-165 TU of
+pure-noise exponential growth is enough to amplify that into a measurably
+different trace (though both reruns land in the same "anomalously low
+error" regime here, rather than jumping to the −60% background — the
+knife-edge is narrow but not a single infinitely-thin point). Conclusion:
+these isolated low-error pixels are the already-documented "true window is
+a knife-edge a few TU wide with no robust automatic detector" failure mode
+(FINDINGS.md "kz=0 extension campaign CLOSED OUT") showing up as a
+parameter-space artifact, not a physical feature. Don't chase other
+isolated low-error points in the low-α corner (α≲1.2) — the underlying fits
+there are all in the same noisy/unreliable regime documented already, this
+one pixel just happened to land less-wrong.
+
+**Valley: genuinely smooth, and a strikingly clean power law once resolved
+at 0.1-α-step.** The 119-pt refinement gives α resolution of 0.1-0.2 from
+α=1.7 to 5.4 with none of the corner's chaos — every fixed-α row is a
+clean, monotonic, single-crossing function of V0 (e.g. α=3.3: −36.6% at
+V0=0.04 down to +37.6% at V0=0.10, one sign change, no jumps). Combining
+with kz0v3's finer points and recomputing the rel_err=0 crossing V0(α) at
+every available α (38 values, α=1.6-8.0) gives:
+
+```
+V0_cross(alpha) = 0.1747 * alpha^-0.802
+```
+
+fit by log-log linear regression, with **median residual 0.24%, max 2.27%**
+across the full range — essentially a perfect power law over a 5x range in
+α. (Equivalently, α·V0_cross climbs slowly and smoothly from 0.196 at α=1.6
+to 0.265 at α=8.0 — confirming the earlier, coarser estimate wasn't a fixed
+combined-coupling constant, but a real, well-defined, weak drift.)
+
+**Is this physically interesting? Almost certainly not as *kz=0 mode
+physics* — it characterizes the fit bias, not the plasma.** The corner
+result is the control that makes this call possible: it shows that when the
+automatic fit's underlying trace is dominated by long, noisy pre-asymptotic
+transient (low α, needing >100 TU to saturate), the window search is
+chaotically sensitive to α and V0 — no smooth curve survives there. The
+valley's smoothness only appears once α is large enough that saturation is
+fast and the true late-time phase occupies a non-trivial, smoothly-varying
+fraction of each trace. The V0_cross(α) power law is then just the locus
+where two smoothly-varying, systematic biases (transient-dominated
+undershoot vs. nonlinear-contamination overshoot, both documented in the
+closed-out campaign) exactly cancel — a property of *how the auto-fit's
+two error sources trade off as gamma_wkb changes with (α,V0)*, most likely
+because the pre-asymptotic transient's own rate/duration is close to
+universal (set by discretization/round-off, roughly independent of α,V0)
+while only the final fast phase's duration scales with the true
+α,V0-dependent γ_wkb. That's a real, reproducible, and now precisely
+quantified regularity — but about this measurement's numerics, not a new
+fact about the chromo-Weibel instability. It would be a reasonable ingredient
+for a future smarter bias-correction (interpolate/extrapolate off this
+curve rather than trust the raw fit), but should not be reported as
+physics in any writeup.
+
+Combined result table: `sweep/kz0v4_results.csv`. No dataset regeneration
+needed for kz0v3 — this is purely additive.
