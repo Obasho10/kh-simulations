@@ -2891,3 +2891,124 @@ be stated. Full detail added to RESOLUTION_FINDINGS.md.
 Still open from §8.8: regenerate the eigensolver_grid_cache / exact_grid_cache
 with σ-chasing (`gamma_true`) — the CUDA falsification is done but the cached
 reference curves (figs 03/04/05/13) still carry the low-α overtone values.
+
+---
+
+## EPS-scan v2: theory-first collapse resolves the kz_peak drift and the 10-39% magnitude puzzle (2026-07-19)
+
+Follow-up to the T1.1 EPS-scan (α∈{1,1.5,2}, V0=0.05 only), which left two open
+puzzles: kz_peak drifts with EPS (contradicting the EPS-free leading-order
+formula in PHYSICS.md §11d), and γ(kz) rises 10–39% from EPS 0.10→0.45 at
+fixed kz/xi_sponge. User asked for a much wider brute-force scan
+(V0∈{0.03,0.05,0.08,0.10} × 10-15 α); a literal version was ~3000+ GPU runs
+against 3 free nodes. Instead: used the already-validated exact-action theory
+(`exact_action_wkb.py`, §11b) to test the hypothesis first on CPU — EPS should
+enter through exactly one group, `P = (αV0²)^(1/3)/EPS` (the "quantization
+budget") — before spending any GPU time. Full plan:
+`/home/user/.claude/plans/splendid-scribbling-seal.md`.
+
+### Phase 0 — CPU theory sweep (`analysis/eps_collapse_theory.py`, run on iMac)
+
+Grid A (wide, Model A closed-form, ~40×25×12 = 12000 pts, α up to 10, V0
+0.01–0.20, EPS 0.08–0.5, fixed window group αV0ξ_w=1.0) + Grid B (15
+(α,V0)×5 EPS = 75 representative points, Model B + the real per-point vetted
+window — soft `xi_sponge` via `find_safe_xi_sponge` for V0≤0.07, hard
+`xi_cut=5` for V0≥0.08 per the documented sponge hard-wall). Continuous
+(non-integer) kz peak found by coarse+fine scan — no tier/discretization
+constraint, so this is the ground-truth peak the GPU tier system approximates.
+
+**Result — both puzzles resolved by the same curve**: γ_peak/(αV0²)^(1/3) and
+kz_peak/(α/V0)^(1/3) are both close to single-valued functions of P alone
+(see `plots/eps_collapse_theory.png`). γ_hat sits near the ceiling (~1.0) at
+low P (wide EPS) and falls smoothly toward 0 as P grows (narrow EPS) —
+**this directly explains the 10-39% magnitude rise**: increasing EPS lowers
+P, moving along this one curve toward the ceiling. kz_hat is NOT EPS-free
+(rises from ~1.0 to ~1.8 as P grows) — **the drift is real, P-organized
+physics**, not noise, sharpening (not contradicting) the GPU-confirmed T1.1
+finding. Sanity check: reproducing the T2.5 sub-case (fixed EPS=0.15) gave
+γ_hat=0.962±0.047 vs the known 0.977±0.011 (within 5%, consistent with Model
+B's documented ≤2% accuracy). One bug found+fixed along the way: the
+coarse+fine peak-finder returned a spurious near-zero kz at 2 extrapolated
+corners (α=10, EPS=0.10, tightest window) where Model B has no resolvable
+bracket almost everywhere — now returns NaN there instead of a false peak
+(`find_continuous_peak`'s edge-detection retry).
+
+Also rescued two fixes found stranded, uncommitted, on t126/t133/t140:
+`main_ym.cu` tagging `_nx<N>`/`_lx<N>` in the output-dir name, and the
+matching NX-detection in `remote_timeseries.py` (independently
+re-discovered/re-derived before finding the nodes already had them — same
+fix both ways, now in git).
+
+### Phase 1 — targeted GPU validation (`analysis/gen_epsscan_v2_campaign.py`)
+
+91 runs (not a brute-force grid): 74 single-point "magnitude checks" (one
+CUDA run per Grid-B point, at the theory's continuous kz_peak snapped to the
+coarsest exact tier — int/half/quarter, i.e. Lz=2π/4π/8π, NZ=64/128/256) +
+2×9-point peak-location cascades (int bracket ±2, half ±0.5, quarter ±0.25,
+centred on the continuum theory peak) at two anchors spanning low/high P.
+Ran on t126/t133/t140 only (t130/t132 had logged-in humans, abi was mid an
+unrelated concurrent-session campaign); ~1.5h wall-clock, zero crashes.
+
+### A new finding along the way: the "late-onset instability" onset time collapses sharply with α
+
+33/91 runs failed a `growth_decades≥2` quality gate (user caught this by
+eye-balling a quick plot: "up to kz=3 some follow theory but then fall off
+dramatically"). Root cause, confirmed directly from `energy.csv`: a genuine
+catastrophic blow-up (E/E0 jumps 4+ orders of magnitude within ~1 TU) — the
+same "late-onset instability" documented 2026-07-15 for the xi_cut/xi_sponge
+hard-wall work, but that was only ever characterized at α=1.5 (onset
+~90-98 TU there). Here, **at α=10 the same catastrophe hits at t≈10-12 TU**
+— far too early for even the seeded mode to become visible, let alone
+establish 2 clean decades.
+
+Diagnostic campaign (5 quick runs, target_tu 20-60, on the worst offender
+α=10/V0=0.1/EPS=0.15/kz=8 plus one α=6 cross-check):
+- **perturb_amp boost (0.001→0.1, 100x) does NOT help**: catastrophe still
+  hit at t≈11, essentially identical timing; the measured channel showed
+  only 0.067 decades of growth beforehand — the onset is a fixed-TIME
+  phenomenon, not amplitude-triggered (rules out "just seed further from the
+  noise floor" as a fix).
+- **Tightening the window delays but does not eliminate it**: xi_cut 5→3 at
+  α=10 pushed onset from t≈11 to t≈38 (a real ~3.5x delay, confirmed with a
+  longer 60-TU follow-up run — the first 30-TU test that looked "clean" was
+  actually just stopped before the (now-later) catastrophe). Same ~3.5x-ish
+  delay at α=6 with a lighter xi_cut 5→4 tightening (onset t≈39).
+- The delayed onset only barely clears the growth time needed at these
+  points (γ_theory implies ~15-50 TU needed for 2 decades depending on the
+  point) — a genuinely marginal, diminishing-returns fix, not a clean win.
+
+**Decision (with user sign-off to descope rather than keep chasing α=10)**:
+dropped all 33 failing points rather than half-rescue a subset with an
+under-calibrated recipe. This is a real, previously-uncharacterized limitation
+worth flagging for future work — the onset-time-vs-α dependence of the
+late-onset instability is now a documented open question (was previously only
+"not yet done: find xi_cut's onset-time dependence on (α,k_z)", now confirmed
+to be a strong effect, direction: onset time drops sharply as α grows).
+
+### Phase 2 — GPU vs theory (`analysis/measure_epsscan_v2_accuracy.py`)
+
+58/91 points passed the quality gate (α up to 6, one lone survivor at α=10);
+of those, 42 magnitude-checks + both cascade anchors intact (8/8 points
+each). Results, `plots/eps_collapse_gpu_validation.png`:
+
+- **Magnitude check**: γ_sim tracks the theory's P-collapse curve across the
+  full range, systematically ~5-20% below it (the usual, well-documented
+  sponge/window compression bias) — **median rel_err 9.9%, 90th pct 17.0%**,
+  in line with this project's other production-accuracy numbers.
+- **Peak-location check**: both cascade anchors' GPU-measured discrete
+  maximum lands close to the continuum theory peak — (α=0.5,V0=0.03,EPS=0.45):
+  theory kz_peak=2.67, GPU discrete peak at kz=3.0 (Δ=0.33, peak is broad/flat
+  as expected); (α=6,V0=0.1,EPS=0.1): theory kz_peak=6.11, GPU discrete peak
+  at kz=6.25 (Δ=0.14). **This directly confirms the original T1.1 kz_peak
+  drift is real physics, correctly predicted by the P-dependent theory — not
+  a discretization or numerical artifact.**
+
+### Bottom line
+
+Both open T1.1 puzzles are resolved by the same mechanism: EPS enters the
+shear-branch dispersion through the single group P=(αV0²)^(1/3)/EPS, exactly
+as PHYSICS.md §11b's quantization-budget correction predicted. Confirmed on
+real GPU data (not just theory) across α=0.5-6, V0=0.03-0.10, EPS=0.10-0.45.
+The α≥6-10/EPS≥0.15 corner remains unmeasurable with the current window
+mechanisms within reasonable target_tu — a genuine, now-documented limitation
+rather than a swept-under-the-rug gap.

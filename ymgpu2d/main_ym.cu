@@ -153,6 +153,10 @@ int main(int argc, char* argv[]) {
         dir_ss << "_frz";  // only tag when freeze is non-default for this run_mode
     if (cfg.eps_override > 0.0f)
         dir_ss << "_eps" << std::fixed << std::setprecision(2) << cfg.eps_override;
+    if (cfg.nx_override > 0)
+        dir_ss << "_nx" << cfg.nx_override;  // extractor's NX must match (remote_timeseries.py)
+    if (cfg.lx_override > 0.f)
+        dir_ss << "_lx" << std::fixed << std::setprecision(2) << cfg.lx_override;  // provenance only, extraction is Lx-agnostic
     if (suppress_kz0)
         dir_ss << "_nkz0";
     if (kz_suppress_max >= 1)
