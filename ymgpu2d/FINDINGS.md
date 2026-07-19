@@ -3044,9 +3044,62 @@ V0=0.01) now stays flat (E/E0 = 1.0000 → 1.00002 over 8 TU) instead of
 exploding — clean, slow growth as expected for this corner (γ_wkb=0.118,
 e-folding time ~8.5 TU).
 
-**Status**: old (contaminated) abi output cleaned, script regenerated and
-relaunched on abi0-2 with both fixes; now taking the originally-estimated
-~1.8h (the contaminated version had crashed within 1-40 TU across the
-board, which is why it deceptively finished in ~2.5 minutes the first
-time — fast completion was itself a red flag in hindsight). Accuracy
-numbers pending completion; rerun `analyze_kz0.py`-style fitting once done.
+**UPDATE: the init_by1_eq/vz_edge_taper fix did NOT work.** Rerunning the
+72-point grid with it produced the *identical* contamination pattern
+(3-6x-too-fast rates clustering at shared values) — in fact a cleaner
+re-analysis showed the fitted rate depends on the *product* α·V0 alone,
+not the α,V0 combination the WKB formula predicts (e.g. α=0.5,V0=0.02 and
+α=1.0,V0=0.01, same product 0.01, fitted to the same γ within noise).
+
+**Real root cause**: run_mode=6's frozen `Az1(ξ) = −V0·log(cosh(ξ))` grows
+*without bound* away from the shear layer. The outer-region tachyonic
+branch (OUTER_REGION.md: charged color-2/3 waves go unstable wherever
+`|α·Az1(ξ)| > kz`) has **no threshold at all when kz=0** — literally any
+ξ≠0 satisfies it, with a rate that itself grows without bound. A sponge
+cannot fix this: it only cuts the domain off at some ξ_sponge, but the
+*entire retained region* (0 < ξ < ξ_sponge) still satisfies the
+threshold-free condition. This is a genuine, previously-undocumented
+limitation of frozen single-well shear geometries (modes 1/5/6)
+*specifically at kz=0* — fine at kz≥1, where the threshold is real and a
+sponge does its job as designed (as the whole rest of this program relies
+on).
+
+**Fix (v2): switched to run_mode=3 (NAB_DTANH), i.e. reproduced Campaign
+3's original method exactly** rather than trying to improve on it: seed an
+arbitrary nonzero k_mode (k_mode=1) and let kz=0 grow on its own from
+machine-precision floating-point noise (~1e-13) over ~25-30 e-foldings.
+NAB_DTANH's periodic, bounded, double-well Az1 never diverges (every point
+in the domain is within a bounded distance of one of the two layers), so
+the tachyonic-at-kz=0 problem never arises — presumably why Campaign 3's
+single point worked in the first place. Its known cost (bonding/antibonding
+suppression of *seeded, finite-kz* modes) is irrelevant here since nothing
+is seeded at finite kz on purpose — only the noise-driven kz=0 component is
+measured, using the exact geometry Campaign 3 already validated it in.
+
+**A second, independent bug** turned up building the new extractor
+(`extract_kz0_noise.py`, needed because the run is seeded at k_mode=1 but
+only kz=0 is wanted, and `remote_timeseries.py` infers its target k from
+the seeded k_mode in the directory name): the first version averaged
+Az2/Az3 over x *and* z together, which cancels most of the real signal
+(the kz=0-in-z profile has genuine x-structure with both signs). Fixed to
+match `remote_timeseries.py`'s established convention exactly: take the
+magnitude *per x-column* first (mean over z), then average the per-x
+magnitudes over x.
+
+**Validated directly against Campaign 3's historical reference point**
+(α=2.0, V0=0.1, the ONLY point with an independent prior measurement):
+ran it manually end-to-end with the v2 method — **measured γ=0.5066 vs
+predicted γ=0.5065, a 0.02% match (R²=1.00000)**, reproducing (and
+slightly beating) Campaign 3's own documented 0.5% match. The full
+timeseries is a clean, monotonic single-exponential curve tracking
+Campaign 3's documented values almost point-for-point (t=15: ~2.3e-9 vs
+their 1.2e-9 at t=14.7; t=45: ~6.7e-3 vs their 3.5e-3 at t=44.2 — same
+order of magnitude at every matched time).
+
+**Status**: full 72-point grid relaunched on abi0-2 with the validated v2
+method (`gen_kz0_campaign.py`, `extract_kz0_noise.py`), ~2h estimated wall
+time (target_tu now scaled for noise-floor growth: `clip(35/γ,100,500)`,
+up from the seeded-eigenmode campaigns' `clip(15/γ,100,400)`, since ~25-30
+e-foldings from machine noise need more time than growing from a finite
+intentional seed). Rerun `analysis/measure_kz0_accuracy.py` against the
+rsynced data once done for the full-grid accuracy numbers.
