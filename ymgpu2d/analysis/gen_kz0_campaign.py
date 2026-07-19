@@ -106,12 +106,34 @@ def gamma_kz0(alpha, V0):
     return C ** (1.0 / 3.0) * math.sin(math.pi / 3.0)
 
 
+TARGET_TU_V2 = 800.0
+# NOTE (found 2026-07-19, see FINDINGS.md "kz=0 accuracy v2 -- pre-asymptotic
+# transient, not a physical deviation"): the v1 formula here was
+# clip(35/gamma_wkb, 100, 500) -- a guess that ~35 e-folds from machine noise
+# would be enough. It wasn't: growth from residual roundoff noise is NOT a
+# clean single exponential from t=0 -- there's a long, slower pre-asymptotic
+# transient (whatever mix of numerical-error "shape" happens to be present),
+# and the true fastest-growing eigenvalue only comes to dominate very late,
+# right before the run's own 100xE0 energy-threshold halt. A convergence
+# test (alpha=1.0, V0=0.01, target_tu=700) showed the local growth rate
+# oscillating around 0.02-0.06 for t=0-330 TU, then jumping to 0.17 (matching
+# the WKB prediction of 0.166 almost exactly) only in the last ~30 TU before
+# the run halted at t=361.7. Fix: run everyone long enough (800 TU, well
+# past every point's own natural saturation given the slowest point in this
+# grid needed ~510 TU by extrapolation) and let the run's own energy
+# threshold end it naturally at ITS OWN convergence point, rather than
+# guessing a fixed total duration from the (very point-dependent, as it
+# turns out) number of e-folds needed. This is still cheap: the run-time is
+# bounded by each point's OWN saturation time, not by target_tu=800 itself
+# (a fast point self-terminates in tens of TU regardless of the requested
+# cap). measure_kz0_accuracy.py's window search was also changed to prefer
+# late windows for the same reason.
 def build_grid():
     rows = []
     for alpha in ALPHA_LIST:
         for V0 in V0_LIST:
             g = gamma_kz0(alpha, V0)
-            tu = float(np.clip(35.0 / g, 100, 500)) if g > 0 else 250.0
+            tu = TARGET_TU_V2
             rows.append(dict(alpha=alpha, V0=V0, gamma_wkb_kz0=g, target_tu=round(tu, 1),
                              cost_a5000=tu * SEC_PER_TU_A5000))
     return pd.DataFrame(rows)

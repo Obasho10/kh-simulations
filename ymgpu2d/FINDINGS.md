@@ -3261,3 +3261,77 @@ need their own check; (2) a real warm eigensolver (fluid n/p degrees of
 freedom, not yet implemented) is now more clearly worth building, to get a
 theory number that's actually warm rather than comparing a warm sim against
 a cold theory reference.
+
+---
+
+## kz=0 extension campaign CLOSED OUT (2026-07-19): technique validated at
+## one point, full-grid numbers are NOT reliable — growth is not a clean
+## single exponential and no automatic fit window fixes that
+
+Final status of the kz=0 chromo-Weibel extension (T1.1/roadmap "kz=0
+chromo-Weibel mode" item), closing out this thread.
+
+**What's solid**: the v2 method (run_mode=3/NAB_DTANH, Campaign 3's
+original approach — seed an arbitrary nonzero k_mode, let kz=0 grow from
+machine-precision noise) reproduces Campaign 3's own historical reference
+point (α=2.0, V0=0.1) to **0.02%** (γ_fit=0.5066 vs γ_WKB=0.5065,
+R²=1.00000) — better than their own documented 0.5% match. The technique
+and the analytic formula γ(kz=0)=(√(α³/2)·V0)^(1/3)·sin(π/3) are both
+confirmed correct at this point.
+
+**What's not solid**: fitting the full 72-point grid (α∈[0.5,6],
+V0∈[0.01,0.2]) with the same automated best-window log-linear search shows
+a large, *systematic* bias that flips sign exactly at the validated anchor:
+under-predicts by up to 80% at low α/V0, over-predicts by up to 67% at high
+α/V0, crossing zero almost exactly at (α=2, V0=0.1) in both the α- and
+V0-directions independently. R² is excellent everywhere (mostly ≥0.999),
+so these are not noisy/bad fits — they're clean fits of the *wrong thing*.
+
+**Root cause, found via a targeted convergence test** (α=1.0, V0=0.01
+rerun with target_tu=700, ran to its own 100×E0 energy-threshold halt at
+t=361.7): growth from machine noise is **not** a clean single exponential
+from t=0. Sliding-window local rates: ~0.02–0.06 (noisy, non-monotonic)
+for t=0–330, then a sudden jump to **0.17** — matching the WKB prediction
+of 0.166 to within 4% — only in the final ~10–30 TU before the run's own
+nonlinear halt. The long pre-asymptotic phase is what the grid's fits
+(constrained to a much shorter `target_tu = clip(35/γ_wkb, 100, 500)`, an
+estimate that turned out to badly underestimate the settling time needed
+away from the one calibration point) were actually measuring — a real, if
+slow-growing, transient, just not the eigenvalue.
+
+**Tried to fix the fit, not just diagnose it**: rewrote the window search
+to anchor at the trace's end and walk backward (rather than a global best-
+R² search that tends to lock onto the long, deceptively-clean-looking
+transient). Tested 5 different tail-exclusion/min-efold settings against
+the convergence-test trace: every one landed either clearly in the
+transient (rate 3-4× low) or already inside the nonlinear runaway (rate
+2-3× high) — **the true window is a knife-edge a few TU wide with no
+robust automatic detector**, at least not one found in this pass. Reverted
+`measure_kz0_accuracy.py` to the original global-best-R² search rather than
+ship an equally-wrong "fix"; the limitation is documented directly in the
+function's docstring.
+
+**Decision: close this out as-is, don't keep chasing it.** The technique
+and formula are validated at one point to high precision — that result
+stands and is worth keeping (it's a real, independent confirmation of the
+analytic kz=0 growth rate, achieved with the *current* single-shear-layer-
+avoiding, well-understood geometry). The **72-point grid's numbers should
+NOT be treated as a quantitative sweep** — at best they're qualitative
+(the WKB scaling direction is presumably right; don't quote specific γ
+values from this grid in any writeup). A trustworthy full sweep would need
+either (a) per-point manual inspection of each trace (labor-intensive, ~72
+individual judgment calls), or (b) a smarter automatic extraction — e.g.
+envelope detection to separate the oscillatory pre-asymptotic background
+from the true growing mode, or abandoning the noise-driven approach for an
+explicitly-seeded small-amplitude kz=0 perturbation in a geometry that
+avoids both known failure modes (NAB_DTANH's boundedness AND a controlled,
+known-size initial condition, rather than relying on uncontrolled
+floating-point roundoff as the seed). Neither is quick; left as a possible
+future task, not undertaken now.
+
+`gen_kz0_campaign.py`'s `target_tu` was bumped to a flat 800 TU (relying on
+each run's own energy-threshold auto-halt rather than a γ-dependent guess)
+in case of a future rerun — cheap regardless of point speed since fast
+points still self-terminate early — but the *existing* 72-point dataset was
+not regenerated, since a longer trace alone doesn't fix the fitting
+problem above.

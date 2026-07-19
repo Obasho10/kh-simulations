@@ -18,17 +18,27 @@ kz = 0.25–9, with three-level validation (WKB ← exact 1D eigensolver ← 2D 
 sim/exact = 0.94–0.99). Two novel results in hand: non-monotonic dispersion with
 kz_peak ≈ 2α (V0=0.05 series), and a sharp two-branch structure below kz=1
 (γ=0.32 at kz_phys=0.5 → 0.06 at 0.75, α=2, V0=0.05). kz=0 chromo-Weibel mode
-validated to 0.5% at α=2 only (double-well NAB_DTANH geometry artifact
-suppresses γ at lower α — see FINDINGS.md 2026-07-19); a 72-point single-
-shear-layer (NAB_CIRC_AZ2) extension across α∈[0.5,6]×V0∈[0.01,0.2] is
-running now (`gen_kz0_campaign.py`) to remove that artifact and validate the
-WKB polynomial across the full range. First attempt was contaminated by two
-OTHER faster instabilities that a `suppress_kz0=0` run exposes (periodic-wrap
-collapse + secular By1 pump, both already diagnosed in OUTER_REGION.md) —
-fixed with the existing `init_by1_eq=1`/`vz_edge_taper=50` keys and
-relaunched; see FINDINGS.md 2026-07-19 "kz=0 extension campaign was
-CONTAMINATED". All campaigns so far at fixed EPS=0.15
-except the T1.1 EPS-scan, also running now (120 pts, α∈{1.0,1.5,2.0}).
+validated to 0.5% at α=2, V0=0.1 only (Campaign 3, 2026-06-29). A 72-point
+extension across α∈[0.5,6]×V0∈[0.01,0.2] (`gen_kz0_campaign.py`, run_mode=3/
+NAB_DTANH, Campaign 3's own method) is **CLOSED OUT 2026-07-19 with mixed
+results**: reproduces the α=2/V0=0.1 anchor to 0.02% (better than the
+original 0.5%), but the other 71 points are **not reliable quantitative
+measurements** — growth from machine noise is not a clean single
+exponential (a convergence test found the true eigenvalue only emerges in
+the final ~10 TU before each run's own nonlinear halt, after a long ~300+ TU
+noisy pre-asymptotic transient that a global best-fit window locks onto
+instead), and no automatic window-selection fix was found (tried 5
+settings, all either too early or too late — a knife-edge transition, not a
+tunable parameter). Treat the grid as qualitative/ordering information only;
+a real quantitative sweep needs per-point manual inspection or an envelope-
+based extraction, neither attempted. See FINDINGS.md 2026-07-19 "kz=0
+extension campaign CLOSED OUT" for the full story (also documents an
+earlier, now-superseded contamination from a `suppress_kz0=0` run exposing
+the periodic-wrap-collapse/secular-By1-pump obstructions from
+OUTER_REGION.md, fixed en route to the NAB_DTANH switch). All campaigns so
+far at fixed EPS=0.15 except the T1.1 EPS-scan (120 pts, α∈{1.0,1.5,2.0},
+DONE — see FINDINGS.md "EPS-scan (120 pts) and warm-closure (32 pts) GPU
+results").
 
 ---
 
