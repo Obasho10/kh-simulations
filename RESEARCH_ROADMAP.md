@@ -31,7 +31,14 @@ instead), and no automatic window-selection fix was found (tried 5
 settings, all either too early or too late — a knife-edge transition, not a
 tunable parameter). Treat the grid as qualitative/ordering information only;
 a real quantitative sweep needs per-point manual inspection or an envelope-
-based extraction, neither attempted. See FINDINGS.md 2026-07-19 "kz=0
+based extraction, neither attempted. **Follow-up 2026-07-19 (kz0v3, 243 pts
+total)**: mapped the resulting bias precisely rather than fixing it — dense
+(α,V0) grid + alpha-resolution refinement in the region where it shrinks.
+Median |rel_err| valley (21%) at α≈2.6-2.8, signed bias crosses zero at
+α≈3.4-3.6 (well-sampled region, α≤4.4); still the same known-biased
+extraction, now with a much sharper picture of where it's least wrong. See
+FINDINGS.md 2026-07-19 "kz0v3: dense (alpha, V0) deviation map" +
+`plots/kz0v3_relerr_map.png`. See FINDINGS.md 2026-07-19 "kz=0
 extension campaign CLOSED OUT" for the full story (also documents an
 earlier, now-superseded contamination from a `suppress_kz0=0` run exposing
 the periodic-wrap-collapse/secular-By1-pump obstructions from

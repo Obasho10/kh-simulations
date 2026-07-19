@@ -3335,3 +3335,69 @@ in case of a future rerun — cheap regardless of point speed since fast
 points still self-terminate early — but the *existing* 72-point dataset was
 not regenerated, since a longer trace alone doesn't fix the fitting
 problem above.
+
+---
+
+## kz0v3: dense (alpha, V0) deviation map + alpha-resolution refinement (2026-07-19)
+
+Follow-up to the closed-out extension above, run the same day. Rather than
+try to fix the fitting bias, this campaign set out to *map* it precisely:
+a wider, denser grid (180 pts: V0 ∈ {0.03,...,0.10 step 0.01, 0.20} × alpha
+∈ {0.4,...,8.0 step 0.4}), then a second pass adding alpha=1.8,2.2,2.6,3.0,
+3.4,3.8,4.2 (63 more pts, step 0.2 within alpha∈[1.6,4.4]) once the coarse
+grid showed where the deviation shrinks. Method identical to the closed-out
+campaign (`run_mode=3`/NAB_DTANH, `k_mode=1` seed, kz=0 grows from machine
+noise, `target_tu=800` flat with each run auto-halting at its own 100×E0
+energy threshold, `hyp_diff=2e-4`). Scripts: `gen_kz0_grid2.py` (coarse,
+run_tag prefix `kz0v3`) + `gen_kz0_grid2_refine.py` (fine, prefix
+`kz0v3fine`). Analysis: `measure_kz0_grid2_accuracy.py`. Both ran on abi;
+zero crashes across all 243 runs. The fine pass ran on GPU1+GPU2 only —
+GPU0 was mid-job for another user (`python3 main.py --n 4`) at launch time,
+left untouched.
+
+**Result: 201/243 points fit (`too_short` for the remaining 42 — the
+fastest-growing corner, high α and V0=0.2, saturates in ≲5 snapshots,
+too few for the ≥10-row/≥3-efold fit requirement). Median |rel_err| across
+all fitted points: 30.9%.**
+
+**The deviation has a clean, monotonic structure in V0 at fixed α**: strongly
+negative (fit undershoots γ_WKB) at low V0, crossing to positive (fit
+overshoots) at high V0, e.g. at α=2.0: V0=0.03 → −65.5%, V0=0.10 → **+0.02%**
+(the historical Campaign-3 anchor point, reproduced here independently),
+V0=0.20 → +67.0%. This matches the mechanism already diagnosed in the
+closed-out campaign above: at low V0 (slow growth), the run needs many
+e-folds and the global best-R² window locks onto the long pre-asymptotic
+transient (rate below the true eigenvalue); at high V0 (fast growth), the
+available window increasingly includes late-time/near-nonlinear
+contamination (rate above the true eigenvalue). The zero-crossing V0 at
+each α is where these two biases happen to cancel — not a special physical
+point, an artifact of where the fixed-length trace/window search happens to
+land.
+
+**Aggregating over V0 (median per α) exposes a valley, not a monotonic
+trend**: median |rel_err| falls from 56% (α=0.8) to a minimum of **21%
+at α=2.6–2.8**, then rises back to ~28-30% by α=4.4 and beyond. The signed
+median bias crosses zero at **α≈3.4–3.6** (−0.4% at 3.4, +3.4% at 3.6) —
+close to but not identical to the |rel_err| minimum, since the V0=0.2 point
+contributes a large positive outlier that pulls the signed median differently
+from the absolute one. Apparent further improvement above α≈6 (down to
+17-24%) is **not trustworthy**: by α=6.4-8.0 only 4-6 of 9 V0 points still
+fit at all (the rest are `too_short`), so that tail is a small-sample
+artifact of which points survive, not a second true valley. Restricting to
+the well-sampled range (α ≤ 4.4, n=8-9 per α), the α≈2.6-3.6 band is the
+real, robust region of best agreement — consistent with, and now
+considerably better resolved than, the single historically-validated point
+(α=2.0, V0=0.1).
+
+Combined coarse+fine table: `sweep/kz0v3_combined_results.csv`. Plot
+(rel_err heatmap over the full (α,V0) grid + median-|rel_err|-vs-α with the
+valley band and small-n caveat marked): `plots/kz0v3_relerr_map.png`.
+
+**Bottom line, same caveat as before, now with a sharper picture**: this is
+still the same known-biased extraction method (FINDINGS.md "kz=0 extension
+campaign CLOSED OUT" above) — these numbers characterize *where the bias is
+smallest*, not a certified quantitative sweep. Don't quote a γ_kz0 value
+from any single point in this grid as ground truth; the α≈2.6-3.6, V0≈0.08-
+0.12 region is where the automatic fit happens to be least wrong, which is
+useful for knowing where a manual/careful re-measurement would be cheapest
+to validate, not a substitute for one.
