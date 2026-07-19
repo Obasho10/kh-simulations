@@ -258,3 +258,42 @@ as tested above) or re-derive EPS/DX at whatever EPS the target physics config u
 Leave a safety margin below the courant=0.8/1.0 cliff (e.g. courant=0.5) for physics
 configs with different α/V0 that may have a different stability boundary than this
 one (α=1.0, V0=0.05).
+
+## Follow-up: spot-checks at the parameter extremes (T2.8, 2026-07-19)
+
+The entire study above anchored a **single** physics point — α=1.0, V0=0.05, kz=1.
+A referee will (rightly) ask whether the production grid (NZ=64 / courant=0.1 /
+NX=768, DFT filter band hi=14 held fixed) is still converged at the *extremes* of
+(α, V0, kz) actually used in the papers. Two corners were re-checked on t133, one
+grid axis varied per run relative to the production baseline (all fits R²=1.000,
+no NaNs):
+
+**LOW corner — α=1.0, V0=0.03, kz=3** (wide, slow mode). Baseline γ=0.0837
+(plateau-confirmed). NZ 64→128: **+0.2%**; courant 0.1→0.02: **−1.0%**; NX
+768→1152: **−0.2%**. → **converged to <1%**, same as the anchor point.
+
+**HIGH corner — α=3.0, V0=0.10, kz=5** (the narrowest/fastest used mode; its
+EPS/DX≈6.1 at NX=768 sits right at the x-resolution threshold from §3). Baseline
+γ=0.2395. NZ 64→128: **+1.1%**; courant 0.1→0.02: **+5.9%**; NX 768→1152:
+**+2.7%**. → the production grid **under-resolves γ by ~3–6%** here, dominated by
+timestep and x-resolution — exactly what one expects for a fast, narrow mode at
+the EPS/DX≈6 boundary. Both refinements *raise* γ (baseline under-resolves), so
+the effects may partially add; the combined finest-grid error was not measured
+directly (one-axis-at-a-time was used, the standard convergence method).
+
+| Corner | axis refined | Δγ vs production |
+|--------|--------------|-----------------:|
+| LOW (α=1,V0=0.03,kz=3) | NZ 64→128 | +0.2% |
+| | courant 0.1→0.02 | −1.0% |
+| | NX 768→1152 | −0.2% |
+| HIGH (α=3,V0=0.10,kz=5) | NZ 64→128 | +1.1% |
+| | courant 0.1→0.02 | **+5.9%** |
+| | NX 768→1152 | **+2.7%** |
+
+**Conclusion.** The "converged to ~2%" result of the 2026-07-02 study is accurate
+at low αV0 but should be **qualified to ~5% at the high-αV0 end**. This is inside
+the 6–10% error budget already quoted for the high-α points, but the narrowest
+production modes (α=3, V0=0.1) carry a few-% grid uncertainty a referee should be
+told about. For a definitive high-αV0 measurement, run at NX=1152 and/or
+courant≤0.05. Script: `scripts/t2p8_resolution_t133.sh`; figure
+`plots/t2p8_resolution_extremes.png`; see also `REFEREE_PROOFING_RESULTS.md`.

@@ -416,14 +416,22 @@ mechanism is understood.
   α(A_z×E_z)^a = ρ^a is *not* exactly preserved by the leapfrog scheme. Measured:
   relative residual ~10⁻³ of the total-field scale through the run, with the
   absolute residual growing with the (exponentially growing) fields, spatially
-  localized at the mode. This is small but deserves its promised paper figure and
-  a statement (roadmap T2.3); a referee will ask (§9, Q17).
+  localized at the mode. ✅ **T2.3 done (2026-07-19)**: the promised figure now
+  exists (`gauss_check.png`; α=1, V₀=0.05, kz=1) — absolute RMS residual ~1×10⁻⁵,
+  colour-1 relative residual ~1.4×10⁻³ *and decreasing* over the run, |∇·E|
+  dominant with the non-Abelian term subdominant and |ρ| negligible, residual
+  localized at the mode. Confirms the statement above. See
+  `REFEREE_PROOFING_RESULTS.md` §T2.3.
 - **Fit quality**: production campaigns report R² ≥ 0.999, but R² alone does not
   certify window placement on multi-regime curves (§8.5) — the plateau in the
   local slope is the meaningful diagnostic, audited so far only for C25. Growth
   is measured on the circular amplitude, immune to Im(γ) phase rotation.
-- **Linearity check** (seed amplitude ×10/×0.1 ⇒ γ unchanged) is on the Tier-2
-  list but has *not* been run systematically yet — flagged in §8.7.
+- **Linearity check** (seed amplitude ×10/×0.1 ⇒ γ unchanged): ✅ **T2.4 done
+  (2026-07-19)** — at α=1, V₀=0.05, kz=1 the fitted γ = 0.0901 is identical to
+  four significant figures across seed amplitudes 1e-4/1e-3/1e-2 (initial
+  amplitude scales exactly linearly, R²=1.000, identical fit window). The
+  measurement is firmly in the linear regime. See `REFEREE_PROOFING_RESULTS.md`
+  §T2.4.
 
 ---
 
@@ -529,9 +537,15 @@ falls from ~0.99 (mode well inside) to 0.4–0.7 (mode at the edge), and the
 apparent k_z,peak shifts down by 1–2 units at V₀=0.03 with a tight sponge. The
 per-point workaround (use the largest-sponge run available; flag (!) points where
 ξ_crit > xi_sponge) is bookkeeping, not physics. The defensible fix is the
-sponge-extrapolation study (T2.7: γ(xi_sponge → ∞) for representative points) and
-it has not been done. **Any k_z,peak entry in fig05 marked from a compressed
-campaign should be treated as ±1 in k_z.**
+sponge-extrapolation study (T2.7: γ(xi_sponge → ∞) for representative points).
+✅ **T2.7 done (2026-07-19)**: at α=1, V₀=0.05, kz=1 the fitted γ rises
+*monotonically* with sponge radius — 0.0605 (ξ=6), 0.0719 (ξ=10), 0.0768 (ξ=16),
+0.0775 (ξ=20), 0.0772 (ξ=25) — and **saturates at ≈0.077 by ξ≈16** (<2% change
+between ξ=16 and ξ=25). The tightest sponge (ξ=6) compresses γ by **28.5%**
+relative to the converged value, directly quantifying the compression systematic.
+Production runs use ξ_sponge ≥ 8–20, where the residual compression is
+single-digit-%. `plots/t2p7_sponge_extrapolation.png`. **Any k_z,peak entry in
+fig05 marked from a compressed campaign should still be treated as ±1 in k_z.**
 
 ### 8.4 The raw sweep tables contain contaminated fits
 
@@ -695,19 +709,37 @@ eigenfunctions will raise it, so the diagnostic should exist before submission.
 
 ### 8.7 Smaller open flanks (each cheap to close — Tier 2 of the roadmap)
 
-- **Complex frequency unreported**: several campaigns have Im(γ) ≠ 0
-  (oscillatory envelopes bias naive fits — diagnosed in C19b/C20b); Re(ω)
-  extraction machinery exists but full complex ω(k_z) has not been tabulated (T2.1).
-- **Linearity check** (amplitude ×10/×0.1) not yet run (T2.4).
-- **Eigenfunction overlay** sim-vs-solver figure not yet produced (T2.2) — the
-  "money figure" for the validation claim.
-- **Resolution spot-checks at the parameter extremes** actually used in papers
-  (highest/lowest αV₀) still pending (T2.8) — the convergence study anchored only
-  the α=1, V₀=0.05, k_z=1 point.
-- **Dimensionless collapse** not yet identified: our own data (kz_peak differs
-  between V₀=0.03 and 0.05 at fixed αV₀) says α and V₀ do not enter through αV₀
-  alone (T2.5); until the right combination is found the "2α" statement is
-  empirical.
+- ✅ **Complex frequency (T2.1) done (2026-07-19)**: the σ-chased dominant
+  localised **complex** eigenvalue γ = Re(growth) + i·Im(freq) is now tabulated
+  over α∈{1,1.5,2,2.5,3} × V₀∈{0.03,0.05,0.1} × k_z=1..8. The dominant KH branch
+  is **essentially purely growing** — max |Im(γ)| over the whole grid = 9.6×10⁻³
+  (|Im/Re| ≲ 6%), with the oscillatory content confined to k_z=1 at a few
+  high-αV₀ points. This is why the circular-amplitude fits are unbiased in the
+  production regime and pinpoints where (k_z=1, high αV₀) an envelope fit is
+  warranted. `analysis/t2p1_t2p5_spectrum.py`.
+- ✅ **Linearity check (T2.4) done (2026-07-19)**: γ=0.0901 invariant to seed
+  amplitude ×0.1/×1/×10 (initial amplitude exactly linear, R²=1.000). See §7.
+- ✅ **Eigenfunction overlay (T2.2) done (2026-07-19)** — the "money figure":
+  at α=1, V₀=0.05, k_z=1 the simulation's linear-phase k_z=1 spatial profile
+  traces the `ym_eigenmode.py` eigenfunction with **correlation 1.0000**, and
+  By2 (grown from ~0 via the KH chain) reproduces the solver's non-trivial
+  double-lobe shape and node. `plots/t2p2_eigenfunction_overlay.png`.
+- ✅ **Resolution spot-checks at the extremes (T2.8) done (2026-07-19)** —
+  **and they qualify the convergence claim**: the production grid is converged to
+  <1% at the low-αV₀ corner (α=1, V₀=0.03, k_z=3) but **under-resolves γ by
+  ~3–6% at the high-αV₀ corner** (α=3, V₀=0.10, k_z=5, the narrowest/fastest used
+  mode at EPS/DX≈6.1) — courant 0.1→0.02 gives +5.9%, NX 768→1152 gives +2.7%.
+  The "converged to ~2%" statement (anchored only at α=1, V₀=0.05, k_z=1) must be
+  qualified to **~5% at high αV₀**; this is inside the 6–10% error budget already
+  quoted for the high-α points. See RESOLUTION_FINDINGS.md and
+  `plots/t2p8_resolution_extremes.png`.
+- ✅ **Dimensionless collapse (T2.5) found (2026-07-19)**: masking the tachyonic
+  outer branch (§8.2), the shear-layer KH peak collapses onto the exact-action
+  ceiling — **γ_peak/(αV₀²)^{1/3} = 0.977 ± 0.011** (1.1% spread) across α∈[1,3],
+  V₀∈[0.03,0.1] (10× range in αV₀). Plotting γ/(αV₀²)^{1/3} vs k_z/(α/V₀)^{1/3}
+  folds all 15 curves onto one master curve. So α and V₀ enter through
+  (αV₀²)^{1/3} (growth) and (α/V₀)^{1/3} (wavenumber), **not** αV₀ alone,
+  empirically confirming the T1.2 ceiling γ³ ≤ αV₀². `plots/t2p5_collapse.png`.
 - **Single EPS**: everything at EPS=0.15 (T1.1 is the fix and is cheap).
 - **2D geometry**: k_y modes (filamentation/Weibel out-of-plane) are excluded by
   construction; a linear solver with k_y ≠ 0 is the cheap check (T3.1).
@@ -731,11 +763,16 @@ k_z = 3.5 at γ = 0.135 (99% of the (αV₀²)^{1/3} ceiling), not k_z = 2 at
 0.122. The α ≥ 2 series are unaffected near their peaks (the quartic is
 accurate enough there for σ to land on n = 0). Affected artifacts:
 eigensolver_grid_cache / exact_grid_cache (figs 03/04/05/13) at low α and
-beyond-peak k_z, and the low-α end of fig05's k_z,peak ≈ 2α trend. Fixes
-queued: σ-chasing is implemented (`analysis/exact_action_wkb.py::gamma_true`);
-regenerate the caches with it; and one cheap CUDA falsification run — reseed
-one C25 point with the true-n0 eigenfunction (`--sigma 0.14 --export-seed`)
-and watch the plateau move 0.081 → ≈0.13.
+beyond-peak k_z, and the low-α end of fig05's k_z,peak ≈ 2α trend. Fixes:
+σ-chasing is implemented (`analysis/exact_action_wkb.py::gamma_true`) — still
+need to regenerate the caches with it. ✅ **CUDA falsification done (2026-07-19)**:
+the C25 point (α=1, V₀=0.05, k_z=4, sponge=20) was rerun with two seeds differing
+*only* in the eigenfunction — the default-σ overtone (γ_exact=0.0818) grows a
+plateau of **0.0808** (reproducing the cached C25 = 0.081), while the σ=0.14
+true-n0 eigenfunction (γ_exact=0.1309) grows **0.1287**. The simulation faithfully
+grows whichever mode it is seeded with, so the celebrated sim-vs-solver agreement
+certifies the numerics, not dominant-mode selection — exactly the diagnosis above.
+See `REFEREE_PROOFING_RESULTS.md` §8.8.
 
 ---
 
@@ -1005,9 +1042,17 @@ In order of leverage per unit effort:
    or even "V₀=0.09-0.10 is safe to run long" — it's a working, well-
    characterized mitigation for extracting one clean plateau, not a stability
    fix or an explanation.
-4. **T2.x referee-proofing batch** (each ≤1 day): linearity check, eigenfunction
-   overlay figure, Gauss-law figure, sponge extrapolation, complex-ω table,
-   dimensionless collapse.
+4. **✅ RESOLVED 2026-07-19 — T2.x referee-proofing batch** (+ the §8.8 overtone
+   falsification): all eight run on the free teaching nodes t126/t140/t133 and
+   documented in **`REFEREE_PROOFING_RESULTS.md`**. Linearity (γ invariant to seed
+   ×100), eigenfunction overlay (corr=1.000), Gauss-law figure (abs residual
+   ~1e-5), complex-ω table (dominant branch purely growing), dimensionless
+   collapse (γ_peak/(αV₀²)^{1/3}=0.977±0.011), sponge extrapolation (28.5%
+   compression at ξ=6, saturates by ξ≈16), and overtone falsification (plateau
+   0.081→0.129 on reseed). **One new caveat surfaced (T2.8)**: the convergence
+   claim degrades from <1% at low αV₀ to ~5% at the high-αV₀ extreme — see §8.7
+   and RESOLUTION_FINDINGS.md. Remaining: regenerate the eigensolver caches with
+   σ-chasing (§8.8).
 5. **✅ RESOLVED 2026-07-17 — T1.2 exact-action WKB** (theory): done — see
    §5.4, PHYSICS.md §11, `analysis/exact_action_wkb.py`,
    `plots/exact_action_wkb_validation.png`. Delivered: exact scalar

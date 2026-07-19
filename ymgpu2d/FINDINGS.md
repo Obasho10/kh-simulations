@@ -2856,3 +2856,38 @@ abi) → scp `scripts/intkz_<node>.sh` per node → `nohup bash scripts/intkz_<n
 > logs/intkz_<node>.log 2>&1 &`. Each stream self-smoke-tests before running.
 Remaining makespan ~2.7 h on all 7 streams. After completion: rerun the
 chased-eigensolver audit and fill the clean map.
+
+## Tier-2 referee-proofing batch — all 8 experiments run + passed (2026-07-19)
+
+Ran the T2.x referee-proofing list (PRESENTATION.md §8.7) plus the §8.8 overtone
+falsification, one-by-one on the free teaching nodes **t126 / t140 / t133** (abi
+left alone). Full write-up in **`REFEREE_PROOFING_RESULTS.md`**; scripts
+`scripts/t2p*_*.sh` + `analysis/t2p1_t2p5_spectrum.py`; figures `plots/t2p{2,5,7,8}_*.png`
+and `remote_data/t2p23/t2p3_gauss_check.png`.
+
+| Exp | Point | Result |
+|-----|-------|--------|
+| T2.4 linearity | α=1,V0=0.05,kz=1 | γ=0.0901 identical at seed ×0.1/×1/×10 (a₀ exactly linear, R²=1) |
+| §8.8 overtone | α=1,V0=0.05,kz=4,sp20 | reseed only: overtone→0.0808 (=cached C25), true-n0 (σ=0.14)→0.1287 |
+| T2.2 overlay | α=1,V0=0.05,kz=1 | sim vs solver eigenfn corr=1.000; By2 double-lobe grown from ~0 matches |
+| T2.3 Gauss | α=1,V0=0.05,kz=1 | abs residual ~1e-5; colour-1 rel ~1.4e-3 & decreasing; localised at mode |
+| T2.1 complex-ω | grid α∈[1,3]×V0∈[.03,.1]×kz1-8 | dominant KH branch purely growing: max\|Im(γ)\|=9.6e-3 (\|Im/Re\|≲6%, only kz=1 hi-αV0) |
+| T2.5 collapse | same grid | γ_KH,peak/(αV0²)^⅓ = 0.977±0.011 (1.1%, 10× αV0) after masking tachyonic branch |
+| T2.7 sponge→∞ | α=1,V0=0.05,kz=1 | γ rises 0.060(ξ6)→0.077(ξ16), saturates by ξ≈16; ξ=6 compresses 28.5% |
+| T2.8 res. extremes | see below | LOW corner <1%; HIGH corner (α=3,V0=0.1,kz=5) ~3–6% under-resolved |
+
+**T2.5 collapse variables**: (αV0²)^⅓ for γ and (α/V0)^⅓ for kz — so α,V0 do NOT
+enter through αV0 alone; empirically confirms the T1.2 exact-action ceiling
+γ³ ≤ αV0². Tachyonic outer branch (γ>1.15×ceiling) overtakes at low kz / high αV0
+and was masked (physical, §8.2).
+
+**T2.8 caveat (important for the paper)**: the "converged to ~2%" claim was only
+anchored at α=1,V0=0.05,kz=1. It holds (<1%) at the low-αV0 corner but the
+production grid **under-resolves γ by ~3–6% at the high-αV0 corner** (α=3,V0=0.10,
+kz=5, the narrowest/fastest mode at EPS/DX≈6.1): courant 0.1→0.02 gives +5.9%,
+NX 768→1152 gives +2.7%. Inside the 6–10% budget quoted for high-α points but must
+be stated. Full detail added to RESOLUTION_FINDINGS.md.
+
+Still open from §8.8: regenerate the eigensolver_grid_cache / exact_grid_cache
+with σ-chasing (`gamma_true`) — the CUDA falsification is done but the cached
+reference curves (figs 03/04/05/13) still carry the low-α overtone values.
