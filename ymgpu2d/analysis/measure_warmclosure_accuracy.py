@@ -70,6 +70,9 @@ def main():
                          t_final=t[-1]))
 
     res = pd.DataFrame(rows)
+    out_csv = os.path.join(ROOT, 'sweep', 'warmclosure_results.csv')
+    res.to_csv(out_csv, index=False)
+    print(f"wrote {out_csv}")
     print(f"Total points: {len(res)}")
     print(res['status'].value_counts().to_string())
     print()

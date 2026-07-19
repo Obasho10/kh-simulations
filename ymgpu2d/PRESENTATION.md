@@ -1,6 +1,6 @@
 # The SU(2) Yang–Mills Kelvin–Helmholtz Program — State of the Work
 
-**Date: 2026-07-12.** This document presents the `ymgpu2d/` simulation program to a
+**Date: 2026-07-12, last updated 2026-07-19.** This document presents the `ymgpu2d/` simulation program to a
 physicist audience at any level: what was built, what has been measured, what the
 headline results are, where the evidence is solid, where it is shaky, and what has
 to happen next. All figures referenced here live in `presentation/plots/` and the
@@ -24,22 +24,46 @@ with simulation-vs-eigensolver agreement of **0.96–0.99** on the plateau-audit
 points of the best-controlled campaigns (k_z=1–5; see §5.2 and §8.5 for what
 "audited" means and why k_z=6-type points are excluded) and thousands of fitted
 runs across a five-decade (α, V₀, k_z) grid. The
-headline physics: **the fastest-growing wavelength is selected by the gauge
-coupling (k_z,peak ≈ 2α), not by the flow profile** — the opposite of classical
-KH, where the shear-layer width sets the wavelength — and the dispersion curve is
+headline physics, as originally framed: **the fastest-growing wavelength is
+selected by the gauge coupling (k_z,peak ≈ 2α), not by the flow profile** — the
+opposite of classical KH, where the shear-layer width sets the wavelength —
+(*that framing has since been revised twice; see the update below and §5.3a*)
+— and the dispersion curve is
 **non-monotonic**, which the WKB formula does not predict but the exact
 eigensolver reproduces. (Update 2026-07-17: the exact-action theory — T1.2,
 §5.4 — derives this and sharpens it: the peak is set by coupling *and*
 containment radius, k_z,peak ≈ αV₀ξ_w + (α/V₀)^{1/3}, with a hard growth
 ceiling γ ≤ (αV₀²)^{1/3}; "≈2α" is what this evaluates to over the surveyed
-grid, and its low-α end carries a mode-selection artifact — §8.8.) The main caveats: the measured mode is isolated by
-numerical filters that remove faster-growing parasitic instabilities (a warm-fluid
-closure is the physical fix, not yet implemented), the background is frozen rather
-than self-consistent (now quantitatively tested — the back-reaction is quadratic,
-wrong-signed for depletion, and ≲7% out to |a|≈2.5, §8.2), and the
-coupling-selection claim has so far been established
-at a single shear width EPS=0.15 (the EPS scan is the single most important
-pending experiment).
+grid, and its low-α end carries a mode-selection artifact — §8.8.)
+
+**Major update (2026-07-19).** The three experiments this document previously
+named as the program's decisive pending tests have now all been run, and two of
+the three changed the story:
+
+- **The EPS scan (T1.1, §5.3a, fig16) came back *against* the EPS-free claim**:
+  k_z,peak genuinely drifts with the shear width in the real simulation (by 1–3
+  integer steps over EPS = 0.10–0.45), and only sits near 2α at the historical
+  baseline EPS=0.15. "The flow profile does not select the wavelength" is no
+  longer defensible as stated; the Letter framing must change again.
+- **The warm-fluid closure (T1.4, §5.7, fig17) validates the program** — with a
+  twist. With *all* filters off, the warm plasma reproduces the filtered-cold
+  eigensolver to ~1% near the peak; it is the cold filters-off *control* that is
+  contaminated (by the colour-1 EM channel the filters normally remove, which
+  pressure suppresses — γ_By¹: 1.40 cold → 0.73 warm). The production filters
+  are thereby demonstrated to be physics-preserving, not answer-shaping.
+- **The Tier-2 referee-proofing batch (all 8 experiments, §8.7,
+  `REFEREE_PROOFING_RESULTS.md`) passed**, including the dimensionless collapse
+  γ_peak/(αV₀²)^{1/3} = 0.977 ± 0.011 and the §8.8 overtone falsification.
+
+Two further 2026-07-17/19 events reshaped the data foundation (§8.9): two
+pipeline bugs (a conjugate-helicity extraction error and a box-size labeling
+error) were found to invalidate ~96% of the timeseries archived between 07-04
+and 07-17 — the simulations were fine, the tape recorder was pointed at the
+wrong channel — and the corrected-pipeline rerun campaign (fig18) has rebuilt
+the integer-k_z map at **median 8–9% agreement with the σ-chased eigensolver**
+across 1,000+ plateau-confirmed points. The remaining structural caveat is the
+frozen background, which is now quantitatively bounded (back-reaction
+quadratic, wrong-signed for depletion, ≲7% out to |a|≈2.5, §8.2).
 
 ---
 
@@ -133,7 +157,8 @@ still open — see the §11 reminder.
   fixed a real failure mode (C23: an Az-only seed converged to the *wrong*
   eigenmode, 50% error in γ).
 - Runs on 5–7 GPU nodes (RTX A5000s + 3× GTX 1080 Ti); a 100-TU run at the fast
-  grid takes ~90 s; full k_z sweeps take minutes. ~5,800 fitted runs to date.
+  grid takes ~90 s; full k_z sweeps take minutes. ~10,000 fitted runs to date
+  (of which ~2,000 are post-2026-07-17 corrected-pipeline reruns — §8.9).
 
 ### 3.2 The 1D exact eigensolver (`analysis/ym_eigenmode.py`)
 
@@ -199,6 +224,27 @@ geometry (Campaign 4), the simulation crosses the WKB curve — suppressed below
 (bonding/antibonding splitting) plus n=1 contamination at high α, i.e. geometry
 effects, not code error — but it is the reason all production campaigns moved to
 a single-layer geometry.
+
+**Update (2026-07-19, the kz=0 extension thread — 459 runs, now closed out).**
+An independent re-validation with the current single-layer-compatible geometry
+(NAB_DTANH, kz=0 growing from machine noise) reproduced the anchor point
+(α=2.0, V₀=0.1) to **0.02%** — the formula and the technique are solid. But the
+attempt to extend this to a full (α, V₀) grid failed *as a measurement*: growth
+from machine noise is not a single exponential (a long, slow pre-asymptotic
+transient precedes the true eigenmode, which emerges only in the last ~10–30 TU
+before nonlinear halt), and the automatic best-R²-window fit reads the wrong
+regime nearly everywhere. Rather than fix the fit (no robust automatic window
+detector was found — the true window is a knife-edge), the *bias itself was
+mapped* on a 300+-point grid (`plots/kz0v3_relerr_map.png`,
+`plots/kz0v4_valley_detail.png`): the fit under-predicts by up to ~80% at low
+αV₀, over-predicts by up to ~67% at high αV₀, and the zero-crossing locus is a
+strikingly clean power law V₀_cross(α) = 0.175·α^(−0.80) (0.24% median
+residual). That regularity characterizes the *extraction numerics*, not the
+plasma — it is documented so nobody mistakes it for physics, and the anchor
+validation is the only kz=0 number this program quotes. One isolated "accurate"
+pixel in the low-α corner was independently rerun and shown to be a knife-edge
+fit-window coincidence, not structure (a useful control on over-reading such
+maps).
 
 ### 5.2 The validation stack at V₀=0.05 — plateau rates match the eigensolver to 1–4% (kz≤5)
 
@@ -271,10 +317,11 @@ k_z = 3.5 at γ = 0.135. α ≥ 2 series are unaffected near their peaks.
 - γ_peak scales as **V₀^0.85–0.92** at fixed α (sub-linear; saturating for
   αV₀ ≳ 0.15 at low α).
 - In classical KH, k_z,peak·EPS ≈ 0.5 — the shear width sets the scale. Here
-  EPS has been fixed at 0.15 while k_z,peak moved by a factor 8 with α. **If**
-  k_z,peak stays ≈2α when EPS is varied (the pending T1.1 scan, §9), the claim
-  "the gauge coupling, not the flow profile, selects the wavelength" is the
-  title-level result of the first paper.
+  EPS had been fixed at 0.15 while k_z,peak moved by a factor 8 with α. The
+  T1.1 EPS scan was the designated decisive test of the claim "the gauge
+  coupling, not the flow profile, selects the wavelength" — **and it has now
+  been run (2026-07-19, §5.3a): the claim did not survive.** k_z,peak moves
+  with EPS too.
 
 **Reinterpretation (2026-07-17, T1.2 done — §5.4, PHYSICS.md §11):** the
 exact-action theory shows the peak is **confinement-set, not intrinsic**:
@@ -287,6 +334,59 @@ fundamental linear-in-α selection. The Letter framing needs to change from
 "coupling selects the wavelength" to "coupling and containment radius select
 the wavelength; the flow profile does not." Additionally, the low-α end of
 this trend is contaminated by an eigenmode-selection artifact (§8.8).
+**(2026-07-19: the "flow profile does not" half has now also failed the direct
+test — see §5.3a.)**
+
+### 5.3a The EPS scan (T1.1, done 2026-07-19) — the peak drifts with the shear width
+
+`presentation/plots/fig16_epsscan_dispersion.png`,
+`plots/epsscan_eigensolver_prediction.png` (pre-registered eigensolver
+prediction)
+
+The designated decisive experiment: 120 GPU runs over EPS ∈ {0.10, 0.15,
+0.225, 0.30, 0.45} × α ∈ {1.0, 1.5, 2.0} × k_z = 1..8 at V₀ = 0.05, with the
+corrected extraction pipeline, per-point vetted sponges, the NZ/4.5 filter
+rule, NX=1152 for the narrow-EPS leg (EPS/DX ≥ 6) and a doubled box for
+EPS ≥ 0.30 (three latent campaign-generator bugs were found and fixed during
+staging — seed-filename collisions, a hardcoded NX in the extractor, and a
+wrap-buffer false-negative in the sponge vetting; FINDINGS.md 2026-07-18). All
+120 runs completed and fitted cleanly (R² ≥ 0.997); sim/eigensolver median
+0.855 (IQR 0.70–0.99, best at the narrowest EPS).
+
+**Result: k_z,peak(EPS) genuinely drifts — in the eigensolver prediction and
+confirmed by the GPU data** (argmax of γ_sim over k_z):
+
+| α | EPS=0.10 | 0.15 | 0.225 | 0.30 | 0.45 |
+|---|---|---|---|---|---|
+| 1.0 | 4 | 2 | 2 | 2 | 2 |
+| 1.5 | 5 | 4 | 2 | 3 | 3 |
+| 2.0 | 5 | 4 | 3 | 4 | 3 |
+
+At the historical baseline EPS=0.15, k_z,peak ≈ 2α roughly holds — which is
+exactly why every earlier campaign, all run at EPS=0.15, saw the clean 2α
+trend of fig05. Away from 0.15 in either direction the peak moves by 1–3
+integer steps and does **not** track 2α. Narrower shear layers push the peak
+*up* (toward higher k_z), wider layers pull it down and raise the overall γ
+level (the eigensolver also shows γ at fixed k_z and fixed sponge rising ~30–40%
+from EPS=0.10→0.45 — a real, currently unexplained EPS-dependence of the rate
+itself, not a sponge or box artifact). Two honesty caveats cut both ways:
+(a) the peak is broad and flat (a few % across 2–3 adjacent integer k_z), so
+the argmax is a fragile statistic on top of a real drift — the whole-curve
+shapes in fig16 are the robust evidence; (b) the α=1 row carries the §8.8
+overtone caveat.
+
+**Consequence for the headline.** "The gauge coupling, not the flow profile,
+selects the wavelength" is dead as stated. What survives: (a) the coupling
+still dominates — at fixed EPS the peak moves by a factor ~5 with α, while at
+fixed α it moves by at most a factor ~2 across a 4.5× range in EPS; (b) the
+drift has the classical *sign* (narrower layer → higher k_z,peak) but is far
+weaker than the classical k_z,peak ∝ 1/EPS scaling, so the mode is still not
+a textbook interface ripple; (c) the exact-action combinations for the γ
+ceiling (αV₀²)^{1/3} and the k_z scale (α/V₀)^{1/3} are untouched and now
+empirically confirmed (§8.7 T2.5). But the T1.2 theory's k_z,peak formula —
+both of whose terms are EPS-free — is now known to be incomplete, and needs
+an EPS-dependent correction term before the Letter can state a selection law.
+This is the current top theory priority (§11).
 
 There is also a **sub-k_z=1 fine-structure result** from the extended-box (Lz=4π,
 8π) campaigns — a sharp two-branch structure below k_z=1 (γ = 0.32 at
@@ -315,7 +415,9 @@ follows from that term:
 
 - **Hard growth ceiling γ³ ≤ αV₀²** — the drive maximizes on the
   precession-resonance surface V₀·Ω_A = γ; measured peak rates reach 95–99%
-  of (αV₀²)^{1/3} in every audited series.
+  of (αV₀²)^{1/3} in every audited series. (2026-07-19: now confirmed as a
+  15-curve dimensionless collapse, γ_peak/(αV₀²)^{1/3} = 0.977 ± 0.011 —
+  §8.7 T2.5, `plots/t2p5_collapse.png`.)
 - **Exact-action quantization** (the branch is quantization-marginal: the
   well holds less than a quarter wave, tan S = κ/k) reproduces the σ-chased
   dominant eigensolver branch to ≤2% (median ≤0.2%) for k_z ≥ 1.5 across
@@ -350,7 +452,10 @@ sponge/box variants per point; fills are ongoing on all available nodes). The
 red × marks in fig06 are points whose stored fit fails a sanity cut
 (γ_sim > 2·γ_WKB or γ_sim > 0.6 TU⁻¹) — mostly parasitic or nonlinear fits that
 the raw tables currently retain (§8.4). The maps make the peak ridge and its α
-migration visible directly in the V₀=0.03–0.2 panels.
+migration visible directly in the V₀=0.03–0.2 panels. **(2026-07-19: these
+tables are now superseded as the quantitative record by the corrected-pipeline
+archive of §5.8/fig18 — treat fig06 as a coverage map, not a measurement
+table.)**
 
 ### 5.6 Eigenfunction structure — what the mode actually looks like
 
@@ -364,6 +469,78 @@ honest consequences: (a) the mode is often better described as a **shear-fed
 outer EM instability** than a textbook KH ripple at the interface — the
 energetics diagnostic (T1.5) will decide the right name; (b) wherever the peak
 sits near the sponge, the measured γ is systematically compressed (§8.3).
+(2026-07-19: the eigenfunction is now also *directly verified in the 2D code* —
+the T2.2 overlay figure shows the simulation's linear-phase profile tracing
+the solver eigenfunction with correlation 1.0000, including a non-trivial
+double-lobe By² shape grown from an effectively unseeded field — §8.7,
+`plots/t2p2_eigenfunction_overlay.png`.)
+
+### 5.7 The warm-fluid closure (T1.4, done 2026-07-19) — filters-off validation, with a reversal
+
+`presentation/plots/fig17_warmclosure.png`
+
+The program's biggest standing vulnerability (§8.1) was that the measured mode
+is subdominant in the cold system and only measurable behind spectral filters.
+The designated fix — an isothermal-pressure warm closure (`warm_T`, giving each
+beam v_th ≳ V₀) run with **all filters off** — has now been executed: a C35
+clone (α=2, V₀=0.05, k_z=1..8) with a cold filters-off control plus three warm
+legs (v_th/V₀ = 2.0, 2.5, 3.0), 32 runs, all surviving to clean fits.
+
+The result validates the program, but through a sharper mechanism than the one
+anticipated:
+
+- **The three warm legs agree with each other to <2%** (despite a 2.25× spread
+  in warm_T) and sit within ~1% of the filtered-cold eigensolver near the peak
+  (k_z=3–4: 0.155/0.149 measured vs 0.151/0.152 predicted).
+- **The cold filters-off control is the contaminated measurement, not the warm
+  ones.** First read, the warm legs looked "too fast" (higher γ than cold at
+  every k_z). A per-channel energy decomposition against snapshots
+  (`analysis/diagnose_warmclosure_channels.py`) reversed that: in the cold run
+  the colour-1 EM instability at the *target* k_z (the γ≈1.1–1.4 channel the
+  production filters exist to remove) grows at γ=1.395 and is 8× the target
+  signal by t=30, dragging the fit; in the warm run the same channel grows at
+  half that rate (0.730) and stays ~6 orders of magnitude below the target
+  mode. Pressure does exactly the stabilizing job the §8.1 defense asserted —
+  now demonstrated, not asserted.
+- The same decomposition quantified, for the first time, how subdominant the
+  intended mode is in the unfiltered cold system: colour-1 EM + fluid kinetic
+  energy exceed the measured colour-2/3 sector by 4–6 orders of magnitude.
+
+**The honest statement of §8.1 therefore upgrades from** "the filtered cold
+measurement is asserted to be the T→0 limit of a warm plasma" **to** "the
+filters-off warm plasma reproduces the filtered-cold theory curve to ~1% near
+the peak; the filters remove modes that a physical thermal spread suppresses."
+Residual opens: the warm γ(k_z) profile is flatter than theory across
+k_z=1..8 (k_z=1 reads 39% high; k_z=5 splits between warm_T values), so a true
+*warm eigensolver* (fluid pressure terms added to `ym_eigenmode.py`) is the
+right next theory artifact; until then the comparison is warm-sim vs cold
+theory.
+
+### 5.8 The corrected-pipeline archive (2026-07-19) — the integer-k_z map at 8–9% median accuracy
+
+`presentation/plots/fig18_recorr_accuracy.png`
+
+After the §8.9 pipeline bugs were fixed, the archive was rebuilt from scratch
+by dedicated rerun campaigns (recorrection + the trimmed integer-k_z "intkz"
+campaign; run_mode 6, EPS=0.15, vetted sponges, NZ/4.5 filter rule, fixed
+extractor, plateau detection in the fitter). Status:
+
+- **~1,500 corrected integer-k_z clean-core points** (k_z=1–9, α>0.3, V₀ =
+  0.01–0.2), of which ~1,000 are plateau-confirmed, measured against the
+  σ-chased eigensolver *at each run's exact sponge* (never the quartic, never
+  the default-σ call — §8.8).
+- **Median |rel. err.| 9.1% (plateau-confirmed), improving monotonically with
+  V₀**: 20% at V₀=0.01 (weak-signal regime) through 8–9% at V₀=0.03–0.05 to
+  4–7% at V₀=0.07–0.2. The intkz campaign is paused at 87% (988/1134 grid
+  points); the remaining 146 runs are queued.
+- The map stops at k_z=9 by *measured* necessity: at NZ=64, k_z≥10 modes
+  (~5 cells/wavelength) are killed by FCT diffusion — the seed actively
+  decays — and NZ=256 still under-resolves them. A documented resolution
+  cliff, not a physics boundary.
+- This supersedes the older sweep tables (§5.5) as the quantitative archive;
+  the old tables remain useful only as qualitative coverage maps, and their
+  `rel_error` columns (vs the mislabeled quartic) should never be quoted
+  (§8.4, §8.9).
 
 ---
 
@@ -409,7 +586,21 @@ mechanism is understood.
   37% — filter/Nyquist interaction, not gradual), courant=1.0 is the CFL cliff;
   x-resolution needs EPS/DX ≳ 6. The production grid sits safely inside all
   three. **The WKB gap is not a resolution artifact** — it persists identically
-  at every converged configuration.
+  at every converged configuration. ⚠️ **Qualified 2026-07-19 (T2.8, §8.7)**:
+  the original study anchored one point (α=1, V₀=0.05, k_z=1). Spot-checks at
+  the extremes show the low-αV₀ corner converged to <1%, but the high-αV₀
+  corner (α=3, V₀=0.10, k_z=5 — the narrowest, fastest production mode) is
+  **~3–6% under-resolved** (timestep +5.9%, NX +2.7% on refinement). "Converged
+  to ~2%" must be stated as "~5% at the high-αV₀ end" in any paper.
+- **Two further resolution rules found 2026-07-17/19**: (a) the z-band-stop
+  filter must satisfy **kz_suppress_hi ≤ NZ/4.5** (hi=14 at NZ=64, 28 at
+  NZ=128, 112 at NZ=512) — a wider band reaches into the grid's dispersive
+  near-Nyquist tail where the FCT limiter continuously deposits mode-correlated
+  content, and zeroing that band strongly damps the *kept* mode (γ drops
+  smoothly by up to 20% as hi grows past the rule, then collapses entirely);
+  (b) at NZ=64 the map's usable range is **k_z ≤ 9** — k_z ≥ 10
+  (~5 cells/wavelength) is killed by FCT diffusion outright, and NZ=256 is
+  still not converged there (§5.8).
 - **Energy conservation**: E/E₀ = 1.000000 through the linear phase in converged
   runs; energy-threshold or NaN halts occur only after nonlinear saturation.
 - **Gauss's law** (fig09): the non-Abelian constraint ∂ₓEx^a + ∂_zEz^a +
@@ -424,7 +615,10 @@ mechanism is understood.
   `REFEREE_PROOFING_RESULTS.md` §T2.3.
 - **Fit quality**: production campaigns report R² ≥ 0.999, but R² alone does not
   certify window placement on multi-regime curves (§8.5) — the plateau in the
-  local slope is the meaningful diagnostic, audited so far only for C25. Growth
+  local slope is the meaningful diagnostic. Originally audited only for C25;
+  as of 2026-07-19 the corrected-pipeline refits carry an explicit plateau
+  detector per point (`has_plateau` in `sweep/recorr_results.csv`), and ~68%
+  of the rebuilt integer-k_z clean core is plateau-confirmed (§5.8). Growth
   is measured on the circular amplitude, immune to Im(γ) phase rotation.
 - **Linearity check** (seed amplitude ×10/×0.1 ⇒ γ unchanged): ✅ **T2.4 done
   (2026-07-19)** — at α=1, V₀=0.05, kz=1 the fitted γ = 0.0901 is identical to
@@ -454,12 +648,20 @@ competitors are projected out."*
 instability is a cold-beam pathology. A warm plasma with thermal spread
 v_th ≳ V₀ Landau-damps or pressure-stabilizes the two-stream family while leaving
 the shear-driven mode (which lives on the *relative* drift structure, not the
-beam resonance) essentially intact. But this argument is currently **asserted,
-not demonstrated**. Roadmap T1.4 (add pressure, rerun one full series with all
-filters off) is the single most valuable pending upgrade: if γ(k_z) survives
-within ~10–20%, the entire objection dissolves and the cold-filtered results are
-retroactively validated as the T→0 limit. Until then, this is the program's
-largest known vulnerability.
+beam resonance) essentially intact.
+
+✅ **RESOLVED (2026-07-19): the argument is now demonstrated, not asserted.**
+The T1.4 filters-off warm rerun (§5.7, fig17) shows the warm plasma reproducing
+the filtered-cold eigensolver to ~1% near the peak, warm_T-independent above
+threshold, with the per-channel energy diagnosis explicitly confirming the
+mechanism (pressure halves the colour-1 EM channel's growth and keeps it 6
+orders of magnitude below the target mode; in the cold filters-off control that
+same channel overruns the measurement — the *control* is the contaminated leg).
+One presentational subtlety carried forward: the validation comparison must be
+warm-vs-theory, not warm-vs-cold-control, because the unfiltered cold control
+is not a clean reference for anything. Residual opens are quantitative, not
+existential: the warm profile is flatter than theory across k_z=1..8, and the
+proper theory endpoint is a warm eigensolver (queued, §11).
 
 ### 8.2 The frozen background is not a self-consistent equilibrium — now quantitatively validated (T2.6 done)
 
@@ -707,7 +909,11 @@ which fraction of the growth is "KH-like". This is a naming/framing risk for the
 papers more than a correctness risk — but a referee who plots our own
 eigenfunctions will raise it, so the diagnostic should exist before submission.
 
-### 8.7 Smaller open flanks (each cheap to close — Tier 2 of the roadmap)
+### 8.7 Smaller open flanks — Tier 2 of the roadmap (all eight ✅ as of 2026-07-19)
+
+The full batch write-up is `REFEREE_PROOFING_RESULTS.md` (run on t126/t140/t133,
+one experiment at a time; also includes the §8.8 overtone falsification and the
+T2.7 sponge extrapolation reported in §8.3).
 
 - ✅ **Complex frequency (T2.1) done (2026-07-19)**: the σ-chased dominant
   localised **complex** eigenvalue γ = Re(growth) + i·Im(freq) is now tabulated
@@ -740,9 +946,12 @@ eigenfunctions will raise it, so the diagnostic should exist before submission.
   folds all 15 curves onto one master curve. So α and V₀ enter through
   (αV₀²)^{1/3} (growth) and (α/V₀)^{1/3} (wavenumber), **not** αV₀ alone,
   empirically confirming the T1.2 ceiling γ³ ≤ αV₀². `plots/t2p5_collapse.png`.
-- **Single EPS**: everything at EPS=0.15 (T1.1 is the fix and is cheap).
+- ✅ **Single EPS**: resolved by the T1.1 scan (2026-07-19, §5.3a) — and the
+  answer went against the EPS-free claim; no longer a "flank", now a headline
+  reframing.
 - **2D geometry**: k_y modes (filamentation/Weibel out-of-plane) are excluded by
-  construction; a linear solver with k_y ≠ 0 is the cheap check (T3.1).
+  construction; a linear solver with k_y ≠ 0 is the cheap check (T3.1). *(Still
+  open — the only Tier-2-adjacent item not yet run.)*
 - **Cold, non-relativistic, SU(2), classical**: acknowledged model boundaries;
   each has a roadmap item (T1.4, T3.3, T3.4) or an explicit scope statement.
 
@@ -773,6 +982,48 @@ true-n0 eigenfunction (γ_exact=0.1309) grows **0.1287**. The simulation faithfu
 grows whichever mode it is seeded with, so the celebrated sim-vs-solver agreement
 certifies the numerics, not dominant-mode selection — exactly the diagnosis above.
 See `REFEREE_PROOFING_RESULTS.md` §8.8.
+
+### 8.9 The 2026-07-17 pipeline-bug event: 96% of the mid-July archive measured the wrong thing (and how it was rebuilt)
+
+The single largest data-quality event in the program's history, found not by a
+physics experiment but by asking "verify the measurement pipeline itself first":
+
+- **Bug 1 — conjugate-helicity extraction.** A one-sign error introduced in the
+  2026-07-04 stdlib-DFT rewrite of `remote_timeseries.py` made the extractor
+  measure the (initially empty, machine-noise-level) *conjugate* helicity
+  component instead of the seeded mode. Blast radius, measured by scanning
+  first-amplitudes across all 7,909 archived timeseries: **7,589 (96%) tracked
+  the wrong component** (everything extracted 07-04 → 07-17). Insidiously, in
+  many regimes the wrong component is slaved to the growing mode and grows at
+  the same γ — so fits looked clean and often agreed with theory — but it
+  genuinely diverges exactly in the slow-growth/competing-mode regimes where
+  the archive's "mystery buckets" lived. **The simulations were fine; the tape
+  recorder was pointed at the wrong channel.** Field dumps are auto-deleted
+  after extraction, so affected points needed reruns, not re-extraction.
+- **Bug 2 — suspectfix box-size labels.** The suspectfix campaign generator
+  never emitted its `lz_override`/`nz_override` lines, so every "half-tier"
+  and "fine-tier" suspectfix run actually ran on the default Lz=2π box at 2×
+  or 8× the labeled k_z. The earlier audits' "k_z<1 floor", "half-tier k_z=2.5
+  undershoot" and "fine-tier 68% block" were bookkeeping artifacts stacked on
+  Bug 1 — not sim deficiencies, not physics.
+- **Validation of the fixes**: a 7-anchor campaign with the corrected pipeline
+  resolved *every* stretched-box anomaly — genuine half/fine-box runs match
+  the σ-chased eigensolver to 1–8% at integer and fractional k_z alike — and
+  the investigation turned up the NZ/4.5 filter-band rule (§7) as a bonus.
+- **Rebuild**: the recorrection + intkz campaigns (§5.8, fig18) re-measured
+  the integer-k_z map with the fixed pipeline — ~1,500 clean-core points,
+  median 9% against the σ-chased eigensolver, plateau-tagged per point.
+
+Standing consequences: any number extracted between 07-04 and 07-17 is
+untrustworthy unless its first-amplitude sanity check passes (log-amp ≈ −13,
+not < −25); the pre-rebuild audits (§8.4's raw-table probes, the 07-17
+full-archive audit) keep their *mechanism* conclusions but their per-point
+numbers are superseded by `sweep/recorr_results.csv`. The "t140-vs-t136 2×
+discrepancy" (§8.4, §9 Q18) is also resolved as moot — it compared a
+wrong-helicity extraction against a correct one, so cross-node reproduction
+was never actually tested; the corrected-pipeline campaigns now span 7
+nodes/streams with consistent statistics, which is a stronger (if implicit)
+cross-node consistency statement than the single-pair test ever was.
 
 ---
 
@@ -805,9 +1056,14 @@ theorist, [N] = computationalist.** Status tags: ✅ solid, ⚠️ partially res
 
 4. **[P] Your mode grows slower than instabilities you delete every step. Why
    should I believe it exists?**
-   ⚠️ The central objection — §8.1 in full. Answer: the deleted modes are
-   cold-beam pathologies with known thermal stabilization thresholds; the warm
-   rerun (T1.4) is the planned proof. Until then the result is conditional.
+   ✅ The central objection — now answered by experiment (§5.7, §8.1). With
+   *all* filters off, a warm plasma (v_th ≳ 2V₀) grows the mode at the
+   filtered-cold theory rate (~1% at the peak), because pressure suppresses
+   the fast cold-beam channels the filters used to remove. The deleted modes
+   are demonstrated cold-beam pathologies; the measured mode survives their
+   removal by physics, not by construction. (The one wrinkle: the *cold*
+   filters-off control is contaminated and reads low — the correct comparison
+   is warm-vs-theory.)
 
 5. **[P] Two-stream at kz≤14 was filtered — but your target modes live at
    kz=1–10. How do you know the filter doesn't touch the physics?**
@@ -829,10 +1085,14 @@ theorist, [N] = computationalist.** Status tags: ✅ solid, ⚠️ partially res
    exists and is confirmed by direct CUDA rerun for V₀≲0.05; it does not work
    at V₀≳0.10 (still fails even at the tightest sponge tried) — so this
    question is **not fully answered**, it is answered for part of the grid and
-   openly unresolved for the rest (§11 item 3b). The missing piece is still
-   extrapolation xi_sponge → ∞ (T2.7), now joined by understanding why the
-   outer branch's strength scales with V₀ at all. Points where the sponge
-   binds are flagged, not hidden.
+   openly unresolved for the rest (§11 item 3b — the V₀-scaling itself was
+   later identified as amplitude competition with density cavitation, not an
+   outer-region effect). The extrapolation ξ_sponge → ∞ is now done (T2.7,
+   2026-07-19, §8.3): γ rises monotonically with sponge radius and saturates
+   by ξ≈16 (<2% thereafter; ξ=6 compresses by 28.5%) — production sponges
+   sit in the single-digit-% compression regime, and the compression is a
+   quantified systematic, not a tunable. Points where the sponge binds are
+   flagged, not hidden.
 
 7. **[P] What is the actual free-energy source — shear, or the frozen field?**
    ❌ Open = §8.6. The drive vanishes with V₀, but the spatial structure is
@@ -898,9 +1158,14 @@ theorist, [N] = computationalist.** Status tags: ✅ solid, ⚠️ partially res
 
 16. **[N] Spectral filters + FCT + leapfrog: any aliasing or filter-Nyquist
     interactions?**
-    ⚠️ One was found the hard way: NZ=32 places the filter band edge at Nyquist
-    and collapses γ — hence the NZ=64 floor rule. No other interaction is known;
-    the NZ=64/128/256 agreement to 0.1% is the evidence.
+    ⚠️ Two, both found the hard way and both now encoded as rules. (1) NZ=32
+    places the filter band edge at Nyquist and collapses γ — hence the NZ=64
+    floor. (2) 2026-07-17: extending the band-stop's upper edge into the
+    grid's dispersive tail damps the *kept* mode (the FCT limiter deposits
+    mode-correlated content at near-Nyquist wavelengths every step; zeroing
+    that band acts as strong effective damping) — hence
+    **kz_suppress_hi ≤ NZ/4.5**, verified scale-invariant at NZ=64/128/512
+    (§7). Inside those rules, NZ=64/128/256 agree to 0.1%.
 
 17. **[N] The leapfrog does not preserve the non-Abelian Gauss constraint. How
     big is the violation and does it grow?**
@@ -909,14 +1174,19 @@ theorist, [N] = computationalist.** Status tags: ✅ solid, ⚠️ partially res
     referee-proof figure and a bound-vs-time statement (T2.3) remain to be
     finalized. A constraint-preserving scheme was consciously not attempted.
 
-18. **[N] 5,800 runs on shared university GPUs — how do you know a given batch
+18. **[N] ~10,000 runs on shared university GPUs — how do you know a given batch
     ran the binary/config you think it did?**
-    ✅/⚠️ Two incidents (stale binary, stale extraction script) led to hard rules:
+    ✅/⚠️ Three incidents (stale binary, stale extraction script, and the big
+    one — the 2026-07-17 conjugate-helicity extraction bug that silently
+    invalidated 96% of two weeks of timeseries, §8.9) led to hard rules:
     rebuild + 1-TU smoke test after every source sync; md5-verify analysis
-    scripts per node; directory-name encodes full parameter set; runs
-    re-extractable from raw CSV dumps. ⚠️ And one open case: a same-config re-run
-    of the flagship series on a different node gives 2× the k_z=1 rate (§8.4) —
-    cross-node reproduction is not yet demonstrated.
+    scripts per node; directory-name encodes the full parameter set (now
+    including NX/Lx overrides); first-amplitude sanity check on every
+    extracted series; runs re-extractable from raw CSV dumps where kept. The
+    honest lesson a referee should hear: the pipeline was audited *because*
+    the numbers looked fine, and that audit is what caught the bug. The old
+    "t140-vs-t136 2× discrepancy" dissolved with it (§8.9); the corrected
+    archive spans 7 nodes with consistent statistics.
 
 19. **[N] Your legends say R² = 1.000 everywhere. Isn't that meaningless — the
     curves visibly have several linear regimes, and some fit windows sit right
@@ -926,9 +1196,11 @@ theorist, [N] = computationalist.** Status tags: ✅ solid, ⚠️ partially res
     near a smooth regime transition is guaranteed, not informative. The
     defensible quantity is the plateau of the local slope d ln A/dt; the C25
     audit shows the plateau matches the eigensolver to 0.7–3.6% for k_z=1–5 and
-    exposes k_z=6 as having no measurement at all. Plateau-based fitting and a
-    re-audit of every quoted campaign are queued (§11 item 3) before any of the
-    per-point numbers go into a paper.
+    exposes k_z=6 as having no measurement at all. As of 2026-07-19 the
+    corrected-pipeline refits run a plateau detector on every point and store
+    the result (`has_plateau`); quoted statistics separate plateau-confirmed
+    from best-window-only populations (§5.8), and "no plateau" is reported as
+    such rather than papered over with an R².
 
 ---
 
@@ -955,11 +1227,18 @@ Full mappings in `../RESEARCH_ROADMAP.md` Part II.
 6. **Neutron-star mergers with quark matter** — one closing sentence; speculation
    stacked on speculation; explicitly kept out of abstracts.
 
-**Publication plan** (roadmap Part III): Letter A (coupling-selected wavelength;
-blocked on the EPS scan T1.1 + branch study T1.3 + scaling theory T1.2), full
-linear paper B (model + validation stack + maps; blocked on warm closure T1.4 and
-Tier-2 referee-proofing), nonlinear paper C (Kolmogorov flow, T1.6), then the
-application papers D/E.
+**Publication plan** (roadmap Part III), updated 2026-07-19: Letter A's
+original headline ("coupling-selected wavelength") **did not survive the EPS
+scan** (§5.3a) — the Letter must be re-founded on what did survive: the
+exact-action selection law with its confirmed collapse (γ ceiling (αV₀²)^{1/3}
+at 0.977±0.011, k_z scale (α/V₀)^{1/3}) plus the measured, weak,
+theory-unexplained EPS drift as the honest boundary of the claim; that
+re-founding is blocked on the EPS-dependent theory term (§11 item 1) and the
+cache regeneration (§8.8). Full linear paper B is in markedly better shape
+than a week ago: warm closure done (T1.4 ✅), all Tier-2 referee-proofing done
+(✅), corrected integer-k_z map at 8–9% (§5.8) — remaining blockers are the
+intkz completion (146 runs) and the warm eigensolver. Nonlinear paper C
+(Kolmogorov flow, T1.6) and applications D/E unchanged.
 
 **Novelty survey (2026-07-18, `../LITERATURE.md`)**: ~11 targeted searches
 found no prior KH/shear-driven non-Abelian plasma instability work — the
@@ -977,24 +1256,31 @@ generalization in 2026 — neighboring fields are moving toward the same ground.
 
 ## 11. Priority list — what would most improve this work now
 
-In order of leverage per unit effort:
+Updated 2026-07-19 after the EPS-scan/warm-closure/referee-proofing wave. In
+order of leverage per unit effort:
 
-1. **T1.1 EPS scan** (GPU-days: <1). Decides whether the headline claim survives.
-   Everything about presentation changes depending on this answer. **Do first.**
-2. **T1.4 warm-fluid closure + filter-free rerun** (code: small; runs: days).
-   Converts the program's biggest vulnerability (§8.1) into its biggest
-   validation. Also unlocks papers C/D/E.
-3. **Fit-methodology hardening + sweep-table curation** (§8.4, §8.5;
-   analysis-only). Replace max-R² window selection with plateau detection on the
-   local slope; re-audit C32–C39 (and every quoted campaign) the way C25 was
-   audited; declare no-measurement where no plateau exists; reproduce one
-   campaign cross-node (the t140-vs-t136 2× discrepancy must be understood, not
-   averaged over). Sponge selection is now automatable for V₀≲0.05
-   (`analysis/find_safe_sponge.py`, §8.4) — use it plus a per-point CUDA
-   spot-check to re-run the V₀≤0.05 slice of the suspect set; the V₀≳0.08 slice
-   is still open (item 3b). Re-derive the sub-k_z=1 claim from the solver
-   continuation (T1.3) once the sponge-corrected data lands. Cheap and required
-   before any public number.
+1. **EPS-dependent term in the exact-action theory** (theory-only). The scan
+   (§5.3a) falsified the EPS-free peak law; the eigensolver reproduces the
+   drift, so the missing physics is *in the linear model already* — find which
+   term carries it (candidate: the finite-width correction to the v³ drive /
+   well shape), and re-derive k_z,peak with it. The Letter's claim structure
+   depends on this answer. Also explain the ~30–40% rise of γ at fixed k_z
+   with EPS.
+2. **Warm eigensolver** (add isothermal-pressure terms to `ym_eigenmode.py`;
+   small). Turns the T1.4 validation (§5.7) from warm-sim-vs-cold-theory into
+   warm-vs-warm, and should explain the flat warm profile + the k_z=1 excess.
+3. **Finish the corrected map**: run the 146 owed intkz points
+   (`sweep/intkz_remaining.csv`, currently on user hold), then regenerate the
+   eigensolver caches with σ-chasing (§8.8) so figs 03/04/05/13 stop carrying
+   overtone values, and re-cut figs 03–07 from `recorr_results.csv` instead of
+   the legacy sweep tables. Re-derive the sub-k_z=1 claim from the solver
+   continuation (T1.3) on corrected data. Mostly mechanical, required before
+   any public number.
+1–3 (old numbering) are **done**: ✅ T1.1 EPS scan (§5.3a — answer: drift is
+   real, headline reframed), ✅ T1.4 warm closure (§5.7 — filters vindicated),
+   and the fit-methodology/curation program is superseded by the §8.9 rebuild
+   (plateau detection + vetted sponges are now the pipeline default; the
+   t140-vs-t136 discrepancy dissolved with the helicity bug).
 3b. **✅ RESOLVED 2026-07-15 — see `OUTER_REGION.md` (summary) and FINDINGS.md
    §"Outer-region growth rates: mechanisms identified" (full numbers),
    PHYSICS.md §10 (derivations).** Two separate mechanisms were conflated:
@@ -1066,6 +1352,10 @@ In order of leverage per unit effort:
    with σ-chasing; one cheap CUDA reseed check) and the Letter's framing
    change ("coupling + containment radius select the wavelength").
 6. **T1.5 energetics** (post-processing): settles the naming question (§8.6).
+   Half the tooling now exists — `analysis/diagnose_warmclosure_channels.py`
+   (§5.7) already computes per-channel energies against snapshots; what
+   remains is the drive-term decomposition (Reynolds stress vs precession vs
+   Poynting) rather than channel bookkeeping.
 7. **T1.6 non-Abelian Kolmogorov flow** (new equilibrium; the nonlinear paper):
    removes the frozen-background and sponge caveats *simultaneously* (the
    former is already quantitatively bounded by the T2.6 test, §8.2), and its
@@ -1083,6 +1373,14 @@ In order of leverage per unit effort:
   sequentially (never parallel on one GPU), ~15 min wall time.
 - Analysis: `analysis/remote_timeseries.py` on-node → rsync `timeseries_k*.csv`
   → `analysis/batch_analyze.py` → `analysis/make_sweep_tables.py --fill`.
-- Presentation figures: `python3 presentation/make_plots.py` (figs 01, 05, 06,
-  07, 11, 12 regenerate from the npz tables, the t136 timeseries mirror, and the
-  FINDINGS master table; the rest are curated copies from `plots/`).
+- Presentation figures: `python3 presentation/make_plots.py` (figs 01, 03–07,
+  11–15 regenerate from the npz tables, `batch_best.csv`, the t136 timeseries
+  mirror, and the FINDINGS master table; figs 16–18 regenerate from
+  `sweep/epsscan_results.csv`, `sweep/warmclosure_results.csv` and
+  `sweep/recorr_results.csv` — those CSVs are themselves rebuilt by
+  `analysis/measure_epsscan_accuracy.py` / `measure_warmclosure_accuracy.py`
+  from the fetched timeseries, and by `analysis/recorr_collect.py`; the
+  remaining figures are curated copies from `plots/`, including
+  `t2p*_*.png` (referee-proofing batch), `kz0v3_relerr_map.png` /
+  `kz0v4_valley_detail.png` (kz=0 bias map) and
+  `epsscan_eigensolver_prediction.png`).

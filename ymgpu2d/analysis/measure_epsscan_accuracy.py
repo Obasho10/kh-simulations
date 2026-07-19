@@ -94,6 +94,9 @@ def main():
         rows.append(dict(**r, status='ok', gamma_sim=slope, r2=r2,
                          n_efold=np.log(amp[j]) - np.log(amp[i])))
     res = pd.DataFrame(rows)
+    out_csv = os.path.join(ROOT, 'sweep', 'epsscan_results.csv')
+    res.to_csv(out_csv, index=False)
+    print(f"wrote {out_csv}")
 
     print(f"Total points: {len(res)}")
     print(res['status'].value_counts().to_string())
