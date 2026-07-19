@@ -38,7 +38,24 @@ Median |rel_err| valley (21%) at α≈2.6-2.8, signed bias crosses zero at
 α≈3.4-3.6 (well-sampled region, α≤4.4); still the same known-biased
 extraction, now with a much sharper picture of where it's least wrong. See
 FINDINGS.md 2026-07-19 "kz0v3: dense (alpha, V0) deviation map" +
-`plots/kz0v3_relerr_map.png`. See FINDINGS.md 2026-07-19 "kz=0
+`plots/kz0v3_relerr_map.png`. **Follow-up 2026-07-19 (kz0v4, 144 more pts)
+— CAMPAIGN CLOSED OUT**: checked two things spotted in the kz0v3 heatmap.
+(1) An isolated near-zero-error pixel at (α=0.8, V0=0.04) turned out to be
+the fit's knife-edge sensitivity, not a real feature — densifying around it
+showed immediate V0 neighbors 0.005 apart swinging from +7% to −70%, no
+smooth structure, and even an independent rerun of the identical point
+didn't reproduce bit-for-bit (~3% γ_fit drift, no RNG in the source —
+GPU float-reduction-order sensitivity amplified over 100+ TU of noise
+growth). (2) The valley's zero-bias crossing V0(α), refined to 0.1-α step,
+fits a strikingly clean power law V0_cross = 0.175·α^−0.80 (median residual
+0.24% over α=1.6-8.0) — real and reproducible, but almost certainly
+characterizes the fit bias's own structure (how transient-undershoot and
+nonlinear-overshoot trade off) rather than new kz=0 chromo-Weibel physics.
+See FINDINGS.md 2026-07-19 "kz0v4: corner-anomaly check + valley power-law
+characterization" + `plots/kz0v4_valley_detail.png`. **No further kz0
+extension work planned** — the extraction method's bias is now characterized
+as thoroughly as it's going to be without a fundamentally different
+(per-point manual or envelope-based) technique; see FINDINGS.md 2026-07-19 "kz=0
 extension campaign CLOSED OUT" for the full story (also documents an
 earlier, now-superseded contamination from a `suppress_kz0=0` run exposing
 the periodic-wrap-collapse/secular-By1-pump obstructions from
