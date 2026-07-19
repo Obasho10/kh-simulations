@@ -77,22 +77,20 @@ referee-proofing (cheap, do opportunistically); Tier 3 are follow-on projects.
       ξ_sponge 21→5, now genuinely vetted). `ym_eigenmode.py`'s seed-export
       filename also gained an `_lx<N>` tag for the same collision reason as
       the EPS tag above.
-- [ ] Extract kz_peak(EPS) at fixed α, and kz_peak(α) at 2–3 EPS values. GPU
-      confirmation still pending (queued next after recorrection); an
-      eigensolver-only prediction (no GPU time) is already in hand from the
-      safe-sponge hunt above — see `analysis/eps_tachyon_scan.py` and
-      FINDINGS.md 2026-07-18. **Headline of that prediction: kz_peak DRIFTS**
-      (α=1.0: 5→4→4→3→3, α=2.0: 5→5→4→4→4, as EPS runs
-      0.10→0.15→0.225→0.30→0.45) — the opposite of the T1.2 EPS-free
-      prediction. Caveat: the peak is broad/flat (γ within a few % across
-      2–3 adjacent kz at every EPS), so this eigensolver argmax is fragile;
-      the GPU campaign's own fit noise could move it independent of physics
-      — read the whole γ(kz) shape, not just which integer wins. A second,
-      independent effect also showed up: γ(kz) at *fixed* kz and *fixed*
-      xi_sponge still rises 10–39% from EPS=0.10→0.45 (not a sponge or
-      box-size artifact — both controlled for) — EPS affects the *magnitude*
-      of the growth rate on top of whatever it does to the wavelength
-      selection, unexplained by the current ξ_char/ξ_crit picture alone.
+- [x] Extract kz_peak(EPS) at fixed α, and kz_peak(α) at 2–3 EPS values.
+      **GPU-CONFIRMED 2026-07-19** (120 runs, t126+t140, all clean fits
+      R²≥0.997): kz_peak(EPS) from real sim data — α=1.0: 4→2→2→2→2,
+      α=1.5: 5→4→2→3→3, α=2.0: 5→4→3→4→3 (EPS 0.10→0.15→0.225→0.30→0.45).
+      **The drift is real, not just an eigensolver artifact** — this is
+      evidence *against* the "gauge-coupling-selected, EPS-free" headline
+      claim, not for it. At the historical baseline EPS=0.15, kz_peak≈2α
+      roughly holds (why the original series never saw this); away from
+      0.15 it moves by 1-3 integer steps. Sim/exact vs the eigensolver:
+      median 0.855, IQR [0.70,0.99] (healthy, in the historical range). See
+      FINDINGS.md 2026-07-19 "EPS-scan (120 pts) and warm-closure (32 pts)
+      GPU results" for the full per-(α,EPS) table. Needs a T1.2 theory
+      follow-up (EPS-dependent correction) before any paper draft commits
+      to the EPS-free claim as-is.
 
 **Tachyonic-branch note (added 2026-07-18, `analysis/eps_tachyon_scan.py`)**:
 the scan doubles as a check of how EPS affects the outer Nielsen–Olesen
@@ -198,13 +196,30 @@ plasma with v_th ≳ V0 stabilizes the two-stream family.
       instead (`warmcl_cold`/`warmcl_wt2p0`/`warmcl_wt2p5`/`warmcl_wt3p0`) —
       24 runs total, ~0.6 GPU-h, `scripts/warmclosure_t130.sh`, launched
       alongside the EPS scan by `scripts/launch_after_recorr.sh`.
-- [ ] Compare γ(kz) with the filtered cold runs and with a warm eigensolver
-      (add the pressure term to `ym_eigenmode.py` — **not** a small change on
-      reflection: the 6-field eigensolver state vector [b,ex,ez,a,qA,qB] has
-      no fluid n/p degrees of freedom at all, so a warm cross-check needs a
-      real extension of the state vector, not a one-line sound-speed term;
-      left for after the GPU results are in hand). GPU run itself still
-      pending — queued next after recorrection frees t130.
+- [x] Compare γ(kz) with the filtered cold runs. **GPU results in 2026-07-19
+      (32 runs, t133, all clean fits R²≥0.997) — does NOT support the T1.4
+      credibility claim as hoped.** Unexpected result: warm_T *increases*
+      the measured γ at every kz relative to the cold (all-filters-off)
+      control (e.g. kz=4: cold 0.122 vs warm ~0.150, a real trace
+      difference verified point-by-point, not a fit artifact) — the
+      opposite of pressure stabilizing a faster channel to reveal a
+      *slower* clean KH signal. The cold leg tracks the eigensolver's
+      peak-then-decline shape reasonably (ratio 0.77–1.20 across kz); the
+      three warm_T legs instead sit systematically higher AND flatter
+      across kz=2–8, agreeing with each other to <2% despite spanning a
+      2.25× range in warm_T — suggesting a kz-independent channel warm_T
+      is *not* meant to touch (leading suspect: kz=0 cascading into finite
+      kz via non-Abelian coupling, documented since Campaign 3, but
+      unconfirmed). See FINDINGS.md 2026-07-19 for the full table.
+      **Needs a T1.5-style per-channel energy decomposition before this
+      campaign can be called a validation either way** — as it stands it
+      complicates, not simplifies, the credibility story.
+- [ ] Warm eigensolver cross-check still not done (add the pressure term to
+      `ym_eigenmode.py` — **not** a small change on reflection: the 6-field
+      eigensolver state vector [b,ex,ez,a,qA,qB] has no fluid n/p degrees of
+      freedom at all, so this needs a real extension of the state vector,
+      not a one-line sound-speed term). More urgent now given the GPU result
+      above doesn't match the naive expectation.
 
 **Outcome**: if γ(kz) survives within ~10–20%, the filtered cold-plasma campaign
 results are validated as the T→0 limit and the whole objection dissolves. This is

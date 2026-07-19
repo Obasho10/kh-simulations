@@ -3103,3 +3103,96 @@ up from the seeded-eigenmode campaigns' `clip(15/γ,100,400)`, since ~25-30
 e-foldings from machine noise need more time than growing from a finite
 intentional seed). Rerun `analysis/measure_kz0_accuracy.py` against the
 rsynced data once done for the full-grid accuracy numbers.
+
+---
+
+## EPS-scan (120 pts) and warm-closure (32 pts) GPU results — kz_peak drift
+## CONFIRMED with real sim data; warm-closure gives an unexpected result
+## (2026-07-19)
+
+Both campaigns finished cleanly (0 CRASHED across all 152 runs) while the
+kz=0 investigation above was underway. Fit every timeseries with a
+best-R²-window log-linear search (same method as `measure_kz0_accuracy.py`);
+all 120 EPS-scan fits and all 32 warm-closure fits converged with R² ≥ 0.997
+(most ≥ 0.9999) — clean single-exponential windows throughout, no fitting
+degeneracy.
+
+### T1.1 EPS-scan: kz_peak DRIFT is real, not just an eigensolver artifact
+
+Sim/exact (vs the eigensolver, `epsscan_manifest.csv`'s `gamma_eig_real`):
+median **0.855**, IQR [0.696, 0.992] — in the historically expected range
+(RESEARCH_ROADMAP.md's own status line: "sim/exact = 0.94–0.99" for the
+original α=2 series; wider spread here since this scan deliberately probes
+corners — narrow/wide EPS, α=1.0 — that series never touched). No systematic
+alpha-dependence beyond a mild trend (α=1.0 median 0.83, α=1.5: 0.85, α=2.0:
+0.96); EPS=0.10 (narrowest, most resolution-sensitive) fits *best* (0.977).
+
+**kz_peak(EPS) from the actual GPU data** (argmax γ_sim over kz, per α):
+
+| α | EPS=0.10 | 0.15 | 0.225 | 0.30 | 0.45 |
+|---|---|---|---|---|---|
+| 1.0 | kz=4 | kz=2 | kz=2 | kz=2 | kz=2 |
+| 1.5 | kz=5 | kz=4 | kz=2 | kz=3 | kz=3 |
+| 2.0 | kz=5 | kz=4 | kz=3 | kz=4 | kz=3 |
+
+**kz_peak genuinely moves with EPS in the real simulation, not just the
+eigensolver pre-analysis** — confirming, not just predicting, the headline
+finding from `eps_tachyon_scan.py`. At the historical baseline EPS=0.15,
+kz_peak ≈ 2α roughly holds (α=1.0→2, α=1.5→4 [off by one], α=2.0→4) — this
+is why the original series never saw the drift. Away from EPS=0.15 in
+either direction, kz_peak moves by 1–3 integer steps and does **not** track
+2α. **This is evidence against, not for, the "gauge-coupling-selected
+wavelength, EPS-independent" headline claim** — the shear width does
+appear to matter to wavelength selection after all. Needs T1.2 theory
+follow-up (an EPS-dependent correction term) before any paper draft
+commits to the EPS-free claim.
+
+### T1.4 warm-closure: does NOT cleanly validate the filtered-cold picture — unexpected result
+
+The 4 legs (cold + 3 warm_T values) all survived to a clean fit at every
+kz=1..8 (no early crash even for the cold, all-filters-off control — mildly
+surprising on its own, though `t_final` is systematically shorter for cold,
+40–66 TU vs 65–75 TU for warm, consistent with cold instability setting in
+earlier as expected).
+
+**Unexpected finding**: warm_T *increases* the measured γ at every single
+kz relative to the cold (filters-off) control — the opposite of the hoped
+mechanism (pressure stabilizing a faster contaminating channel to reveal a
+*slower*, cleaner KH signal). Verified this is a real trace difference, not
+a fit artifact: at kz=4, cold and every warm leg start from the same seed
+and track together to t≈38 TU (amp≈1.8e-4 in all four), then diverge —
+by t≈58 TU cold reaches 1.5e-3 while all three warm legs reach 3.8e-3,
+consistently 2.5× higher, and the three warm_T values (v_th/V0 = 2.0, 2.5,
+3.0) agree with each other to <2% despite spanning a 2.25× range in warm_T
+itself (i.e. not warm_T-dose-dependent above the threshold where *some*
+pressure is present).
+
+| kz | cold | wt2p0 | wt2p5 | wt3p0 | eigensolver (filtered-cold ref) |
+|---|---|---|---|---|---|
+| 1 | 0.084 | 0.098 | 0.098 | 0.098 | 0.071 |
+| 2 | 0.128 | 0.154 | 0.155 | 0.154 | 0.125 |
+| 3 | 0.123 | 0.154 | 0.155 | 0.155 | 0.151 |
+| 4 | 0.122 | 0.150 | 0.149 | 0.149 | 0.152 |
+| 5 | 0.118 | 0.163 | 0.133 | 0.133 | 0.153 |
+| 6 | 0.128 | 0.156 | 0.156 | 0.136 | 0.151 |
+| 7 | 0.135 | 0.159 | 0.159 | 0.159 | 0.148 |
+| 8 | 0.139 | 0.163 | 0.164 | 0.164 | 0.143 |
+
+The cold leg tracks the eigensolver's peak-then-decline shape reasonably
+(ratio 0.77–1.20 across kz, similar spread to the EPS-scan above) — the
+warm legs instead sit systematically higher and noticeably *flatter*
+across kz=2–8 (0.149–0.164, no clear peak-at-kz≈4 the way the theory or
+even the cold data shows). This is consistent with warm_T feeding energy
+into (or more efficiently coupling to) some kz-independent channel — a
+candidate suspect given this project's history is the kz=0 chromo-Weibel
+mode cascading into finite kz via non-Abelian coupling (documented
+elsewhere, e.g. Campaign 3's "Az2(kz=1) grew monotonically... driven by
+the kz=0 mode through non-Abelian coupling, not genuine KH growth") — but
+this is a hypothesis, not yet checked, and warm_T's job was supposed to be
+suppressing *fluid two-stream*, not the kz=0 Weibel (documented in the
+2026-07-12 mode-2 test to be pressure-*insensitive*, being
+anisotropy-driven). **Does not support the T1.4 "credibility" claim as
+hoped** — the filters-off warm measurement does not reduce to the
+filtered-cold production result; it shows a different, flatter profile.
+Needs direct diagnosis (per-channel energy decomposition, T1.5-style) before
+this campaign can be called a validation either way.
