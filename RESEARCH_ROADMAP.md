@@ -196,30 +196,35 @@ plasma with v_th ≳ V0 stabilizes the two-stream family.
       instead (`warmcl_cold`/`warmcl_wt2p0`/`warmcl_wt2p5`/`warmcl_wt3p0`) —
       24 runs total, ~0.6 GPU-h, `scripts/warmclosure_t130.sh`, launched
       alongside the EPS scan by `scripts/launch_after_recorr.sh`.
-- [x] Compare γ(kz) with the filtered cold runs. **GPU results in 2026-07-19
-      (32 runs, t133, all clean fits R²≥0.997) — does NOT support the T1.4
-      credibility claim as hoped.** Unexpected result: warm_T *increases*
-      the measured γ at every kz relative to the cold (all-filters-off)
-      control (e.g. kz=4: cold 0.122 vs warm ~0.150, a real trace
-      difference verified point-by-point, not a fit artifact) — the
-      opposite of pressure stabilizing a faster channel to reveal a
-      *slower* clean KH signal. The cold leg tracks the eigensolver's
-      peak-then-decline shape reasonably (ratio 0.77–1.20 across kz); the
-      three warm_T legs instead sit systematically higher AND flatter
-      across kz=2–8, agreeing with each other to <2% despite spanning a
-      2.25× range in warm_T — suggesting a kz-independent channel warm_T
-      is *not* meant to touch (leading suspect: kz=0 cascading into finite
-      kz via non-Abelian coupling, documented since Campaign 3, but
-      unconfirmed). See FINDINGS.md 2026-07-19 for the full table.
-      **Needs a T1.5-style per-channel energy decomposition before this
-      campaign can be called a validation either way** — as it stands it
-      complicates, not simplifies, the credibility story.
+- [x] Compare γ(kz) with the filtered cold runs. **GPU results 2026-07-19
+      (32 runs, t133, R²≥0.997), then per-channel energy diagnosis on a
+      kz=4 rerun (raw snapshots retained, `analysis/diagnose_warmclosure_
+      channels.py`) resolved the initial puzzle: warm_T DOES support the
+      T1.4 credibility claim — the naive "warm vs cold" comparison was the
+      wrong test.** Initial surprise: warm_T *increases* measured γ at every
+      kz vs the cold (all-filters-off) control (kz=4: cold 0.122 vs warm
+      ~0.150). Diagnosis found why: the kz=0-cascade hypothesis is wrong
+      (kz=0 leakage is actually *smaller* in warm); instead, the colour-1 EM
+      instability (γ≈1.1, the exact channel `suppress_kz0`'s memset exists
+      to kill) grows at γ=1.395 in cold vs γ=0.730 in warm at the SAME
+      target kz — warm_T roughly halves it, exactly the stabilization it
+      was implemented for. In cold, this channel already *exceeds* the
+      intended Az2/Az3 signal by 8× at t=30 (well inside the fit window) —
+      **the cold control is the contaminated measurement, not the warm
+      legs.** Warm's rate (0.150) sits within 1% of the eigensolver
+      prediction (0.152); cold's (0.122) is 20% low. **Correct comparison
+      is warm-vs-theory, not warm-vs-cold** — by that measure T1.4 is
+      supported. See FINDINGS.md 2026-07-19 "Warm-closure per-channel
+      energy diagnosis" for the full trace. Open: this diagnosis only
+      covers kz=4 in depth; kz=1's 39%-high and kz=5's split-across-warm_T
+      behaviour aren't yet explained the same way.
 - [ ] Warm eigensolver cross-check still not done (add the pressure term to
-      `ym_eigenmode.py` — **not** a small change on reflection: the 6-field
-      eigensolver state vector [b,ex,ez,a,qA,qB] has no fluid n/p degrees of
-      freedom at all, so this needs a real extension of the state vector,
-      not a one-line sound-speed term). More urgent now given the GPU result
-      above doesn't match the naive expectation.
+      `ym_eigenmode.py` — **not** a small change: the 6-field eigensolver
+      state vector [b,ex,ez,a,qA,qB] has no fluid n/p degrees of freedom at
+      all, so this needs a real extension of the state vector, not a
+      one-line sound-speed term). More valuable now that warm-vs-theory is
+      the right comparison to make — a genuinely warm theory number would
+      let every kz be checked the way kz=4 just was.
 
 **Outcome**: if γ(kz) survives within ~10–20%, the filtered cold-plasma campaign
 results are validated as the T→0 limit and the whole objection dissolves. This is

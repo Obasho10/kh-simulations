@@ -3196,3 +3196,68 @@ hoped** — the filters-off warm measurement does not reduce to the
 filtered-cold production result; it shows a different, flatter profile.
 Needs direct diagnosis (per-channel energy decomposition, T1.5-style) before
 this campaign can be called a validation either way.
+
+---
+
+## Warm-closure per-channel energy diagnosis (2026-07-19): the kz=0-cascade
+## hypothesis is WRONG; warm_T is working as designed — the *cold* leg is
+## the contaminated one, not the warm legs
+
+Diagnosed the kz=4 puzzle directly (`analysis/diagnose_warmclosure_channels.py`
+against a fresh rerun with raw snapshots retained, cold vs wt2p5): per-snapshot
+energy in each channel using the exact `YM_Energy.cu` formula, plus kz=0 and
+kz=4 amplitudes of Az2/Az3, By1, and the colour charges Q2A/Q3A/Q2B/Q3B.
+
+**Scale check**: colour-1 EM + fluid kinetic energy dominate the *total*
+system energy by 4–6 orders of magnitude over the colour-2/3 sector being
+measured (E_EM_color1 ~ 10–160, E_kinetic_A/B ~ 1–55, oscillating rapidly
+and anti-correlated with each other — vs E_EM_color2/3 ~ 1e-4 to 1e-2, and
+the Az2/Az3 amplitude itself ~1e-6 to 1e-4). This quantifies, for the first
+time, exactly how "subdominant" the intended mode is in the unfiltered
+system — the motivating concern for T1.4 in the first place.
+
+**The kz=0-cascade hypothesis is WRONG**: az_kz0 (the candidate "driver") is
+actually *smaller* in the warm run than the cold run at matched times (e.g.
+t≈37: cold 2e-6, warm 4.2e-7 — cold has *more* kz=0 leakage, not less).
+Ruled out.
+
+**What's actually happening: colour-1 EM growth AT THE TARGET kz is
+dramatically faster in cold than warm.** Fitting `by1_kztarget` (the kz=4
+component of By1, i.e. exactly the "colour-1 EM instability, γ≈1.1" channel
+documented since Campaign 14/15 as needing the `suppress_kz0` memset to
+kill) over t=10–40: **cold γ=1.395, warm γ=0.730 — warm_T roughly halves
+it.** By t=30, By1's kz=4 component (4.5e-4) is already **8× larger** than
+the intended Az2/Az3 signal (5.5e-5) *in the cold run* — i.e. the "cold,
+all-filters-off" control has already been overtaken by exactly the fast
+contaminating channel the filters normally suppress, well before its fit
+window ends. In the warm run, by1_kztarget stays ~6 orders of magnitude
+below az_kztarget throughout the same window — negligible.
+
+**Reinterpretation**: warm_T *is* doing its designed job — suppressing a
+fast fluid/colour-1 channel (consistent with pressure providing exactly the
+kind of restoring force that resists density/current perturbations). The
+"surprising" result from the previous entry (warm measures *faster* than
+cold) is not warm_T inflating the signal; it's that **the cold control is
+the contaminated measurement**, its low apparent rate reflecting a mix of
+the true (slower-growing, being-overtaken) KH mode with an increasingly
+dominant colour-1 instability, not a clean rate at all. The warm
+measurement, with that contamination suppressed, is the more trustworthy
+one — and it lands much closer to the eigensolver reference: at kz=4, warm
+(0.150) is within 1% of the eigensolver prediction (0.152), vs cold (0.122)
+at 20% low. The colour-charge channels tell the same story (qA/qB kz=4
+growth: cold γ≈0.09–0.10, warm γ≈0.11–0.13 — closer to az_kztarget's own
+rate in both cases, consistent with the whole precession chain running
+cleaner once colour-1 stops competing for the same degrees of freedom).
+
+**Revised T1.4 read**: this *does* support the credibility claim, with one
+correction to how to state it — **compare the warm measurement against the
+theory/eigensolver, not against the cold-filters-off number**, which is
+itself unreliable once colour-1 has caught up. warm_T's specific claimed
+job (stabilizing the fluid/colour-1 channel) is now empirically confirmed,
+not just asserted. Open items: (1) the "flatter than theory" profile across
+the full kz=1..8 range isn't fully explained by this single-point (kz=4)
+diagnosis — kz=1's 39% high and kz=5's split behaviour across warm_T values
+need their own check; (2) a real warm eigensolver (fluid n/p degrees of
+freedom, not yet implemented) is now more clearly worth building, to get a
+theory number that's actually warm rather than comparing a warm sim against
+a cold theory reference.
