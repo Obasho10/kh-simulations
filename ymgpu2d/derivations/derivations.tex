@@ -2,6 +2,8 @@
 \usepackage[margin=2.4cm]{geometry}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
+\usepackage{graphicx}
+\graphicspath{{figs/}}
 \usepackage{microtype}
 \usepackage{xcolor}
 \usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
@@ -14,6 +16,16 @@
 \theoremstyle{remark}
 \newtheorem{remark}[lemma]{Remark}
 \newtheorem{step}{Step}[subsection]
+
+% "Physical picture" boxes: indented, small, marked with a colored bar
+\definecolor{intu}{RGB}{42,90,160}
+\newenvironment{intuition}%
+{\par\medskip\noindent
+ \begin{list}{}{\leftmargin 1.15em \rightmargin 1.15em \listparindent 0pt
+ \itemindent 0pt \parsep 2pt \topsep 2pt}\item\relax
+ \small\textcolor{intu}{\rule[-0.6ex]{2.6pt}{2.4ex}}\hspace{0.55em}%
+ \textcolor{intu}{\textbf{Physical picture.}}\hspace{0.5em}\ignorespaces}%
+{\end{list}\medskip}
 \makeatletter
 \@addtoreset{step}{subsection}
 \makeatother
@@ -78,6 +90,7 @@ the filter/sponge operators, and the numerical validation ledger.
 \end{abstract}
 
 \tableofcontents
+{\small\listoffigures}
 \clearpage
 
 % ==============================================================================
@@ -196,7 +209,25 @@ Two derived scales recur throughout (\S\ref{sec:ceiling}):
 Hats denote quantities measured in these scales:
 $\gamma=\Ceil\hat\gamma$, $\kz=\Kwn\hat k$, etc.
 A window (sponge or hard cut) of radius $\xi_w$ (in $\xi$-units) limits the
-mode region in production runs.
+mode region in production runs. Figure~\ref{fig:background} shows the
+background profiles and the central geometric objects of the whole theory,
+the two shifted wavenumbers $\OmA$, $\OmF$ derived in
+\S\ref{sec:sixfield}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_background.pdf}
+\caption{The production background. \emph{Left}: counter-streaming shear
+$v_A=\Vo\tanh\xi$ (beam B is its mirror) and the frozen log-cosh potential
+$\Az$ of eq.~\eqref{eq:Az1}, normalized to its value at $\xi=10$.
+\emph{Right}: the covariant wavenumbers $\OmA=\kz-u$ and $\OmF=\kz+u$
+(here $\alpha=2$, $\Vo=0.05$, $\kz=2$). Beyond
+$\xi_{\mathrm{crit}}=\kz/(\alpha\Vo)+\ln2$ (dotted, shaded) the product
+$\OmA\OmF$ is negative and one circular polarization is tachyonic
+(\S\ref{sec:local}); inside, the same shift $u$ builds the confining well
+of the shear branch (\S\ref{sec:reduction}).}
+\label{fig:background}
+\end{figure}
 
 \subsection{Reading map}
 Sections~\ref{sec:quartic}--\ref{sec:seeding} are ordered logically, not
@@ -204,7 +235,12 @@ chronologically: model $\to$ linearization $\to$ local theory $\to$ exact
 reduction $\to$ drive/ceiling $\to$ quantization $\to$ dispersion-curve
 consequences $\to$ scalings $\to$ nonlinear/auxiliary theory. Each section
 states which numerical validation anchors it; the ledger is collected in
-Appendix~\ref{app:ledger}.
+Appendix~\ref{app:ledger}. Indented \textcolor{intu}{\textbf{Physical
+picture}} boxes carry the intuition behind each derivation. All figures
+are generated from the formulas derived here by
+\texttt{derivations/make\_figs.py}; the validation figure
+(Fig.~\ref{fig:dispersion}) re-runs the repository's six-field eigensolver
+rather than reusing cached curves.
 
 % ==============================================================================
 \section{From the harmonic-core quantization to the quartic, and the
@@ -327,8 +363,34 @@ suppressed in production KH campaigns (\texttt{suppress\_kz0=1} plus
 hyperdiffusion, Appendix~\ref{app:filters}); at the reference point of the
 self-consistency study (\S\ref{ssec:backreaction}), $\alpha=1$, $\Vo=0.05$,
 formula \eqref{eq:weibel} gives $\gamma=0.284$, exactly the measured
-irreducible $\kz=0$ growth there.
+irreducible $\kz=0$ growth there. Figure~\ref{fig:quartic} shows the
+quartic's dispersion curves with the $\kz=0$ anchors.
 \end{remark}
+
+\begin{intuition}
+At $\kz=0$ nothing varies along the flow, so this is not a bunching
+instability but \emph{filamentation}: the frozen $\Az$ rotates the
+color-2/3 fields into each other while the counter-streaming color
+currents feed them, and the displaced currents reinforce the seed field.
+The cube root in \eqref{eq:weibel} is the signature of the loop: closing
+the feedback ($E\to A$ by one time integration, $A\to Q$ by a second,
+$Q\to J\to E$ by a third) gives a loop gain $\propto C/\gamma^3$; marginal
+self-amplification, gain of order one, fixes $\gamma\sim C^{1/3}$, and the
+exact root geometry supplies the $\sin 60^\circ$.
+\end{intuition}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\textwidth]{fig_quartic.pdf}
+\caption{The WKB quartic \eqref{eq:quartic} at $\Vo=0.05$ for
+$\alpha=1,2,3$ ($n=0$), with the exact $\kz=0$ chromo-Weibel roots
+\eqref{eq:weibel} (dots). The $\kz=0$ anchor is validated to $0.5\%$ in
+simulation; the finite-$\kz$ behaviour of the quartic is its
+harmonic-core extrapolation, superseded by the exact-action theory ---
+see the diagnosis in \S\ref{sec:gap} and the direct comparison in
+Fig.~\ref{fig:dispersion}.}
+\label{fig:quartic}
+\end{figure}
 
 % ==============================================================================
 \section{The time-domain model as posed}
@@ -548,6 +610,20 @@ branch instead grows at the expense of the beams' kinetic energy through the
 discussed in \S\ref{ssec:tachyon} and measured in \S\ref{ssec:backreaction}.
 \end{step}
 
+\begin{intuition}
+A frozen field is an infinite battery. Holding $\Az$ fixed is the
+field-theory analogue of an external magnet held in place by an
+unmodelled agent: any process that extracts energy from it can run
+forever, and \eqref{eq:battery} is the wire through which the charge
+flows. The tachyonic branch of \S\ref{sec:local} is precisely the
+discharge of this battery into charged waves --- the 2D analogue of the
+decay of a constant chromomagnetic background (Nielsen--Olesen). The
+shear branch draws on a different account, the beams' bulk kinetic
+energy, which is a legitimate, self-consistently modelled reservoir ---
+which is why windowing away the battery-powered branch while keeping the
+flow-powered one is a physically meaningful excision and not a fudge.
+\end{intuition}
+
 \begin{remark}[Covariant Gauss constraint]
 The monitored (not enforced) constraint is the covariant Gauss law
 $\partial_xE_x^a+\partial_zE_z^a+\alpha\epsilon^{abc}A_z^bE_z^c=\rho^a$ with
@@ -601,6 +677,21 @@ backgrounds excluded from this model --- see the scope remark in
 \S\ref{ssec:scope}.) A background cross product therefore acts on a
 circular pair as multiplication by $\ii\Az$: color rotation becomes a
 $U(1)$ phase, and the 12 real color-2/3 fields close into 6 complex ones.
+
+\begin{intuition}
+Color rotation is a phase. The background points along color-1, and
+rotations about that axis turn the $(2,3)$ color components into each
+other exactly like a planar rotation --- i.e.\ like multiplying
+$X^2+\ii X^3$ by a phase. The color-2/3 waves are therefore
+\emph{charged} fields (charge $\pm1$) under the residual $U(1)$, and
+$\alpha\Az$ acts on them like the $z$-component of an ordinary gauge
+potential: it shifts their momentum, $\kz\to\kz\pm\alpha\Az$. All the
+non-Abelian structure of the problem is packed into this one
+``minimal-coupling'' shift; the split into two different shifts
+($\OmA$ in Amp\`ere, $\OmF$ in Faraday) is the fingerprint of the
+model's fixed $A_x=0$ constraint, which treats the electric and magnetic
+covariant derivatives asymmetrically.
+\end{intuition}
 
 Define the two shifted wavenumbers that this produces,
 \begin{equation}
@@ -847,8 +938,22 @@ is real exactly for
 \simeq\frac{\kz}{\alpha\Vo}+\ln2\;}
 \label{eq:xicrit}
 \end{equation}
-and grows asymptotically linearly, $\gamma_{\mathrm{loc}}\to\alpha\Vo|\xi|$.
+and grows asymptotically linearly, $\gamma_{\mathrm{loc}}\to\alpha\Vo|\xi|$
+(Fig.~\ref{fig:tachyon}).
 \end{step}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\textwidth]{fig_tachyon.pdf}
+\caption{The tachyonic local envelope \eqref{eq:gloc} at $\alpha=2$,
+$\Vo=0.05$ for three $\kz$. Dots on the axis mark the critical radii
+\eqref{eq:xicrit}; the dotted line is the linear asymptote
+$\alpha\Vo(|\xi|-\ln2)$. Higher $\kz$ pushes the instability outward
+--- which is why a production window (shaded, $\xi_w=11$) can exclude
+the branch entirely for the measured modes, and why the exclusion fails
+at large $\alpha$ (Corollary~\ref{cor:highalpha}).}
+\label{fig:tachyon}
+\end{figure}
 
 \begin{step}[Finite $k_x$ only subtracts]
 Keep $k_x\neq0$ but drop the charge coupling (outer region, $v$ at its
@@ -868,6 +973,19 @@ $\gamma_{\mathrm{loc}}(\xi)$ of \eqref{eq:gloc} is therefore the
 \emph{pointwise envelope} over all $x$-structures; global modes must
 oscillate ($k_x^2>0$ costs growth) and sit below it.
 \end{step}
+
+\begin{intuition}
+An effective wavenumber crossing zero. A wave with
+$k_{z,\mathrm{eff}}^2=\kz^2-u^2<0$ has an imaginary wavenumber --- as in
+an overdense plasma, but with the roles inverted: it is the
+\emph{restoring} term of the wave operator that changes sign, so instead
+of evanescing in space the mode grows in time, rolling down an inverted
+potential. And it is the same shift $u$ that, inside
+$\xi_{\mathrm{crit}}$, deepens the confining well of the shear branch
+(through $\D$ in \S\ref{sec:reduction}): one term, two fates, split at
+$\xi_{\mathrm{crit}}$. Window design is nothing more than choosing which
+side of $\xi_{\mathrm{crit}}$ the simulation keeps.
+\end{intuition}
 
 \begin{remark}[Energy source and the freeze artifact]
 By \eqref{eq:batterysign}, this branch is powered entirely by the frozen
@@ -947,6 +1065,17 @@ $k_x\to0$ limit, and its maximization over the background will produce the
 growth ceiling in \S\ref{sec:ceiling}.
 \end{step}
 
+\begin{intuition}
+The charge block is a pair of driven pendulums. The potential $a$ shakes
+each beam's color charge (the $\ii\alpha v a$ source); each charge then
+precesses in the background at its own Doppler-shifted frequency
+$\pm v\OmA$ (opposite for the two beams). Their \emph{difference} is what
+radiates, through the current $-v(q_A-q_B)$, and it feeds $a$ back with a
+sign set by which beam leads in phase. Growth is a phase-locking
+phenomenon between the wave and the beams' color precession --- the
+resonance structure this implies is made exact in \S\ref{sec:ceiling}.
+\end{intuition}
+
 \subsection{Airy estimate for wall-bounded outer modes}
 \label{ssec:airy}
 
@@ -994,11 +1123,27 @@ For a tight window, $U_w=\gamma_{\mathrm{loc}}^2(\xi_w)$ is small (the wall
 sits just past $\xi_{\mathrm{crit}}$) while the slope
 $U'\simeq2(\alpha\Vo)^2(\xi_w-\ln2)/\eps$ is not; \eqref{eq:airy} then goes
 \emph{negative}: the annulus holds no bound state at all, and windowing
-does not merely reduce the outer branch --- it removes it. Measured global
+does not merely reduce the outer branch --- it removes it
+(Fig.~\ref{fig:airy}). Measured global
 rates at the widest tested annuli reach $0.78\times$ the envelope with a
 discrete ladder below, in line with the quantization cost in
 \eqref{eq:airy}.
 \end{cor}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.60\textwidth]{fig_airy.pdf}
+\caption{The Airy wall estimate \eqref{eq:airy} for outer modes bounded
+by a hard cut at $\xi_w$ ($\alpha=1$, $\Vo=0.05$, $\kz=1.5$,
+$\eps=0.15$). The dashed curve is the pointwise envelope
+$U_w=\gamma_{\mathrm{loc}}^2(\xi_w)$; the solid curve subtracts the
+quantization cost $2.338\,(U')^{2/3}$ of bending the mode to zero at the
+wall. In the shaded range of wall radii the corrected $\gamma^2$ is
+negative: the annulus between $\xi_{\mathrm{crit}}$ and the wall is too
+narrow to hold any bound state, which is why tight windows remove the
+outer branch outright rather than merely weakening it.}
+\label{fig:airy}
+\end{figure}
 % ==============================================================================
 \section{Exact scalar reduction of the six-field system}
 \label{sec:reduction}
@@ -1072,6 +1217,21 @@ $\gamma$ (which appears in $\D$, $g$, and the right side), but scalar.
 \subsection{Anatomy of the reduced equation}
 \label{ssec:anatomy}
 
+\begin{intuition}
+Why three powers of $v$. The wave must, in order: (i) \emph{shake} the
+charges --- only moving beams feel the precession source, one factor of
+$v$; (ii) make the two beams respond \emph{differently} --- otherwise
+their currents cancel, and the only asymmetry between them is their
+opposite Doppler rotation, a second factor of $v$; (iii) \emph{collect}
+the response as a current, $\delta J_z=-v(q_A-q_B)$, a third factor of
+$v$. The drive therefore dies as $v^3$ toward the layer center: the shear
+branch is anchored to the \emph{flow}, not to the field maximum. Its
+one-sidedness is helicity selection --- each circular polarization
+couples to the side whose flow direction matches its rotation sense,
+and the mirror mode belongs to the conjugate polarization
+(\S\ref{ssec:helicity}).
+\end{intuition}
+
 \begin{itemize}
 \item \textbf{$\D$ (EM factor).} Sign changes of $\D$ separate the
 propagating/trapped shear-branch region from the tachyonic outer region:
@@ -1100,6 +1260,26 @@ wavenumber
 (the flux form contributes the $\D$ weight; a well requires $Q>0$, i.e.\
 $\D>0$ together with $g<-\gamma^2$).
 \end{itemize}
+Figure~\ref{fig:anatomy} displays $\D$ and $Q$ at a production point,
+computed at the model-B eigenvalue.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_anatomy.pdf}
+\caption{Anatomy of the reduced equation \eqref{eq:reduced} on the driven
+side ($\alpha=2$, $\Vo=0.05$, $\eps=0.15$, $\kz=4$, cut $\xi_w=11$,
+$\gamma=0.1694$ from model B). \emph{Left}: the EM factor $\D$ over the
+whole half-box; $\D<0$ (shaded) beyond $\xi_{\mathrm{crit}}\approx-41$
+is the tachyonic region --- far outside the wall, which is the point of
+the window. \emph{Right}: the exact local wavenumber $Q(\xi;\gamma)$ of
+\eqref{eq:Qexact} near the layer: the shallow well ($Q>0$, shaded)
+between the wall and the tanh$^3$ knee, the resonance surface
+$\xi_{\mathrm{res}}$ of \eqref{eq:xires} inside it, and the strong
+evanescent barrier ($Q\to-(\gamma^2+\kz^2)$, off scale) toward the
+layer. The shallowness of the well --- it holds less than a quarter
+wavelength --- is the quantization marginality of \S\ref{sec:quant}.}
+\label{fig:anatomy}
+\end{figure}
 
 \subsection{Exactness at the discrete level; the two wall faces}
 \label{ssec:discrete}
@@ -1206,8 +1386,22 @@ $g<-\gamma^2$, i.e.\ $G>\gamma^2$ somewhere. Since $G\le G_{\max}$,
 \boxed{\;\gamma^3\le\alpha\Vo^2\;}
 \label{eq:ceiling}
 \end{equation}
-independent of $\kz$, $\eps$, and window geometry.
+independent of $\kz$, $\eps$, and window geometry
+(Fig.~\ref{fig:drive}, left).
 \end{step}
+
+\begin{intuition}
+A self-limiting resonance. The beam response is a Lorentzian in the
+local precession frequency whose width is set by the growth rate itself
+($\R=\gamma^2+v^2\OmA^2$): the faster the mode grows, the broader the
+band of precession frequencies it averages over, and the weaker the peak
+drive $G_{\max}=\alpha\Vo^2/\gamma$ it can extract. The ceiling
+$\gamma^3=\alpha\Vo^2$ is the fixed point of this self-limitation ---
+the mode grows exactly as fast as the drive it leaves itself.
+Equivalently, by \eqref{eq:wstar}: the wave can at best grow as fast as
+the beams' color charges precess \emph{in the beam frame}; faster growth
+would outrun its own energy supply.
+\end{intuition}
 
 \begin{step}[Ceiling, derivation 2 (local drive branch)]
 Alternatively, the homogeneous charge-block branch \eqref{eq:localdrive}
@@ -1258,8 +1452,23 @@ The edges solve $\hat\gamma^2\hat w^2-2\hat w+\hat\gamma^4=0$:
 \end{equation}
 real only for $\hat\gamma\le1$ --- a third, independent derivation of the
 ceiling \eqref{eq:ceiling}. As $\hat\gamma\to1$ the well closes onto the
-resonance point $\hat w=1$ (i.e.\ $w=\Kwn$, $\gamma/\Vo=\Kwn$).
+resonance point $\hat w=1$ (i.e.\ $w=\Kwn$, $\gamma/\Vo=\Kwn$); see
+Fig.~\ref{fig:drive}, right.
 \end{step}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_drive.pdf}
+\caption{The precession-resonance drive. \emph{Left}: $G(w)$ of
+\eqref{eq:Gdef} at $\alpha=2$, $\Vo=0.05$, $\gamma=0.12$: maximal on the
+resonance surface $w^*=\gamma/\Vo$ with $G_{\max}=\alpha\Vo^2/\gamma$
+(eq.~\eqref{eq:Gmax}); a confining well exists wherever $G>\gamma^2$
+(dashed), the shaded band $w\in(w_-,w_+)$. \emph{Right}: the same in
+natural units, eq.~\eqref{eq:welledges}: the well edges $\hat w_\pm$
+close onto the resonance point as $\hat\gamma\to1$ --- the graphical
+statement of the ceiling $\gamma^3\le\alpha\Vo^2$.}
+\label{fig:drive}
+\end{figure}
 
 \begin{step}[Provable non-collapse in $\alpha\Vo$]
 Rates scale as $(\alpha\Vo^2)^{1/3}$ and wavenumbers as
@@ -1367,8 +1576,24 @@ with $S\in(0,\pi/2)$ for the nodeless $n=0$ mode and $S\in(n\pi,\,
 n\pi+\pi/2)$ for the $n$-th overtone. Because $\tan S>0$ requires
 $S<\pi/2$ (mod $\pi$), the branch is \emph{quantization-marginal}: it
 holds less than a quarter wave, and $\gamma$ adjusts to sit close below
-the ceiling so that the well is exactly this shallow.
+the ceiling so that the well is exactly this shallow. Both the matching
+geometry and the graphical solution of model A's closure are shown in
+Fig.~\ref{fig:quant}.
 \end{step}
+
+\begin{intuition}
+A quarter-wave well. The condition is not ``fit $n+\tfrac12$ waves in
+the well'' but ``match one shallow cosine arc to its evanescent tail'':
+a surface-mode-like state. This marginality explains two robust
+observations at once. First, why measured rates hug the ceiling:
+lowering $\gamma$ deepens the well quickly (both $G$ and $Q$ rise), so
+only a small drop below the ceiling buys all the action the connection
+condition demands. Second, why rates are insensitive to window details
+(few percent) while the \emph{peak position} is set entirely by them:
+$\gamma$ is pinned near the ceiling wherever a well exists at all, and
+the geometry only decides for which $\kz$ that is possible
+(\S\ref{sec:peak}).
+\end{intuition}
 
 \subsection{Model A: closed-form dispersion relation}
 \label{ssec:modelA}
@@ -1439,6 +1664,20 @@ eigenvalues near and above the dispersion peak, and it identifies the peak
 within $\pm0.5$ in $\kz$.
 \end{step}
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_quant.pdf}
+\caption{Quantization mechanics. \emph{Left}: graphical solution of
+model A's closure $LX=\arctan(1/X)$, eq.~\eqref{eq:LX} --- the geometry
+factor $L=\eps(\xi_w-\xi_0)\kz$ alone fixes the interior-wavenumber
+ratio $X$, with no reference to $\gamma$. \emph{Right}: the sharp-edge
+matching behind \eqref{eq:tanS} (drawn for $k_x=1$, $\kappa=2.5$): a
+cosine arc with its antinode at the Neumann wall meets the evanescent
+barrier tail with continuous value and slope, which happens exactly when
+$\tan S=\kappa/k_x$; the arc is always shorter than a quarter wave.}
+\label{fig:quant}
+\end{figure}
+
 \subsection{Model B: exact-action quantization}
 \label{ssec:modelB}
 
@@ -1475,6 +1714,27 @@ windows $\xi_w=5$--$40$, $\kz=0.5$--$10$, model B matches the
 $\sigma$-chased dominant ($n=0$) six-field eigenvalues to $\le2\%$ (median
 $\le0.2\%$) at every $\kz\ge1.5$; the worst deviations ($6$--$9\%$) occur
 at $\kz\lesssim1$ where the well is widest and least square.
+Figure~\ref{fig:dispersion} shows this comparison, regenerated from
+scratch for this document at the reference production point, together
+with the quartic it supersedes.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.74\textwidth]{fig_dispersion.pdf}
+\caption{The full theory chain on one dispersion curve ($\alpha=2$,
+$\Vo=0.05$, $\eps=0.15$, hard cut $\xi_w=11$; regenerated for this
+document, no cached values). Open circles: dominant ($\sigma$-chased
+$n=0$) eigenvalues of the six-field system \eqref{eq:sixfield} at
+$N_x=384$. Solid: model B (\S\ref{ssec:modelB}) --- agreement
+$\le0.2\%$ for $\kz\ge2.5$ here, degrading to a few percent only at
+$\kz\lesssim1.5$ where the well is least square. Dashed: closed-form
+model A \eqref{eq:modelA}. Dotted: the WKB quartic \eqref{eq:quartic},
+overshooting at low $\kz$ exactly as diagnosed in \S\ref{sec:gap}. The
+curve peaks at $\kz=4.5$ at $98\%$ of the ceiling (dashed red), and the
+peak location matches eq.~\eqref{eq:kzpeak}: $0.1\times(11-\ln2)+3.42
+=4.45$.}
+\label{fig:dispersion}
+\end{figure}
 
 \subsection{Overtone ladder and eigenvalue-selection hygiene}
 \label{ssec:ladder}
@@ -1555,8 +1815,36 @@ $\eps$}: the shear width does not select the wavelength --- the coupling
 and the containment radius select it together. Verified to $\pm0.6$ in
 $\kz$ on all 11 usable series, including the direct window test: moving
 the cut $11\to25$ at fixed physics ($\alpha=2$, $\Vo=0.05$) moved the
-measured peak $4.5\to5.5$ (formula: $4.45\to5.85$).
+measured peak $4.5\to5.5$ (formula: $4.45\to5.85$). Both tests are shown
+in Fig.~\ref{fig:peak}.
 \end{step}
+
+\begin{intuition}
+The fence picks the wavelength. Every $\kz$ wants to sit on its own
+resonance shell $\xi_{\mathrm{res}}(\kz)$, and the shells march outward
+linearly with $\kz$. The window is a fence: modes whose shell is inside
+run at essentially the ceiling; the first shell outside the fence marks
+the peak; beyond it the mode is pinned at the wall with only the
+detuned drive left, and rolls off. Nothing about the layer width $\eps$
+enters --- for a Kelvin--Helmholtz-type instability this is the most
+counter-intuitive single statement of the theory, and it is what the
+data (peak drifting with window radius at fixed physics) confirmed
+directly.
+\end{intuition}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_peak.pdf}
+\caption{The confinement-set peak. \emph{Left}: model-B dispersion
+curves at fixed physics ($\alpha=2$, $\Vo=0.05$, $\eps=0.15$) for two
+window radii: widening the cut $11\to25$ moves the peak (dots) from
+$\kz\approx4.3$ to $\approx5.6$; dotted verticals are formula
+\eqref{eq:kzpeak} with $c=1$. \emph{Right}: measured dominant-branch
+peaks vs the formula across the validation series
+($\alpha=1$--$5$, $\Vo=0.03$--$0.2$, $\xi_w=5$--$25$; the shaded band is
+$\pm0.6$ in $\kz$).}
+\label{fig:peak}
+\end{figure}
 
 \subsection{Beyond-peak roll-off}
 \label{ssec:rolloff}
@@ -1688,10 +1976,33 @@ Larger $\eps$ (at fixed window and physics) enlarges $S$ at given
 $\gamma$, and since $S$ decreases in $\gamma$, quantization then pushes
 $\gamma$ \emph{up} toward the ceiling --- the sign of the measured
 $10$--$39\%$ rise of $\gamma$ from $\eps=0.10\to0.45$ at fixed
-$(\kz,\xi_{\mathrm{sponge}})$. Because the budget also shifts which $\kz$
+$(\kz,\xi_{\mathrm{sponge}})$; Fig.~\ref{fig:budget} shows the model-B
+version of this rise. Because the budget also shifts which $\kz$
 first saturates its quantization, $\kz^{\mathrm{peak}}$ acquires a mild
 $\eps$-dependence even though \eqref{eq:kzpeak}'s leading terms have none.
 \end{remark}
+
+\begin{intuition}
+$\eps$ buys action. Stretching the layer stretches the well in physical
+$x$ while leaving its depth and shape unchanged in the scaled variable
+$\hat w$ --- so at fixed $\gamma$ the mode accumulates more phase, and
+the connection condition then lets $\gamma$ float up toward the ceiling.
+The shear width is a \emph{budget} knob (how much quantization tax the
+mode pays), not a wavelength selector; that is why its effect shows up
+as a fractional rise of $\gamma$ everywhere rather than as a shift of
+the physics scales $\Ceil$, $\Kwn$.
+\end{intuition}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.58\textwidth]{fig_budget.pdf}
+\caption{The quantization budget at work (model B, beyond-peak
+window-limited points): at fixed physics and window, increasing the
+shear width $\eps$ raises $\gamma$ toward the ceiling, exactly as
+eq.~\eqref{eq:budget} prescribes --- $\eps$ enters only as a
+multiplier on the action.}
+\label{fig:budget}
+\end{figure}
 
 % ==============================================================================
 \section{Diagnosis of the WKB quartic's domain of validity}
@@ -1816,7 +2127,32 @@ Small $kV$: $\sqrt{4\beta+1}\simeq1+2\beta-2\beta^2$ gives
 $\gamma^2\simeq\beta$, i.e.\ $\gamma\simeq kV$. (Measured full-domain
 rates $0.7$--$0.9$ exceed $\tfrac12$ because they include the
 electromagnetic/Weibel corrections outside this electrostatic model.)
+The full curve is Fig.~\ref{fig:twostream}.
 \end{step}
+
+\begin{intuition}
+Bunching in a moving mirror. In the frame of one beam, the other beam's
+charge bunches stream past and their electric field does work on the
+first beam's particles, bunching them in turn; below the band edge the
+bunches of each beam arrive in phase with the wells of the other and the
+loop closes. The band edge $kV=\sqrt2$ is where the streaming Doppler
+shift finally outruns the plasma response. In code units
+($\omega_p=1$ per beam) the band at $\Vo=0.1$ ends at $\kz=14.1$ ---
+the number that fixed the production bandpass-filter edge, and the
+theory whose \emph{spatial} predictions (growth localized in the outer
+$|v_z|\approx\Vo$ region) were used to rule the two-stream out as the
+late-catastrophe driver.
+\end{intuition}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.55\textwidth]{fig_twostream.pdf}
+\caption{Exact cold two-stream growth rate \eqref{eq:tsgamma} in code
+units: $\gamma\simeq kV$ at long wavelength, maximum $\gamma=\tfrac12$
+at $kV=\sqrt3/2$, band edge at $kV=\sqrt2$
+(eq.~\eqref{eq:tsband}).}
+\label{fig:twostream}
+\end{figure}
 
 % ==============================================================================
 \section{Nonlinear theory: cavitation threshold and the back-reaction law}
@@ -1869,6 +2205,20 @@ power at $|\xi|<5$) with the outer region quiet, ruling out the outer
 branches as the driver.
 \end{step}
 
+\begin{intuition}
+The mode digs its own grave. A growing wave in a compressible fluid
+carries a density modulation proportional to its momentum amplitude over
+$\gamma$; on top of it, the quadratic (ponderomotive) beat pushes plasma
+out of the high-field regions at rate $2\gamma$. When the excavated
+fraction reaches the background density, the fluid description --- and
+the code's floored version of it --- stops representing the plasma.
+The threshold \eqref{eq:pcav} is an \emph{amplitude} cliff, not a time
+cliff: that single fact explains why the failure zone maps onto drive
+strength ($\Vo$), why it cares little about window design, and why the
+only safe practice at high $\Vo$ is to stop measuring once the linear
+plateau is banked.
+\end{intuition}
+
 \subsection{Structure of the back-reaction on $\Az$: the quadratic law}
 \label{ssec:backreaction}
 
@@ -1914,8 +2264,35 @@ $\propto e^{2\gamma t}$, each time integration divides by $2\gamma$, so
 e^{2\gamma t}\;\propto\;-\,|a(t)|^2 ,
 \end{equation}
 a pure quadratic law in the instantaneous mode amplitude, pinned at the
-mode peak --- exactly the measured structure \eqref{eq:dazlaw}.
+mode peak --- exactly the measured structure \eqref{eq:dazlaw}
+(Fig.~\ref{fig:backreaction}).
 \end{step}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.52\textwidth]{fig_backreaction.pdf}
+\caption{The measured back-reaction law against the derived quadratic
+structure: $|\Delta\Az|$ at the mode peak vs the instantaneous mode
+amplitude $|a|$, from seeded-minus-unseeded differencing of unfrozen
+runs (t133; two configurations pooled). The dashed line is
+$0.04\,|a|^2$: slope $2$ over four decades, endpoint exact
+($-0.242$ vs $-0.242$ at $|a|=2.46$). The \emph{sign} deepens the
+background --- no depletion.}
+\label{fig:backreaction}
+\end{figure}
+
+\begin{intuition}
+Waves weigh on their background. Any quadratic beat of a
+single-helicity mode is $z$-independent (eq.~\eqref{eq:beat}) --- a DC
+force growing at $2\gamma$ --- so the wave exerts a steady,
+locally-confined push on the color-1 sector wherever its envelope
+peaks, like radiation pressure. Here the push happens to point
+``downhill'': it makes $|\Az|$ larger, recharging rather than draining
+the battery. That closes the last escape route for the frozen-background
+caveat: even fully self-consistent, the tachyonic branch does not switch
+itself off by depletion; the model's true nonlinear endpoint is the
+fluid one (\S\ref{ssec:cavitation}).
+\end{intuition}
 
 \begin{step}[Consequences]
 Since $\Delta\Az<0$ where $\Az<0$, $|\alpha\Az|$ grows: no depletion of
@@ -2010,14 +2387,30 @@ balance $\gamma^2\approx\alpha^2\Vo/\kz$ (\S\ref{sec:gap}),
 \begin{remark}[The implemented width]
 Campaign 18's init kernel uses the simpler
 $\xi_{\mathrm{char}}^{\mathrm{code}}=(\alpha\kz\Vo)^{-1/2}$, which
-coincides with \eqref{eq:xicharhighk} at $\alpha\Vo\kz\approx1.4$ and
-tracks it within a few tens of percent over the campaign grid (e.g.\
-$\alpha=2$, $\Vo=0.1$, $\kz=2$: code $1.58$ vs Hermite
-$\approx1.5$). A width mismatch only launches a transient that decays
-within a few growth times, so the approximation is operationally
+coincides with \eqref{eq:xicharhighk} exactly at $\alpha\Vo\kz=\tfrac12$
+(both give $\sqrt2$) and tracks it within a few tens of percent over the
+campaign grid $\alpha\Vo\kz\approx0.1$--$1.2$ (e.g.\ $\alpha=2$,
+$\Vo=0.1$, $\kz=2$: code $1.58$ vs Hermite $\approx1.50$); the two have
+different scaling exponents ($-1/2$ vs $-1/4$), visible in
+Fig.~\ref{fig:seed}. A width mismatch only launches a transient that
+decays within a few growth times, so the approximation is operationally
 adequate; the exact profile is superseded anyway by full six-field
 seeding (below).
 \end{remark}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_seed.pdf}
+\caption{Seeding theory. \emph{Left}: the harmonic core of the given
+theory with its $n=0$ Hermite ground state \eqref{eq:xichar}
+($\alpha=2$, $\Vo=0.1$, $\kz=2$; $\xi_T$ marks the harmonic turning
+points): eq.~(33) of \texttt{wkb.pdf} \emph{is} the oscillator spectrum
+and the natural seed is this Gaussian. \emph{Right}: the exact Hermite
+width vs the implemented approximation $(\alpha\Vo\kz)^{-1/2}$: equal at
+$\alpha\Vo\kz=\tfrac12$, within a few tens of percent over the campaign
+grid (shaded), but with different power laws outside it.}
+\label{fig:seed}
+\end{figure}
 
 \subsection{Why single-field seeding selects wrong modes}
 
@@ -2046,6 +2439,20 @@ cascade background before the KH chain closes. Gaussian $A_z$ seeding
 $a\to q_A\to$ Lorentz $\to b$ at the correct width
 \eqref{eq:xichar}, which is why it (and its six-field successor) restored
 clean linear windows at $\kz\ge2$.
+
+\begin{intuition}
+Seeding is choosing the initial overlap. A linear run does not measure
+``the'' growth rate of the system --- it measures the growth rate of
+whatever eigenmode dominates the projection of its initial condition
+once transients die. Every seeding pathology of the program is this one
+sentence in different clothes: the C23 stray mode (an $A_z$-only seed
+overlapping a co-located slower mode better than the target), the
+cascade race (a $B_y$ seed whose target projection decays before the
+chain closes), and the overtone trap of \S\ref{ssec:ladder} (a perfect
+six-field seed of the \emph{wrong rung}, faithfully grown by a perfect
+simulation). The cure in every case is the same: know the spectrum
+first, then seed the intended member of it.
+\end{intuition}
 
 \clearpage
 \appendix
