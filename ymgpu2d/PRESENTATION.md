@@ -36,10 +36,12 @@ grid, and its low-α end carries a mode-selection artifact — §8.8.) The main 
 numerical filters that remove faster-growing parasitic instabilities (a warm-fluid
 closure is the physical fix, not yet implemented), the background is frozen rather
 than self-consistent (now quantitatively tested — the back-reaction is quadratic,
-wrong-signed for depletion, and ≲7% out to |a|≈2.5, §8.2), and the
-coupling-selection claim has so far been established
-at a single shear width EPS=0.15 (the EPS scan is the single most important
-pending experiment).
+wrong-signed for depletion, and ≲7% out to |a|≈2.5, §8.2). **Update (2026-07-19/21,
+§8.8/§11):** the EPS scan itself is no longer pending — the P=(αV0²)^(1/3)/EPS
+collapse (T1.1/T1.2) is GPU-validated across α=0.2-6.0, EPS=0.10-0.45 (91+75
+runs across two campaigns); accuracy is 9.9% median at α≥0.5, widening to ~22%
+median as α drops toward the 0.15 noise-floor wall. See FINDINGS.md's "EPS-scan
+v2" and "3-phase unattended campaign" sections.
 
 ---
 
@@ -517,6 +519,18 @@ and the −7% margin are point-specific; (ii) the unfrozen runs are only clean
 inside the pre-Weibel window (~20 TU here), so "validated" covers the linear
 and early-nonlinear phase — genuinely long-time self-consistent evolution
 remains the Kolmogorov-flow program's domain.
+
+**Update (2026-07-21) — the single-physical-point limitation above is about the
+back-reaction/depletion test specifically and still stands as written. The
+*linear growth rate* of the same tachyonic branch, separately, no longer sits at
+a single point**: a dedicated campaign (FINDINGS.md "3-phase unattended
+campaign") measured 46 clean (α,V0,kz,sponge) points spanning α=0.3-2.0,
+kz=0.5-3.0, benchmarked against the true eigensolver (not the crude local-
+dispersion approximation) at median rel_err 22% (a tight, systematic ~0.78×
+undershoot, the same sponge-compression-bias character seen throughout this
+project). Two sponge-depth cascades also confirm the qualitative γ(sponge)
+behavior directly (12-13.5× rise over the swept depth range), not just
+single-point magnitude.
 
 Consequence for khaxn: the frozen "infinite battery" is *not* an overestimate
 of the drive — in a self-consistent setting the beams continuously re-supply

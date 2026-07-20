@@ -14,6 +14,14 @@ INI/SMOKE templates + emit_single/emit_abi from gen_recorrection_campaign so the
 per-stream self-smoke-test (aborts on bad binary/extractor) is inherited.
 
 Output: scripts/intkz_{t126,t132,t133,t140,abi}.sh + scripts/intkz_manifest.csv
+
+UPDATE (2026-07-20, resuming the paused 146 remaining runs): t132 dropped from
+STREAMS (another student's live interactive session). t136 was tried as a
+substitute but turned out to be running an unrelated 98%-GPU training job
+(teaching account, started 03:09) once actually checked -- also dropped.
+Down to 6 streams: t126,t133,t140 (A5000) + abi0/1/2 (1080Ti). No other logic
+changed; this is exactly the documented resume path (rerun this script, it
+re-reads sweep/recorr_results.csv for what's already done).
 """
 import os, sys, math
 import numpy as np
@@ -31,7 +39,6 @@ VETTED = "/tmp/claude-1001/-home-user-kh-ymgpu2d/c827bb50-bf13-4f4e-80bd-ca451ed
 # recorr generator used "/DATA/ym_kh" without /ymgpu2d -- that was why t132 died).
 STREAMS = [
     ("t126", "a5000",  "/DATA/cm/lcpfct/ymgpu2d"),
-    ("t132", "a5000",  "/DATA/ym_kh/ymgpu2d"),
     ("t133", "a5000",  "/DATA/ym_kh/ymgpu2d"),
     ("t140", "a5000",  "/DATA/cm/lcpfct/ymgpu2d"),
     ("abi0", "1080ti", "/DATA/s23103/lcpfct/ymgpu2d"),

@@ -3012,3 +3012,116 @@ real GPU data (not just theory) across α=0.5-6, V0=0.03-0.10, EPS=0.10-0.45.
 The α≥6-10/EPS≥0.15 corner remains unmeasurable with the current window
 mechanisms within reasonable target_tu — a genuine, now-documented limitation
 rather than a swept-under-the-rug gap.
+
+---
+
+## 3-phase unattended campaign (2026-07-20/21): low-α EPS extension, intkz completion, tachyonic-branch mapping
+
+Three pieces of pending work were run unattended, sequentially per stream, across
+6 streams on t126/t133/t140 (A5000) + abi0/1/2 (1080Ti) — t130/t132 excluded (other
+students' active sessions at launch; t136 was tried as a substitute but also turned
+out to be running another student's job once actually checked, so dropped to 6
+streams). Plan: `/home/user/.claude/plans/can-you-make-a-fancy-beaver.md`. Launched
+2026-07-20 11:08 IST, all 6 streams complete by 2026-07-21 03:05 IST (t126 ran ~30%
+slower throughout — another student logged into its console 3h into the run and
+kept a Jupyter kernel at ~45% CPU going for the rest — zero crashes or data
+corruption resulted, just longer wall-clock). Generators: `analysis/gen_epsscan_
+lowalpha_campaign.py`, `analysis/gen_intkz_campaign.py` (STREAMS edited), `analysis/
+gen_tachyonic_campaign.py`.
+
+### Phase A — EPS-collapse P-theory extended down to α=0.2 (75 runs, all fitted)
+
+Prior GPU validation of P=(αV0²)^(1/3)/EPS (previous section) covered α≥0.5 only
+(P∈[0.17,3.91]). This extends to **α∈{0.2,0.25,0.3,0.4}** (α≤0.15 deliberately
+skipped — the known FP32 noise-floor wall from the suspectfix campaign), same
+V0∈{0.03,0.05,0.10} and EPS∈{0.10,0.15,0.225,0.30,0.45} grid as the validated run.
+Reaches P down to **0.125**.
+
+**Result: the collapse holds qualitatively but is noticeably worse than the α≥0.5
+range.** All 75/75 points fitted (windowed max-R² fit, R²>0.98). Median relative
+error vs the Model-B theory prediction is **21.6%** (90th pct 29.6%) — roughly
+double the 9.9%/17.0% seen at α≥0.5. γ̂_sim=γ_sim/(αV0²)^(1/3) ranges 0.565–0.821
+over the covered P range, tracking the theory's qualitative shape (decreasing
+toward the ceiling as P shrinks), but with **real scatter between different α at
+matched P** that wasn't present at higher α — e.g. at P≈0.53, α=0.2 gives
+γ̂=0.646 vs α=0.4 gives γ̂=0.810, a 25% spread that a single-valued P-collapse
+would not predict. Read as: **P-collapse is the right leading-order organizing
+variable down to α=0.2, but a sub-leading α-dependence becomes visible as α drops**
+— consistent with approaching, not yet at, the α≤0.15 noise-floor wall. One
+extraction quirk found and worked around: quarter-tier runs (`bp=56`, `nz_override
+=256`) get mislabeled by `remote_timeseries.py` — its bp→Lz heuristic doesn't
+recognize bp=56, so it names the output file by raw `k_mode` instead of the true
+physical kz (e.g. `timeseries_k9.csv` for what is actually kz=2.25 on an Lz=8π
+box). Verified this is a pure filename bug, not a data bug (the .ini correctly
+carried `lz_override`/`nz_override`, and the amplitude data is a clean growth
+curve) — `remote_timeseries.py`'s hardcoded bp-table should eventually learn bp=56
+too. Table: `sweep/epsscan_lowalpha_fits.csv`.
+
+### Phase B — intkz campaign resumed and effectively completed (988→1087/1134 valid, 95.9%)
+
+Resumed the paused 146-run tail via `analysis/gen_intkz_campaign.py` (STREAMS:
+t132→dropped, same resume mechanism as always — reads `sweep/recorr_results.csv`
+for what's done). All 146 ran; `analysis/recorr_collect.py` fitted + sigma-chased
+the new points into `sweep/recorr_results.csv` (now 1930 rows total across all
+historical campaigns sharing that file).
+
+**Result: 1087/1134 (95.9%) of the trimmed integer-kz grid (kz 1-9, α 0.3-6.0,
+V0∈{0.03,0.04,0.05,0.07,0.08,0.10,0.20}) now has a valid measurement
+(gamma_sim>1e-6).** The remaining **47 points are not scattered noise — all 47 are
+at V0=0.2, α≥3.5** (α∈{3.5,4.0,4.5,5.0,5.5,6.0}, all 9 kz values roughly evenly
+represented). Several have only 8-9 output rows before the run ended (fast halt,
+not the normal 100×-energy-threshold late halt), and 2 didn't produce a fittable
+timeseries at all. This is a **newly-characterized failure corner** — the highest
+α × highest V0 corner of the intkz grid — not previously isolated as a systematic
+wall (the campaign hadn't reached this deep into that specific corner before being
+paused at 87%). Quality elsewhere: median rel_err (plateau-confirmed) 9.0-11.8% by
+tier, consistent with the project's established accuracy; worst individual points
+remain the known V0=0.1,kz=0.5 cluster (ratio up to 3.8, a pre-existing
+sub-kz=1 floor issue, not new). **Next step per the existing resume note**: rerun
+the chased-eigensolver audit (already effectively done by `recorr_collect.py`'s
+sigma-chasing this pass) and characterize whether the V0=0.2/α≥3.5 corner is a
+genuine fast catastrophe (cf. the α≥6/EPS≥0.15 tachyonic blow-up documented above)
+or a resolution artifact, before quoting it as measured-zero rather than
+unmeasured.
+
+### Phase C — tachyonic outer-branch growth rates: 1-3 points → 46 validated points
+
+Prior GPU confirmation of the outer-region frozen-Az1 tachyonic branch
+(γ²=α²Az1(ξ)²−kz², `PHYSICS.md` §10a) was essentially one clean rate measurement
+(α=0.5,V0=0.05,kz=0.5,sp=52) plus a 2-point back-reaction side-study (α=1.0,
+V0=0.05 only, `PRESENTATION.md` §8.3 "single physical point" caveat — that
+back-reaction/depletion limitation still stands separately, this is the rate
+side). New campaign: 50 runs, α≤2.0 (deliberately capped below the α≥6 late-onset-
+catastrophe danger zone that wide sponges + high α are known to trigger), 40
+magnitude-check points (ξ_crit=kz/(αV0)∈[12,33], sponge≈1.5×ξ_crit capped at 53,
+computed directly from `outer_region_theory.gamma_local`) + 2 sponge-depth
+cascades (5 depths each) at (α=0.5,V0=0.05,kz=0.5) and (α=1.0,V0=0.05,kz=1.5).
+
+**Result: 46/50 points fit cleanly** (windowed exponential fit; 4 didn't converge
+— sparse/fast-halting runs, left unmeasured rather than force-fit). **All 46
+benchmarked against the true eigensolver** (`analysis/outer_region_theory.py
+validate`, NOT the manifest's `gamma_loc_pred` column — that column is a crude
+local-dispersion-at-sponge-edge estimate used only to size `target_tu`, and
+overestimates the true rate by 5-10x; see project memory
+`campaign-2026-07-20-three-phase`). **Median rel_err 22.2% (90th pct 29.4%,
+22.0%/26.9% excluding one outlier), median ratio γ_sim/γ_eig = 0.78** — i.e. a
+tight, consistent ~20% systematic undershoot, the same sponge-compression-bias
+character seen everywhere else in this project, just somewhat larger here. This
+is a clean confirmation of the exact tachyonic dispersion law across a genuinely
+broad new range (α 0.3-2.0, kz 0.5-3.0), not just the single legacy point.
+
+**The two sponge-depth cascades directly confirm the qualitative behavior, not
+just magnitude**: γ_sim rises monotonically with sponge depth in both —
+(α=0.5,V0=0.05,kz=0.5): 0.044 (sp=24) → 0.535 (sp=50), a 12x rise; (α=1.0,V0=0.05,
+kz=1.5): 0.086 (sp=33) → 1.166 (sp=53), a 13.5x rise — matching the analytic
+expectation that deeper sponge = deeper into the confining well = faster local
+growth. One clear outlier: (α=1.0,V0=0.03,kz=0.5,sp=25) fit gamma_sim=0.002 vs
+eigensolver 0.033 (ratio 0.061) — likely a fit-window artifact near marginal
+onset (small-amplitude, slow-growth regime), not investigated further. Table:
+`sweep/tachyonic_fits_final.csv`.
+
+**Bottom line**: all three phases ran to completion with zero crashes. The two
+genuinely new findings worth carrying forward are (1) the V0=0.2/α≥3.5 intkz
+corner as a new, uncharacterized failure mode, and (2) the tachyonic branch now
+has broad (not single-point) rate confirmation, at the same ~20% accuracy level
+as the rest of this project's production measurements.

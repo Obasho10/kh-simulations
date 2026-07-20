@@ -13,12 +13,24 @@ tachyonic branch — cite it), and the Abelian EMHD-KH lineage (Das & Kaw). See
 LITERATURE.md §3 for the citation to-do list and the INSPIRE trail audit that
 must happen before submission.
 
-**Status snapshot**: Linear dispersion γ(kz; α, V0) measured for ~12 (α,V0) points,
+**Status snapshot (updated 2026-07-21 — the "~12 points" below is historical,
+from before the intkz/recorrection campaigns; superseded)**: the trimmed
+integer-kz grid (kz 1-9, α 0.3-6.0 at 18 values, V0∈{0.03,0.04,0.05,0.07,0.08,
+0.10,0.20}) is now **1087/1134 (95.9%) measured**, `sweep/recorr_results.csv`
+(1930 rows total incl. half/fine-tier and legacy points), median rel_err vs the
+sigma-chased eigensolver 9-12% by tier. The remaining 47 points cluster
+entirely at V0=0.2/α≥3.5 — a newly-characterized failure corner, not a random
+gap (FINDINGS.md "3-phase unattended campaign"). The EPS scan (T1.1, below) is
+separately resolved across α=0.2-6.0. The tachyonic outer branch (§ below /
+PRESENTATION.md §8.3) has 46 rate-validated points across α=0.3-2.0. Original
+~12-point snapshot text kept for context: Linear dispersion γ(kz; α, V0)
+measured for ~12 (α,V0) points,
 kz = 0.25–9, with three-level validation (WKB ← exact 1D eigensolver ← 2D GPU sim,
 sim/exact = 0.94–0.99). Two novel results in hand: non-monotonic dispersion with
 kz_peak ≈ 2α (V0=0.05 series), and a sharp two-branch structure below kz=1
 (γ=0.32 at kz_phys=0.5 → 0.06 at 0.75, α=2, V0=0.05). kz=0 chromo-Weibel mode
-validated to 0.5%. All campaigns so far at fixed EPS=0.15.
+validated to 0.5%. All campaigns so far at fixed EPS=0.15 (now superseded by the
+resolved EPS scan, T1.1 below).
 
 ---
 
@@ -29,14 +41,25 @@ referee-proofing (cheap, do opportunistically); Tier 3 are follow-on projects.
 
 ## Tier 1 — Headline experiments and theory
 
-### T1.1 EPS scan — is wavelength selection set by α or by the shear width? ⭐ HIGHEST PRIORITY
-- [ ] Generate 6-field eigenmode seeds for EPS ∈ {0.10, 0.15, 0.225, 0.30, 0.45}
+### T1.1 EPS scan — is wavelength selection set by α or by the shear width? ⭐ HIGHEST PRIORITY — ✅ RESOLVED 2026-07-19, EXTENDED 2026-07-21
+- [x] Generate 6-field eigenmode seeds for EPS ∈ {0.10, 0.15, 0.225, 0.30, 0.45}
       at (α=2.0, V0=0.05) and (α=1.0, V0=0.05), kz=1..8 (`ym_eigenmode.py` already
       takes EPS as a parameter — verify seed filenames disambiguate EPS).
-- [ ] Run the corresponding Mode-6 campaigns (fast grid; each kz ≈ 90 s, whole
+- [x] Run the corresponding Mode-6 campaigns (fast grid; each kz ≈ 90 s, whole
       scan < 2 h of GPU time). Watch DX resolution rule: need EPS/DX ≳ 6, so
       EPS=0.10 requires NX ≥ 1024 (use `nx_override`).
-- [ ] Extract kz_peak(EPS) at fixed α, and kz_peak(α) at 2–3 EPS values.
+- [x] Extract kz_peak(EPS) at fixed α, and kz_peak(α) at 2–3 EPS values.
+
+**Final answer to the decision point below (2026-07-19/21)**: kz_peak **drifts**
+with EPS — the "stays ≈2α, EPS-free" alternative is ruled out. But the drift is
+not raw noise or a simple 1/EPS law either: both kz_peak and γ_peak collapse
+cleanly onto single-valued functions of the one dimensionless group
+P=(αV0²)^(1/3)/EPS (theory: `analysis/eps_collapse_theory.py`; GPU-validated
+across α=0.2-6.0, EPS=0.10-0.45, 91+75 runs — FINDINGS.md "EPS-scan v2" and
+"3-phase unattended campaign"). So the correct title-level claim is P-selected
+wavelength, not α-selected — a sharper, still-novel result, just not the exact
+form originally hypothesized. Accuracy: 9.9% median at α≥0.5, ~22% median as α
+drops toward 0.2 (approaching, not yet at, the α≤0.15 unmeasurable floor).
 
 **Decision point**: In classical (Abelian) KH, kz_peak·EPS ≈ 0.4–0.6 — the shear
 width sets the wavelength. If kz_peak stays ≈ 2α as EPS varies, the claim
@@ -46,7 +69,7 @@ the Letter (Paper A). If kz_peak drifts with 1/EPS, the correct dimensionless
 combination must be identified before any paper is written. Either way this scan
 is mandatory and cheap. **Do this first.**
 
-**Status 2026-07-18 — QUEUED NEXT after the recorrection campaign.** An epsscan
+**Status 2026-07-18 (superseded — see the resolved answer above) — QUEUED NEXT after the recorrection campaign.** An epsscan
 campaign was run (~07-13→07-16) but every timeseries was extracted with the
 conjugate-helicity bug (FINDINGS.md 2026-07-17) and the field dumps were
 auto-deleted — all invalid, must be rerun. Prerequisite now in main: the
