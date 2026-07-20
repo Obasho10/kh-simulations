@@ -297,3 +297,89 @@ production modes (α=3, V0=0.1) carry a few-% grid uncertainty a referee should 
 told about. For a definitive high-αV0 measurement, run at NX=1152 and/or
 courant≤0.05. Script: `scripts/t2p8_resolution_t133.sh`; figure
 `plots/t2p8_resolution_extremes.png`; see also `REFEREE_PROOFING_RESULTS.md`.
+
+## Follow-up: Lx box-size reduction + extreme-parameter close-out (2026-07-21)
+
+See `LX_RESOLUTION_PLAN.md` for the full campaign design (`analysis/gen_lx_resolution_campaign.py`,
+`analysis/lx_feasibility_screen.py`). Motivating question: the production box
+`Lx=6π` was set assuming a double-tanh periodic profile; production has actually
+used the single-tanh `run_mode=6` for a long time, so is 6π still needed? 17 GPU
+runs across t133 + abi (3 GPUs), all completed cleanly, no crashes.
+
+**Phase 0 (analytic, no GPU).** Pure-arithmetic pass over the 4192-point historical
+archive (`sweep/all_points_vs_chased.npz`): only 43% of recorded (α,V0,kz) points
+would fit inside a 2π box reusing their own recorded `xi_sponge` as-is. A follow-up
+eigensolver re-derivation on iMac (27-point stratified sample, via the new `Lx` kwarg
+on `find_safe_sponge.find_safe_xi_sponge()`) showed roughly half of those "failures"
+were artifacts of the blind sponge formula's SP_MAX=55 ceiling, not real requirements
+— true minimum sponges were often 5–7. The genuine failures cluster at **low V0
+(≲0.05)**, needing a properly-derived sp≈22, which doesn't fit a 2π box (needs 3.3
+phys units, 2π gives 3.14) but fits a **3π** box comfortably (4.71 phys). A tiered
+Lx policy (2π default, 3π/4π/6π fallback by corner) is the right shape, not a flat
+2π-or-6π choice.
+
+**Phase 1a — Lx has no effect at the reference anchor (α=1, V0=0.05, kz=1, EPS=0.15,
+xi_sponge=10, target_tu=25), DX held fixed:**
+
+| Lx | γ (fitted) |
+|---|---|
+| 2π (NX=256) | 0.16282 |
+| 3π (NX=384) | 0.16280 |
+| 4π (NX=512) | 0.16284 |
+
+Agreement to 0.03% — clean confirmation that box width alone doesn't affect the
+measured growth rate once `xi_sponge` genuinely fits inside it.
+
+**Phase 1c — the actual speedup, measured not extrapolated** (production grid,
+target_tu=100, same point): γ=0.06390 at both Lx=6π and Lx=2π (5-figure agreement).
+Wall-clock: **151s (Lx=6π, NX=768) vs 69s (Lx=2π, NX=256) — a real 2.2x speedup**,
+not the naive 3x from the NX ratio alone (per-step cost has a fixed component
+beyond the x-sweep).
+
+**Phase 1b — accidentally exposed a sponge-miscalibration, not a clean box-size
+test.** Reused the historical `xi_sponge=55` (α=1.1, V0=0.03, kz=3) unchanged at
+both Lx=6π and Lx=2π. Overlooked: a 2π box's own ξ-half-width at EPS=0.15 is only
+20.9 — *less than 55* — so the sponge threshold was literally unreachable inside
+that box, meaning the Lx=2π run had **no active sponge at all**, while Lx=6π's was
+fully active. Result: Lx=6π (sponge active) blew up (`E/E0=181.8>100 at t=44.8`);
+Lx=2π (sponge inactive) ran the full 50 TU cleanly. This is *not* evidence that
+2π is "safer" — it reveals that `xi_sponge=55` (the blind formula's ceiling) is
+itself miscalibrated for this point, consistent with `find_safe_sponge.py`'s own
+documented warning that a too-loose sponge fails to damp the outer-region
+instability at low kz/low α·V0. **Needs a redo** with a sponge value that actually
+fits inside both box widths before this is a valid Lx-only comparison.
+
+**Phase 3a — T2.8 HIGH corner (α=3, V0=0.10, kz=5) closed out, definitively bigger
+gap than quoted:**
+
+| Config | γ | vs. documented baseline (0.2395) |
+|---|---|---|
+| NX=1152 + courant=0.05 | 0.2553 | +6.6% |
+| NZ=128 + NX=1152 + courant=0.05 (all three) | 0.2672 | +11.6% |
+
+The naive additive estimate from the three single-axis effects (§T2.8: +1.1%,
++5.9%, +2.7%) predicted ~+9.7%; the actual combined number is **larger**, i.e. the
+corrections compound rather than saturate. Revise the "~5-6% at high-α·V0" referee
+statement to **~10-12%**.
+
+**Phase 3b — the α≥6 catastrophe's "resolution-independent" verdict needs
+revisiting.** FINDINGS.md judged the EPS-scan v2 α≥6 early-onset catastrophe
+physical based on onset time not moving with amplitude or xi_cut tightening —
+but timestep was never tested. Spot-checked 3 dropped points at production
+courant=0.1 vs finer courant=0.02 (same NX):
+
+| Point | halt (courant=0.1) | halt (courant=0.02) |
+|---|---|---|
+| α=6, V0=0.10, kz=5 (xi_cut=5) | t=31.4 | t=64.5 |
+| α=6, V0=0.10, kz=6 (xi_cut=5) | t=31.0 | t=65.0 |
+| α=10, V0=0.05, kz=8 (xi_sponge=52) | t=5.0 | t=5.0 |
+
+For both α=6 points, refining the timestep **roughly doubled the survival time**
+before blowup — a real resolution dependency the original amplitude/xi_cut-only
+investigation missed. α=10 blows up almost instantly regardless of resolution,
+suggesting a different (harder, faster) failure mode there. This reopens part of
+the EPS-scan v2 α≥6 drop as a numerics question, not a settled physics one.
+
+Full run manifest: `sweep/lx_resolution_manifest.csv` (gitignored, regenerate via
+`analysis/gen_lx_resolution_campaign.py`). Raw timeseries pulled to
+`/home/user/.claude/jobs/20590871/tmp/lx_campaign_results/` this session.

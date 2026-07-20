@@ -1,8 +1,18 @@
 # Campaign: Can Lx shrink from 6π to 2π? + extreme-parameter resolution studies
 
-*Status: PLANNED, not yet started (2026-07-21). This doc is the execution plan —
-follow it phase by phase. A mirror of this plan (identical content, at the time it
-was written) also lives at `/home/user/.claude/plans/so-we-had-started-majestic-newell.md`.*
+*Status (2026-07-21): Phases 0, 1a/1b/1c, and 3a/3b executed on t133+abi (17 GPU
+runs, all completed cleanly). Results in `RESOLUTION_FINDINGS.md`
+§"Lx box-size reduction + extreme-parameter close-out" and
+`REFEREE_PROOFING_RESULTS.md` §T2.8 update. Headline: Lx=2π is safe and ~2.2x
+faster for the reference anchor and most of parameter space (tiered 2π/3π/4π/6π,
+not a blanket 2π); Phase 1b needs a redo with a properly-sized sponge (the first
+attempt exposed a sponge-miscalibration, not a clean box-size effect); Phase 3b
+found the α≥6 catastrophe onset is NOT resolution-independent after all (timestep
+refinement roughly doubled survival time) — reopens that question. Phase 2
+(encode Lx policy into campaign generators) and Phase 3c (narrow/wide-EPS +
+filter-band spot-checks) are still open. A mirror of the original plan (identical
+content, at the time it was written) also lives at
+`/home/user/.claude/plans/so-we-had-started-majestic-newell.md`.*
 
 ## Context
 
