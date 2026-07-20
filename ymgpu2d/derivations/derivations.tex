@@ -410,9 +410,14 @@ battery.
 Fields: for each color $a\in\{1,2,3\}$, the 2D $(x,z)$ fields $E_x^a$,
 $E_z^a$, $B_y^a$, $A_z^a$; for each beam $s\in\{A,B\}$, the fluid fields
 $n_s$, $p_{xs}$, $p_{zs}$ (momentum densities; $v_{is}=p_{is}/n_s$) and the
-color-charge densities $Q^a_s$. The gauge is $A_x^a=A_y^a=0$ with only
-$A_z^a$ retained ($\partial_y\equiv0$, no $y$-components of $E$ or of the
-fluid velocity are excited by the dynamics below).
+color-charge densities $Q^a_s$. Only $A_z^a$ is carried as an explicit
+potential ($\partial_y\equiv0$; no $y$-components of $E$ or of the fluid
+velocity are excited by the dynamics below). The gauge choice this
+reflects, and the precise (non-)status of $A_x^a$ and $A_y^a$, is examined
+in \S\ref{ssec:gaugecount} immediately below: in short, $A_0^a\equiv0$ is
+the one legitimate gauge condition spent here, while the absence of
+$A_y^a$ and $A_x^a$ are two separate statements of a different kind, not a
+second gauge-fixing.
 
 \paragraph{Fluid sector} (each beam; FCT advection):
 \begin{align}
@@ -458,6 +463,116 @@ only the $z$-component of the potential is kept. The sign conventions
 model's own; their only invariant consequences are the products
 current$\times$field and force$\times$velocity, and those are fixed by the
 energy budget below.
+
+\subsection{Gauge counting: what the field content assumes}
+\label{ssec:gaugecount}
+
+The field content just declared silently makes a claim worth checking
+explicitly: that dropping $A_x^a$ and $A_y^a$ while keeping only $A_z^a$
+is licensed by gauge freedom. It is not, quite --- the SU(2) gauge group
+supplies exactly enough freedom to eliminate \emph{one} full
+spacetime-component of $A_\mu^a$, not two, and the argument for why the
+model is nonetheless consistent has two genuinely different parts.
+
+\begin{step}[The counting]
+An infinitesimal SU(2) gauge transformation is parametrized by
+$\theta^a(t,x,z)$, $a=1,2,3$: three arbitrary functions of the three
+coordinates the fields depend on here ($\partial_y\equiv0$ removes $y$
+from the list), transforming $\delta A_\mu^a=-(D_\mu\theta)^a$. A
+condition such as ``$A_x^a(t,x,z)=0$ for all $(t,x,z)$'' is three
+equations (one per color) holding at every point of a three-dimensional
+domain --- exactly as many conditions as gauge functions available.
+Generically this exhausts the freedom (up to a residual gauge
+transformation independent of $x$, the integration freedom left when
+solving $\partial_x\theta^a=(\cdots)$ pointwise in $x$). The general
+statement:
+\begin{equation}
+\boxed{\text{one gauge choice}\;\Longrightarrow\;\text{one full
+spacetime component of }A_\mu^a\text{ eliminated --- not two.}}
+\label{eq:gaugecounting}
+\end{equation}
+\end{step}
+
+\begin{step}[What \texttt{khaxn.pdf} spends its one choice on]
+Its stated gauge is $a_x^a=0$, and nothing else. In particular:
+\begin{itemize}
+\item $\phi\equiv A_0$ is \emph{not} set to zero. It survives as a
+genuine background field ($E^1_{0x}=-\partial_x\phi^1_0$, its \S1) and
+perturbation field, eliminated only via the Gauss-law \emph{constraint}
+--- a fundamentally different move from a gauge choice --- in its own
+``Substitution and Simplification'' section, solving $\phi^+$ in terms of
+$a_z^+$.
+\item $a_y^a$ is not set to zero either: it is explicitly retained and
+sources $b_x$ (its eq.~1). Its own ``Final equations'' \S2 shows
+$a_y^\pm$ (eq.~22) and $a_z^+$ with $\phi$ eliminated (eq.~23) form two
+separate equations, not interacting with each other at this order.
+\end{itemize}
+The surviving content after \texttt{khaxn.pdf}'s one gauge choice is
+therefore $(\phi,a_y,a_z)$, not $a_z$ alone.
+\end{step}
+
+\begin{step}[What the simulated model spends its one choice on]
+The potential equation \eqref{eq:potential}, $\partial_tA_z^a=-E_z^a$, is
+the exact temporal-gauge relation $E_z=-\partial_tA_z$ with no
+$-\partial_zA_0$ correction term. This identifies the model's one gauge
+condition as
+\begin{equation}
+A_0^a\equiv0 \qquad\text{(temporal gauge)},
+\end{equation}
+a legitimate, complete choice --- and a \emph{different} one from
+\texttt{khaxn.pdf}'s axial choice, not an additional condition stacked on
+top of it.
+\end{step}
+
+\begin{step}[Why $A_y^a$ and $A_x^a$ can then be dropped without spending
+more freedom]
+Two separate arguments, of two different kinds:
+\begin{itemize}
+\item \emph{$A_y^a$ is a sector choice, not a gauge choice.} The
+$a_y^\pm$ branch (\texttt{khaxn.pdf} eq.~22) does not source, or get
+sourced by, the $a_z$ branch; the perturbation studied here (By2-type
+seeding, \S\ref{sec:seeding}) never populates it. Omitting it selects
+\emph{which already-decoupled physical sector to simulate} --- licensed
+by the decoupling \texttt{khaxn.pdf} itself exhibits, not by spending
+extra gauge freedom. (Restated as the scope remark of
+\S\ref{ssec:scope}.)
+\item \emph{$A_x^a$ is wired to nothing.} Unlike $A_y^a$, this field
+does not merely go unsourced by the chosen initial data --- it never
+appears, at all, in any covariant or commutator term of
+eqs.~\eqref{eq:momx}--\eqref{eq:currents}: every non-Abelian correction
+in the model (Amp\`ere-$x$, Faraday, precession) references $\vec A_z$
+only. A hypothetical $A_x^a$ generated by some other mechanism would
+still have zero effect on any other field's equation of motion; it is a
+complete spectator, consistently left untracked regardless of its own
+value.
+\end{itemize}
+\end{step}
+
+\begin{intuition}
+One knob, one turn. Gauge freedom is a redundancy in the description,
+not in the physics: the count of gauge functions must match the count of
+unphysical directions removed. \texttt{khaxn.pdf} turns the ``$A_x$''
+knob and leaves $\phi$, $a_y$ as real content --- one eliminated by a
+constraint, the other by non-interaction with the sector of interest.
+This model turns a \emph{different} knob, ``$A_0$'' --- equally
+legitimate, equally a single turn --- and then drops $A_y$ for a
+decoupling reason and $A_x$ because it is wired to nothing. Two
+different single choices of gauge are not the same thing as one gauge
+choice spent twice.
+\end{intuition}
+
+\begin{remark}[Consistency check: $E_x$ is not spurious content]
+If the model had silently fixed both $A_x=0$ and $A_0=0$, its would-be
+substitute for $\phi$ --- namely $E_x$ --- ought to carry independent new
+physics absent from \texttt{khaxn.pdf}'s construction. It does not: the
+linearized Amp\`ere-$x$ equation derived in \S\ref{sec:sixfield},
+eq.~\eqref{eq:lin-ex} ($\gamma e_x=-\ii\OmA b$), shows $e_x$ is purely
+and instantaneously slaved to $b$ --- a first-order algebraic relation,
+not an independently propagating mode. This is exactly the behavior a
+properly constraint-eliminated $\phi$ must have: $E_x$ here plays
+$\phi$'s role in temporal-gauge dress, rather than adding unphysical
+content the given theory does not have.
+\end{remark}
 
 \subsection{Derivation of the precession source from Wong's equations}
 \label{ssec:wong}
@@ -863,12 +978,19 @@ precisely the given theory, with two deliberate scope differences:
 \begin{enumerate}
 \item no background scalar potential / background electric field
 ($\phi_0^1=E^1_{0x}=0$ in the simulation; the $\alpha^2(\phi_0^1)^2$ term
-of \eqref{eq:khaxn23} is absent), and
+of \eqref{eq:khaxn23} is absent) --- a genuine physical truncation,
+\emph{unrelated} to the gauge-counting question resolved in
+\S\ref{ssec:gaugecount}: nothing in the gauge freedom requires $\phi_0$
+to vanish, and this is the one place the given theory's background is
+actually cut down, rather than merely repackaged; and
 \item no background $B_{y1}$ coupling in Amp\`ere-$x$ and no fluid
 density/momentum perturbations in the state vector (their combined effect
 on the shear branch is bounded at the few-percent level by the
-simulation-vs-solver agreement; the $a_y^\pm$ sector of the given theory
-decouples at this order and is not simulated).
+simulation-vs-solver agreement); and the $a_y^\pm$ sector of the given
+theory (its eq.~22, decoupled from $a_z$ already at the level of
+\texttt{khaxn.pdf}'s own final equations) is not simulated at all --- a
+sector choice, not a further gauge-fixing, as established in
+\S\ref{ssec:gaugecount}.
 \end{enumerate}
 
 % ==============================================================================
