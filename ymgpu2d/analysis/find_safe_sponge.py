@@ -109,9 +109,17 @@ def _sponge_ladder(sp_start):
     return vals
 
 
-def hunt_eigs(kz, alpha, V0, EPS, NX, xi_sponge, sigma_sponge=5.0):
+def hunt_eigs(kz, alpha, V0, EPS, NX, xi_sponge, sigma_sponge=5.0, Lx=None):
     """All distinct growing eigenvalues found across the real-mode shift and
-    the danger-shift ladder, each tagged with where its |By2| peaks (xi units)."""
+    the danger-shift ladder, each tagged with where its |By2| peaks (xi units).
+
+    Lx=None (default) preserves prior behavior (uses whatever E.LX already is,
+    i.e. the CLI's --Lx or the module default 6*pi). Pass Lx explicitly to
+    screen a candidate box width other than the default -- e.g. to check
+    whether a point's sponge requirement still fits a shrunk box (see
+    LX_RESOLUTION_PLAN.md Phase 0)."""
+    if Lx is not None:
+        E.LX = Lx
     gw = E.wkb_growth_rate(kz, alpha, V0)
     sigma0 = gw * 0.55 if (np.isfinite(gw) and gw > 0) else 0.1
     sigmas = [sigma0] + DANGER_SIGMAS
@@ -197,16 +205,16 @@ def _apply_margin(sp):
     return max(SP_MIN, int(round(sp * SAFETY_MARGIN)))
 
 
-def hunt_and_report_real(kz, alpha, V0, EPS, NX, sp, sigma_sponge, gamma_wkb):
+def hunt_and_report_real(kz, alpha, V0, EPS, NX, sp, sigma_sponge, gamma_wkb, Lx=None):
     """Re-hunt at the margin-adjusted sponge and return the accepted real
     mode's gamma (or None if nothing found -- caller falls back)."""
-    found = hunt_eigs(kz, alpha, V0, EPS, NX, sp, sigma_sponge)
+    found = hunt_eigs(kz, alpha, V0, EPS, NX, sp, sigma_sponge, Lx=Lx)
     real, _ = classify(found, gamma_wkb)
     return max((g for g, _ in real), default=None)
 
 
 def find_safe_xi_sponge(alpha, V0, kz, EPS=0.15, NX=384, sigma_sponge=5.0,
-                         require_consecutive=2, verbose=False):
+                         require_consecutive=2, verbose=False, Lx=None):
     """Return (xi_sponge, gamma_exact, info). info['safe'] is False if even
     the tightest candidate (SP_MIN) still shows an outer branch -- meaning
     this point cannot be cleanly measured with this sponge mechanism alone
@@ -223,7 +231,11 @@ def find_safe_xi_sponge(alpha, V0, kz, EPS=0.15, NX=384, sigma_sponge=5.0,
     rungs before accepting, and returns the TIGHTEST of that run (extra
     margin, cheap to buy -- the physical mode's gamma barely moves between
     adjacent rungs once it's actually clean, see the point-1/point-2 ladders
-    in FINDINGS.md)."""
+    in FINDINGS.md).
+
+    Lx=None (default) preserves prior behavior (module default 6*pi). Pass a
+    candidate box width to check whether this point's sponge requirement
+    fits a shrunk box (LX_RESOLUTION_PLAN.md Phase 0)."""
     sp_start = _production_formula(alpha, V0, kz)
     ladder = _sponge_ladder(sp_start)
     gamma_wkb = E.wkb_growth_rate(kz, alpha, V0)
@@ -233,7 +245,7 @@ def find_safe_xi_sponge(alpha, V0, kz, EPS=0.15, NX=384, sigma_sponge=5.0,
     last_real_gamma = None
     clean_run = []  # consecutive (sp, gamma) pairs with zero outer branch
     for sp in ladder:
-        found = hunt_eigs(kz, alpha, V0, EPS, NX, sp, sigma_sponge)
+        found = hunt_eigs(kz, alpha, V0, EPS, NX, sp, sigma_sponge, Lx=Lx)
         real, outer = classify(found, gamma_wkb)
         real_gamma = max((g for g, _ in real), default=None)
         if verbose:
@@ -246,7 +258,7 @@ def find_safe_xi_sponge(alpha, V0, kz, EPS=0.15, NX=384, sigma_sponge=5.0,
                 sp_ladder_pick, g_ladder_pick = clean_run[-1]
                 sp_final = _apply_margin(sp_ladder_pick)
                 g_final = hunt_and_report_real(kz, alpha, V0, EPS, NX, sp_final,
-                                                sigma_sponge, gamma_wkb)
+                                                sigma_sponge, gamma_wkb, Lx=Lx)
                 if g_final is None:
                     g_final = g_ladder_pick  # fallback, shouldn't normally happen
                 return sp_final, g_final, {'safe': True, 'formula_sp': sp_start,
