@@ -1,17 +1,21 @@
 # Campaign: Can Lx shrink from 6π to 2π? + extreme-parameter resolution studies
 
-*Status (2026-07-21): Phases 0, 1a/1b/1c, and 3a/3b executed on t133+abi (17 GPU
-runs, all completed cleanly). Results in `RESOLUTION_FINDINGS.md`
-§"Lx box-size reduction + extreme-parameter close-out" and
+*Status (2026-07-21): ALL PHASES DONE. Wave 1 (17 runs: Phases 0/1a/1b/1c/3a/3b)
++ wave 2 (18 runs: Phase 1b redo, Phase 2, Phase 3c, broader α≥6 sweep) — 35 GPU
+runs total on t133+t140+abi, zero crashes. Results in `RESOLUTION_FINDINGS.md`
+§"Lx box-size reduction + extreme-parameter close-out" + §"Wave 2 follow-up" and
 `REFEREE_PROOFING_RESULTS.md` §T2.8 update. Headline: Lx=2π is safe and ~2.2x
-faster for the reference anchor and most of parameter space (tiered 2π/3π/4π/6π,
-not a blanket 2π); Phase 1b needs a redo with a properly-sized sponge (the first
-attempt exposed a sponge-miscalibration, not a clean box-size effect); Phase 3b
-found the α≥6 catastrophe onset is NOT resolution-independent after all (timestep
-refinement roughly doubled survival time) — reopens that question. Phase 2
-(encode Lx policy into campaign generators) and Phase 3c (narrow/wide-EPS +
-filter-band spot-checks) are still open. A mirror of the original plan (identical
-content, at the time it was written) also lives at
+faster for the reference anchor and most of parameter space, via the tiered
+2π/3π/4π/6π policy now implemented in `analysis/lx_policy.py`'s `lx_for_point()`
+(not a blanket 2π default — 34.6% of the historical archive genuinely needs the
+full 6π). Phase 1b's wave-1 result was a sponge-miscalibration artifact, not a
+real box-size effect — redone cleanly in wave 2 (0.01% agreement once a validly-
+sized sponge is used). The α≥6 catastrophe's "resolution-independent" verdict is
+overturned for the xi_cut-mechanism corner (6/7 points show onset time roughly
+doubling with finer courant) but holds for the xi_sponge-mechanism corner
+(immediate failure regardless). Phase 3c also surfaced a new, real artifact: kz
+within ~1 unit of `kz_suppress_hi` is measurably damped at NZ=64. A mirror of the
+original plan (identical content, at the time it was written) also lives at
 `/home/user/.claude/plans/so-we-had-started-majestic-newell.md`.*
 
 ## Context

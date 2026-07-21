@@ -383,3 +383,71 @@ the EPS-scan v2 α≥6 drop as a numerics question, not a settled physics one.
 Full run manifest: `sweep/lx_resolution_manifest.csv` (gitignored, regenerate via
 `analysis/gen_lx_resolution_campaign.py`). Raw timeseries pulled to
 `/home/user/.claude/jobs/20590871/tmp/lx_campaign_results/` this session.
+
+## Wave 2 follow-up (2026-07-21, same day): 1b redo, Phase 3c, broader α≥6 sweep
+
+18 more runs across t133, t140, and abi (5 GPU streams, all confirmed idle at
+launch time), closing out the loose ends from wave 1. All completed cleanly.
+`analysis/lx_policy.py` (Phase 2) also lands this wave: `lx_for_point()`
+encodes the tiered 2π/3π/4π/6π policy, validated against the 4192-point
+archive — 43.1% of historical points would use 2π, 34.6% genuinely need the
+full 6π, the remaining 22.2% split between 3π/4π.
+
+**Phase 1b, properly redone.** `find_safe_sponge.py` (with the new `Lx` kwarg)
+gives the true minimal safe sponge for α=1.1, V0=0.03, kz=3 at a shrunk box:
+sp=22 — which itself needs 3.3 phys units, still bigger than 2π's 3.14, i.e.
+this point genuinely needs **3π**, not 2π (consistent with the tiered policy).
+Reran with that valid, active sponge at both Lx=3π and Lx=6π:
+
+| Lx | γ | t_max |
+|---|---|---|
+| 3π | 0.07013 | 49.95 (no halt) |
+| 6π | 0.07012 | 49.95 (no halt) |
+
+0.01% agreement — **once the sponge genuinely fits and is active in both
+boxes, Lx has no effect**, exactly as Phase 1a found at the reference anchor.
+Wave 1's apparent "2π is safer" result is now conclusively explained as a
+sponge-miscalibration artifact, not a real box-size effect.
+
+**Phase 3c — narrow EPS, wide EPS, filter-band edge:**
+
+| Point | baseline γ | refined γ | Δ |
+|---|---|---|---|
+| EPS=0.12 (NX=960→1344, courant 0.1→0.05) | 0.05842 | 0.05881 | +0.7% |
+| EPS=0.30 (Lx=12π,NX=1536, courant 0.1→0.02) | 0.11007 | 0.1102 | +0.1% |
+| kz=13, hi=14 (NZ=64→128) | 0.03688 (no plateau) | 0.06666 (plateau) | **+81%** |
+
+Narrow-EPS (post `log_cosh_stable` fix) and wide-EPS (existing box-doubling
+convention) are both solidly resolution-converged. But **kz sitting close to
+`kz_suppress_hi` is a real, large resolution artifact**: at production NZ=64,
+kz=13 (just 1 below hi=14) is measurably damped — γ nearly doubles at NZ=128
+and only there does the run reach a genuine plateau. Confirms the "Filter
+Nyquist Rule" memory's caution in practice, not just in theory. **Actionable:
+avoid measuring kz within ~1 unit of `kz_suppress_hi` at NZ=64, or bump NZ.**
+
+**Broader α≥6 courant sweep — 5 new points, extending wave 1:**
+
+| Point | mechanism | halt (courant=0.1) | halt (courant=0.02) |
+|---|---|---|---|
+| α=6, V0=0.10, kz=4 | xi_cut=5 | t=31.99 | t=64.98 (2.03x) |
+| α=6, V0=0.10, kz=7 | xi_cut=5 | t=30.99 | t=64.98 (2.10x) |
+| α=6, V0=0.10, kz=8 | xi_cut=5 | t=31.99 | t=64.98 (2.03x) |
+| α=6, V0=0.05, kz=8 | xi_sponge=52 | t=6.0 | t=6.0 (no change) |
+| α=10, V0=0.10, kz=8 | xi_cut=5 | t=14.0 | t=20.99 (1.5x) |
+
+Combined with wave 1's two points (also α=6/10, V0=0.10/0.05, xi_cut/xi_sponge),
+**6 of 7 xi_cut-mechanism points (V0=0.10) now show the same clean ~2x
+onset-time-delay with finer courant**, across kz=4 through 8 — this is a real,
+robust, mechanism-specific resolution dependency, not a fluke. The **xi_sponge-
+mechanism points (V0≤0.05-0.07) show no such dependence** — both wave 1's
+α=10,V0=0.05 and wave 2's α=6,V0=0.05 blow up almost instantly (t≈5-6)
+regardless of courant. **Clean split: xi_cut-confined catastrophes are
+resolution-sensitive (onset genuinely delayed by finer timestep); xi_sponge-
+confined catastrophes at these α are not (fail immediately, likely a different/
+harder mechanism).** The EPS-scan v2 α≥6 "physical, resolution-independent"
+verdict should be qualified: true for the sponge-mechanism corner, false for
+the xi_cut-mechanism corner.
+
+Manifest: `sweep/lx_resolution2_manifest.csv` (gitignored, regenerate via
+`analysis/gen_lx_resolution_campaign2.py`). Raw timeseries pulled to
+`/home/user/.claude/jobs/20590871/tmp/lx_campaign2_results/` this session.
