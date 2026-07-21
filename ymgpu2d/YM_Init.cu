@@ -115,9 +115,20 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
         }
 
     } else if (run_mode == 2) {
-        // EMHD_KH: color-1 Kelvin-Helmholtz; no Az1 coupling
-        by1_init = base_seed * sinf(k_z * z_val);
+        // EMHD_KH: color-1 Kelvin-Helmholtz; no Az1 coupling.
+        // Same current-consistent By1 equilibrium as mode 6 (identical vz_A
+        // profile, hence identical Jz1 = -2 V0 tanh(ξ)): without it, By1
+        // starts at zero, out of equilibrium with the prescribed current,
+        // and relaxes via a fast (γ~O(1)) transient that swamps the much
+        // slower Das-Kaw sausage/KH growth (γ~kz·V0) at every kz. Unlike
+        // modes 1/6 (where By1 is a parasitic side-channel), By1 *is* the
+        // entire physics here, so the equilibrium isn't optional.
         az1_init = 0.0f;
+        if (init_by1_eq) {
+            fct_real_t mean_lc = (nx * dx) / (4.0f * epsilon) - 0.693147f;
+            by1_init = -2.0f * V0 * epsilon * (logf(coshf(xi)) - mean_lc);
+        }
+        by1_init += base_seed * sinf(k_z * z_val);
 
     } else if (run_mode == 4) {
         // NAB_STEP (mode 4): two step-function shear layers on periodic domain.
@@ -197,11 +208,11 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
         by3_init = base_dt * sinf(k_z * z_val);
     }
 
-    // Optional smooth edge taper of vz (modes 1/6, 2026-07-15): removes the
+    // Optional smooth edge taper of vz (modes 1/2/6, 2026-07-15): removes the
     // periodic-wrap velocity discontinuity that drives the kz=0 color-1
     // collapse when suppress_kz0=0 (see OUTER_REGION.md). Width 3 ξ-units.
     // ∂x Az1 never enters the dynamics, so Az1 needs no matching taper.
-    if (vz_edge_taper > 0.0f && (run_mode == 1 || run_mode == 6)) {
+    if (vz_edge_taper > 0.0f && (run_mode == 1 || run_mode == 2 || run_mode == 6)) {
         const fct_real_t dt_tap = 3.0f;
         fct_real_t axi = fabsf(xi);
         fct_real_t w = 0.5f * (1.0f - tanhf((axi - vz_edge_taper) / dt_tap));
@@ -224,7 +235,11 @@ __global__ void kernel_ym_init(YMFieldPtrs f,
                                  - vz_edge_taper * 0.693147f
                                  + (Lxi - vz_edge_taper) * (vz_edge_taper - 0.693147f))
                                 / Lxi;
-            by1_init = -2.0f * V0 * epsilon * (I - mean_I);
+            // Mode 2's By1 seed lives on By1 itself (modes 1/6 seed By2/By3
+            // or Az2/Az3 instead), so it must be re-added here or the taper
+            // path silently drops it.
+            fct_real_t by1_seed = (run_mode == 2) ? base_seed * sinf(k_z * z_val) : 0.0f;
+            by1_init = -2.0f * V0 * epsilon * (I - mean_I) + by1_seed;
         }
     }
 
