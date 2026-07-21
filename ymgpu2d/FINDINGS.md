@@ -3802,3 +3802,78 @@ genuinely new findings worth carrying forward are (1) the V0=0.2/α≥3.5 intkz
 corner as a new, uncharacterized failure mode, and (2) the tachyonic branch now
 has broad (not single-point) rate confirmation, at the same ~20% accuracy level
 as the rest of this project's production measurements.
+
+---
+
+## T1.3 CLOSED (2026-07-21): the sub-kz=1 "two-branch" claim is a sponge-wall
+## artifact, not a genuine eigenmode crossing
+
+RESEARCH_ROADMAP.md's T1.3 asked for a solver-continuation study of the
+claimed sharp dip at α=2, V0=0.05 (γ=0.32 at kz_phys=0.5 falling to 0.06 at
+kz_phys=0.75), retracted in `derivations/results.tex` as pipeline-contaminated
+and unestablished. Resolved today via eigensolver continuation +
+GPU confirmation, without needing to trust the original (contaminated) sweep
+tables at all.
+
+**Eigensolver continuation** (`analysis/t13_branch_continuation.py`, fine
+Δkz_phys=0.05 scan, 3 xi_sponge values, `sweep/t13_branch_continuation.csv`;
+cross-checked with the project's standard σ-chase, `analysis/
+chase_theory_worker.py`): at xi_sponge=13 (the original C45/C50 setting), the
+"dominant" eigenvalue found by both a brute multi-shift scan and the standard
+chase reproduces the original numbers almost exactly (0.320 at kz_phys=0.5,
+0.060 at kz_phys=0.75) — but its eigenfunction diagnostics give it away:
+ξ_peak sits at 10-13 (pinned at/near the sponge radius itself), Az/By ratio
+blows up from ~2.6 to 40-150, and the mode's parity correlation collapses
+from ~0.99 (clean, coherent) to <0.3 (incoherent) exactly at the kz where the
+"dip" occurs. At xi_sponge=8 the same pattern repeats at a *different* kz
+threshold (~0.35-0.4, dip minimum ~0.027) with the mode literally pinning to
+ξ_peak=-8.181 (the exact sponge edge) for every kz≥0.85 — this is a
+sponge-boundary quasi-mode, not physics.
+
+**Decisive control**: re-solving with a hard xi_cut=5 Dirichlet wall (well
+inside any sponge, physically excluding the wall region entirely) gives a
+smooth, monotonically-rising, artifact-free γ(kz_phys): 0.0170 (0.25), 0.0595
+(0.50), 0.0839 (0.75), 0.1014 (1.00), 0.1144 (1.25), 0.1245 (1.50) — no dip,
+no crossing, consistent with the T1.2 exact-action result that the true
+shear-layer branch has no interior kz maximum (PHYSICS.md §11d), extended
+here into the sub-kz=1 regime.
+
+**GPU confirmation** (`scripts/run_campaign_t13confirm.sh`, α=2.0, V0=0.05,
+EPS=0.15, Lz=8π/NZ=256, mode 6, fresh eigenvector-seeded runs, plateau fit via
+`batch_analyze.py`):
+
+| kz_phys | config | γ_sim (plateau) | γ_eigensolver | ratio |
+|---|---|---|---|---|
+| 0.25 | xi_cut=5 | 0.0118 (no confirmed plateau, max-R² only, t=42-55) | 0.0170 | 0.69 |
+| 0.50 | xi_cut=5 | 0.0584 (plateau t=32-57, 25 TU) | 0.0595 | 0.98 |
+| 0.75 | xi_cut=5 | 0.0830 (plateau t=23-69, 46 TU) | 0.0839 | 0.99 |
+| 1.00 | xi_cut=5 | 0.1005 (plateau t=38-90, 52 TU) | 0.1014 | 0.99 |
+| 1.25 | xi_cut=5 | 0.1132 (plateau t=17-81, 64 TU) | 0.1144 | 0.99 |
+| 1.50 | xi_cut=5 | 0.1233 (plateau t=22-74, 52 TU) | 0.1245 | 0.99 |
+| 0.50 | xi_sponge=13 (original config) | 0.3210 (plateau t=12-35) | ~0.320 (chased) | 1.00 |
+| 0.75 | xi_sponge=13 (original config) | 0.0696 (plateau t=28-42) | ~0.060 (chased) | 1.15 |
+
+The clean (xi_cut=5) branch is confirmed to 1-2% at every kz_phys≥0.5 — the
+best agreement of any GPU-vs-eigensolver comparison in this project to date —
+and is **smooth and monotonic**, no trace of a dip. The kz_phys=0.25 point
+lacks a plateau-confirmed fit (too close to the measurement floor for a
+100-TU window at this γ) and is reported as suggestive only, not certified.
+Separately, the two xi_sponge=13 confirmation runs **reproduce the original
+"0.32 / 0.06" claim almost exactly in full nonlinear CUDA** (not just the
+linear solver) — the kz_phys=0.5 leg blew up violently (E/E0 reaching 7.8
+million by t=36, consistent with γ≈0.32), the kz_phys=0.75 leg halted more
+mildly (E/E0=111 at t=55, consistent with the much slower ~0.06-0.07) — which
+demonstrates the artifact is a real property of the simulation's soft-sponge
+kernel at this radius, not a linear-solver curiosity.
+
+**Verdict**: T1.3 is **closed as an artifact, not a genuine crossing between
+two physical eigenmode families**. The true sub-kz=1 dispersion for
+(α=2, V0=0.05) is smooth and rises toward the ceiling with no dip; the
+striking original numbers are real *measurements*, but of a sponge-boundary
+quasi-mode whose location tracks the sponge radius, not of a second physical
+branch. RESEARCH_ROADMAP.md and `derivations/results.tex` updated accordingly.
+Practical implication for any future extended-box (Lz>2π) campaign: **check
+eigenfunction ξ_peak against the sponge radius, not just amplitude
+localisation**, before trusting a "dominant" eigenvalue near kz≲1 — the
+existing `is_localised()` check (xi_peak < 1.15×xi_sponge) is too permissive
+to catch this failure mode.

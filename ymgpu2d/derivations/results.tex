@@ -82,11 +82,15 @@ integer-$\kz$ map (1087/1134 points, median error 4--9\% by $V_0$); the
 EPS-scan v2 experimental confirmation that the shear width enters only
 through the single group $P=(\alpha\Vo^2)^{1/3}/\eps$, extended down to
 $\alpha=0.2$; and the broad (46-point) confirmation of the outer tachyonic
-branch's exact local law. Open items — the sub-$\kz=1$ branch structure
-(roadmap T1.3, one of Letter A's three explicit blockers, still
-unresolved), the new $V_0=0.2/\alpha\ge3.5$ failure corner, the low-$\alpha$
-noise floor, and the still-unexplained late-time \texttt{xi\_cut} failure
-mode — are reported with the same weight as the successes.
+branch's exact local law. The third of Letter A's original gating items,
+the claimed sub-$\kz=1$ two-branch structure (roadmap T1.3), is now
+\textbf{closed}: eigensolver continuation plus a dedicated GPU confirmation
+(\S\ref{sec:limitations}) show it is a sponge-boundary artifact, not a
+genuine crossing between two physical eigenmode families — the true
+dispersion in that range is smooth. Open items — the new
+$V_0=0.2/\alpha\ge3.5$ failure corner, the low-$\alpha$ noise floor, and the
+still-unexplained late-time \texttt{xi\_cut} failure mode — are reported
+with the same weight as the successes.
 \end{abstract}
 
 \tableofcontents
@@ -121,8 +125,9 @@ theory — why does the peak move the way it does?), and \textbf{T1.3} (the
 sub-$\kz=1$ branch study). T1.2 is the subject of \texttt{derivations.pdf}
 \S7--\S10 (the exact-action theory, the ceiling, the confinement-set peak
 formula) and is complete. This document reports the numerical results for
-all three, and states plainly (\S\ref{sec:limitations}) that
-\textbf{T1.3 remains open} — it is not a minor item.
+all three; all three are now closed (\S\ref{sec:limitations}), with T1.3's
+resolution being a retraction of the original claim (sponge artifact, not a
+second physical branch) rather than a confirmation of it.
 
 \subsection{How to read what follows}
 
@@ -1038,21 +1043,54 @@ small-amplitude production shear-layer fits ever require.
 
 Ordered by how directly each bears on Letter A's specific claim.
 
-\subsection{T1.3: the sub-$\kz=1$ branch structure --- still open}
+\subsection{T1.3: the sub-$\kz=1$ branch structure --- resolved as a
+sponge-boundary artifact (2026-07-21)}
 
 An early extended-box campaign reported a sharp two-branch structure
 below $\kz=1$ ($\gamma=0.32$ at $\kz=0.5$ falling to $0.06$ at $\kz=0.75$
 for $\alpha=2$, $\Vo=0.05$), suggestive of a crossing between two
-eigenmode families. \textbf{This claim cannot currently be certified}:
-the raw sweep tables at those points were produced entirely by the
-buggy pre-2026-07-17 pipeline (\S\ref{sec:pipeline}, both the helicity
-sign error and, for the specific box family involved, the box-mislabeling
-bug), so the reported ``sub-$\kz=1$ floor'' and ``two-branch'' structure
-are, at minimum, contaminated and, in the specific audited cases, shown to
-be bookkeeping artifacts rather than physics. This is one of Letter A's
-three explicit gating items (T1.3) and it has \textbf{not} been
-re-established with the corrected pipeline. It should not be presented in
-any submission until it is re-measured from a clean rerun.
+eigenmode families. The raw sweep tables at those points were produced by
+the buggy pre-2026-07-17 pipeline (\S\ref{sec:pipeline}) and could not be
+certified from that data alone, so the claim was re-derived independently
+of the old pipeline: a fine (\(\Delta\kz=0.05\)) eigensolver continuation
+(\texttt{analysis/t13\_branch\_continuation.py}) tracking several leading
+eigenvalues at three sponge radii, cross-checked with the project's
+standard $\sigma$-chase.
+
+\textbf{Finding: the claim is real as a \emph{measurement} but not as
+\emph{physics}.} At $\xi_{\rm sponge}=13$ (the original setting) the
+solver reproduces $0.320$/$0.060$ almost exactly, but the responsible
+eigenfunction is pinned near or at the sponge radius itself
+($\xi_{\rm peak}\approx10$--$13$; at $\xi_{\rm sponge}=8$ it locks to
+$\xi_{\rm peak}=-8.181$, the exact wall, for every $\kz\ge0.85$), its
+$A_z/B_y$ amplitude ratio blows up from $\sim\!2.6$ to $40$--$150$, and its
+parity correlation collapses from $\sim\!0.99$ (coherent) to $<0.3$
+(incoherent) precisely where the ``dip'' occurs --- the signature of a
+sponge-supported quasi-mode, not a second confinement branch of the
+physical (unbounded) system. A decisive control --- a hard $\xi_{\rm
+cut}=5$ Dirichlet wall placed well inside any sponge, excluding the wall
+region entirely --- gives a smooth, monotonically rising, artifact-free
+$\gamma(\kz)$ with no dip and no crossing (\(0.0170\), \(0.0595\),
+\(0.0839\), \(0.1014\), \(0.1144\), \(0.1245\) for
+$\kz=0.25,\ldots,1.50$), consistent with the T1.2 exact-action result
+that the true shear branch has no interior $\kz$ maximum.
+
+This was then confirmed in full nonlinear simulation
+(\texttt{scripts/run\_campaign\_t13confirm.sh}, same $\alpha,\Vo,\eps$):
+six $\xi_{\rm cut}=5$ points matched the eigensolver to $1$--$2\%$ at every
+$\kz\ge0.5$ (the tightest GPU-vs-eigensolver agreement obtained anywhere in
+this program), smooth and monotonic throughout; two points reproducing the
+original $\xi_{\rm sponge}=13$ configuration reproduced the $0.32$/$0.06$
+numbers almost exactly in the full CUDA code (not just the linear solver)
+--- the $\kz=0.5$ leg overshot to $E/E_0\approx7.8\times10^{6}$ by
+$t\approx36$ (consistent with $\gamma\approx0.32$), the $\kz=0.75$ leg
+halted far more mildly ($E/E_0=111$ at $t\approx55$, consistent with
+$\gamma\approx0.06$--$0.07$) --- proving the artifact lives in the
+simulation's sponge kernel itself, not only in the linear model.
+\textbf{T1.3 is closed}: the sub-$\kz=1$ dispersion is smooth, with no
+genuine branch crossing; the original numbers were a real but
+boundary-condition-contaminated measurement. Full writeup and table:
+\texttt{FINDINGS.md} ``T1.3 CLOSED (2026-07-21)''.
 
 \subsection{New failure corner: $\Vo=0.2$, $\alpha\ge3.5$}
 
@@ -1165,28 +1203,31 @@ Exact-action reduction, ceiling $\gamma^3\le\alpha\Vo^2$, confinement-set
 peak formula --- \texttt{derivations.pdf} \S6--\S9; empirically confirmed
 by T2.5's $0.977\pm0.011$ collapse and the direct window test
 (\S\ref{ssec:kzpeakresult})\\
-T1.3 & Sub-$\kz=1$ branch structure & \textbf{$\times$} Open &
-Original claim retracted as pipeline-contaminated
-(\S\ref{sec:limitations}); needs a clean rerun before any public
-statement\\
+T1.3 & Sub-$\kz=1$ branch structure & \textbf{\checkmark} Closed &
+Eigensolver continuation + $\xi_{\rm cut}=5$ control + GPU confirmation
+(\S\ref{sec:limitations}): the original 0.32/0.06 numbers are real
+measurements of a sponge-boundary artifact, not a second physical branch;
+the true dispersion is smooth (GPU matches artifact-free eigensolver
+prediction to 1--2\% at every $\kz\ge0.5$)\\
 \bottomrule
 \end{tabular}
 \end{center}
 
 \begin{physmeaning}
-Two of Letter A's three explicit blockers are now closed, with the
-theory (T1.2) matching the exact-action model to $\le2\%$ against the
-$\sigma$-chased eigensolver and the shear-width independence (T1.1)
+All three of Letter A's explicit blockers are now closed. The theory
+(T1.2) matches the exact-action model to $\le2\%$ against the
+$\sigma$-chased eigensolver; the shear-width independence (T1.1) is
 confirmed directly on GPU data across an order of magnitude in $\eps$ and
-down to $\alpha=0.2$. The third (T1.3) is not a formality: it was the
-original motivation for extending the survey box in the first place, and
-its retraction (not just its being ``unaudited'') means Letter A's
-text should either omit any sub-$\kz=1$ claim entirely or commission a
-dedicated, clean re-measurement before drafting. Everything else in
-\S\ref{sec:limitations} (the new $\Vo=0.2/\alpha\ge3.5$ corner, the
-noise floor, the late-onset catastrophe, the warm closure) sits outside
-Letter A's three gating items and belongs to the broader program's
-honesty record rather than to this specific submission's blocking path.
+down to $\alpha=0.2$; and the sub-$\kz=1$ branch question (T1.3) is
+resolved by retraction --- the striking original numbers are a real
+measurement, but of a sponge-wall quasi-mode, not of a genuine second
+eigenmode family, so Letter A's text should state the dispersion is smooth
+through $\kz<1$ rather than claim any branch-crossing structure there.
+Everything else in \S\ref{sec:limitations} (the new
+$\Vo=0.2/\alpha\ge3.5$ corner, the noise floor, the late-onset
+catastrophe, the warm closure) sits outside Letter A's three gating items
+and belongs to the broader program's honesty record rather than to this
+specific submission's blocking path.
 \end{physmeaning}
 
 \clearpage

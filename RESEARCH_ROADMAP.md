@@ -197,20 +197,45 @@ the log-cosh potential by a parabolic well and assumes the step-velocity equilib
       and finite-well-depth effects) closes the loop: theory + exact solver + sim
       agreeing on the non-monotonicity makes the story self-contained.
 
-### T1.3 Sub-kz=1 branch — identify the mode-crossing
-The sharp drop (γ = 0.320 at kz_phys=0.5 → 0.060 at 0.75, α=2, V0=0.05) looks like
+### T1.3 Sub-kz=1 branch — identify the mode-crossing ✅ RESOLVED 2026-07-21 (CLOSED: artifact, not physics)
+The sharp drop (γ = 0.320 at kz_phys=0.5 → 0.060 at 0.75, α=2, V0=0.05) looked like
 a branch crossing between two distinct eigenmode families.
-- [ ] Run `ym_eigenmode.py` as a *continuation* in kz_phys with fine steps
-      (Δkz_phys = 0.05, Lz=8π grid), tracking the 3–5 leading eigenvalues, not
-      just the dominant one. Plot the branches through the crossing.
-- [ ] Compare eigenfunctions on both sides: peak position ξ_peak, Az/By ratio,
-      parity. Hypothesis to test: inner (shear-layer) branch vs outer
-      (Ω_A ≈ 0 resonance) branch, crossing or avoided-crossing near kz_phys ≈ 0.6.
-- [ ] Confirm the fine structure in simulation: C50 (running) covers kz_phys =
-      0.25–1.5 at Δ=0.25; if the solver predicts structure narrower than that,
-      add a Δkz_phys=0.125 fill on Lz=16π (NZ=512) for 3–4 points.
-- [ ] Check xi_sponge sensitivity explicitly at each point (known trap — solver
-      finds spurious outer modes if xi_sponge exceeds the physical mode region).
+- [x] Ran `analysis/t13_branch_continuation.py` as a continuation in kz_phys
+      with fine steps (Δkz_phys=0.05, 3 xi_sponge values), tracking several
+      leading eigenvalues, cross-checked with the standard σ-chase
+      (`analysis/chase_theory_worker.py`). Found: the "dominant" mode at
+      xi_sponge=13 does reproduce 0.320/0.060 almost exactly, but its
+      eigenfunction is pinned near/at the sponge radius (ξ_peak≈10-13 at
+      xi_sponge=13, ξ_peak literally = -8.181 = the wall for xi_sponge=8 at
+      every kz≥0.85), Az/By ratio blows up 2.6→40-150, parity collapses
+      0.99→<0.3 — a sponge-boundary quasi-mode, not the physical branch.
+- [x] Compared eigenfunctions on both sides via the same diagnostics
+      (ξ_peak, Az/By ratio, parity in `t13_branch_continuation.py`); the
+      hypothesis as originally framed (inner shear-layer vs outer Ω_A≈0
+      resonance, both physical) was **not** what's happening — the "outer"
+      branch found is a numerical wall artifact, confirmed by a decisive
+      xi_cut=5 hard-wall control (physically excludes the wall region
+      entirely): γ(kz_phys) comes out smooth and monotonically rising
+      (0.0170, 0.0595, 0.0839, 0.1014, 0.1144, 0.1245 for kz_phys=0.25-1.50),
+      no dip, no crossing.
+- [x] Confirmed in simulation: `scripts/run_campaign_t13confirm.sh` (α=2,
+      V0=0.05, EPS=0.15, Lz=8π/NZ=256) — 6 points with xi_cut=5 matched the
+      eigensolver to 1-2% at every kz_phys≥0.5 (best GPU-vs-eigensolver
+      agreement in the project to date); 2 points reproducing the original
+      xi_sponge=13 config reproduced the "0.32/0.06" numbers almost exactly
+      in full nonlinear CUDA (not just the linear solver), confirming the
+      artifact is a real property of the sponge kernel at that radius.
+- [x] xi_sponge sensitivity: explicitly checked at 8/13/20 — the artifact's
+      onset kz and dip depth both shift with xi_sponge, the smoking gun that
+      it tracks the boundary, not the physics.
+
+**Verdict**: closed as a **sponge-wall artifact**, not a genuine crossing
+between two physical eigenmode families. See `FINDINGS.md` "T1.3 CLOSED
+(2026-07-21)" for the full writeup and table, `derivations/results.tex` for
+the certified-claims version. Practical lesson for any future extended-box
+work: check eigenfunction ξ_peak against the sponge radius explicitly before
+trusting a "dominant, localised" eigenvalue near kz≲1 — `is_localised()`'s
+default margin (ξ_peak < 1.15×xi_sponge) is too permissive to catch this.
 
 ### T1.4 Warm-fluid closure — replace numerical filters with physics ⭐ CRITICAL FOR CREDIBILITY
 The current measurement isolates a mode that is *subdominant* in the cold system:
@@ -567,7 +592,7 @@ abstract.
 
 | Paper | Content | Venue target | Blocking tasks |
 |-------|---------|--------------|----------------|
-| **A (Letter)** | Coupling-selected wavelength (kz_peak vs α, EPS-independence) + sub-kz=1 two-branch structure + analytic scaling; BEC realizability paragraph; QGP/dark-sector motivation | PRL / PRD Letter | T1.1, T1.2, T1.3 (+T2.5) |
+| **A (Letter)** | Coupling-selected wavelength (kz_peak vs α, EPS-independence) + analytic scaling; BEC realizability paragraph; QGP/dark-sector motivation | PRL / PRD Letter | T1.1, T1.2, T1.3 (+T2.5) |
 | **B (full linear)** | Model + exact eigensolver + 6-field seeding method + full γ(kz;α,V0) maps + WKB comparison + validation stack; dark-sector unit-mapping section (System 1 step 1); Gauss/energy/convergence appendices | Phys. Plasmas / JPP / PRE | T1.4, T1.5, T2.1–T2.9 |
 | **C (nonlinear)** | Non-Abelian Kolmogorov flow, saturation amplitudes, color vortices, momentum transport, spectra | PRE / JPP / PoP | T1.4 → T1.6 |
 | **D (dark matter)** | Drag → σ/m exclusion plot in (α_dark, m) | PRD / JCAP | T1.6(c) + System 1 |
