@@ -278,8 +278,29 @@ def step_kh_rate(k_z, v=V0):
 
 # ── Classical EMHD KH dispersion (tanh profile, Abelian) ─────────────
 # For a tanh shear layer of width ε: γ_KH(k) ≈ V0*k*sech(k*ε*π/2)
+# Ad hoc interpolation (not derived from Das-Kaw's nonlocal analysis) that
+# reproduces the two rigorous limits below (kzε→0: γ→kz·V0; kzε≫1: γ→0).
 def emhd_kh_rate(k_z, v=V0, eps=EPSILON):
     return v * k_z * (1.0 / np.cosh(k_z * eps * np.pi / 2.0))
+
+
+# ── Das & Kaw (Phys. Plasmas 8, 4518 (2001)) exact dispersion relations ──
+# Nonlocal sausage-like instability of EMHD current channels — the paper in
+# this repo (4518_1_online.pdf). Length normalized to electron skin depth,
+# velocity to their V0; our code uses the same normalization convention
+# (code units, c=eps0=1) with V0/EPS as literal inputs.
+#
+# Step-profile (Eq. 16): electron flow jumps ±V0 at x=0 (ε→0 limit).
+#   ω² = -kz²V0²(1+4kz²)/(3+4kz²)         γ = |ω|
+#   kz≫1 → γ→kz·V0 (hydrodynamic KH limit); kz≪1 → γ→kz·V0/√3.
+# This is the paper's only fully closed-form result; the smooth "linear
+# profile" case (their Fig. 2, width 2ε) requires solving a transcendental
+# Whittaker-function relation (Eq. 19) and is not implemented here — its two
+# rigorous limits (kzε≪1: γ→kz·V0, matching the step result; kzε≫1: stable,
+# γ=0) are what `emhd_kh_rate` above interpolates between.
+def daskaw_step_rate(k_z, v=V0):
+    k_z = np.asarray(k_z)
+    return np.abs(k_z) * v * np.sqrt((1.0 + 4.0 * k_z**2) / (3.0 + 4.0 * k_z**2))
 
 
 def plot_energy(run_dirs):
@@ -317,6 +338,10 @@ def main():
                         help='Fit window start time (TU)')
     parser.add_argument('--t-max',   type=float, default=None,
                         help='Fit window end time (TU)')
+    parser.add_argument('--eps',     type=float, default=EPSILON,
+                        help='Shear-layer width EPS for the By1 EMHD theory '
+                             'overlay (must match eps_override used in the '
+                             f'runs; default {EPSILON:.4f} = Lx/6)')
     parser.add_argument('--plot-dispersion', action='store_true')
     parser.add_argument('--plot-energy',     action='store_true')
     args = parser.parse_args()
@@ -388,8 +413,11 @@ def main():
 
         # EMHD KH reference (By1 mode, tanh profile)
         if args.field == 'By1':
-            g_kh = np.array([emhd_kh_rate(k) for k in k_th])
-            ax2.plot(k_th, g_kh, 'g-.', label=f'EMHD KH (tanh, ε={EPSILON:.2f})')
+            g_kh = np.array([emhd_kh_rate(k, eps=args.eps) for k in k_th])
+            ax2.plot(k_th, g_kh, 'g-.', label=f'EMHD KH sech interp. (ε={args.eps:.2f})')
+            g_dk = daskaw_step_rate(k_th)
+            ax2.plot(k_th, g_dk, 'm:', lw=2,
+                     label='Das & Kaw 2001 Eq.16 (exact, step profile)')
 
         ax2.set_xlabel(r'$k_z$')
         ax2.set_ylabel(r'$\gamma$ (TU⁻¹)')

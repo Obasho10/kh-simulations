@@ -3877,3 +3877,111 @@ eigenfunction ξ_peak against the sponge radius, not just amplitude
 localisation**, before trusting a "dominant" eigenvalue near kz≲1 — the
 existing `is_localised()` check (xi_peak < 1.15×xi_sponge) is too permissive
 to catch this failure mode.
+
+---
+
+## Color-1 EMHD_KH (mode 2) vs Das & Kaw (2001): taper fix helps, but a
+## deeper two-fluid pinch-collapse issue blocks a clean dispersion measurement
+## (2026-07-21)
+
+Attempted to seed the color-1-only sector (`run_mode=2`, `EMHD_KH`) and
+measure γ(kz) against the analytic dispersion relation of Das & Kaw, *Phys.
+Plasmas* 8, 4518 (2001) (`4518_1_online.pdf`, this repo's Abelian ancestor —
+see LITERATURE.md §1). Mode 2 is the right vehicle for this: per the
+linearized-equation derivation in `derivations/khaxn.pdf` (color-1 charge
+fluctuation q1≡0, no `α_YM` coupling terms in b1x/b1y/b1z), the color-1
+sector is exactly decoupled from the SU(2) physics and should reduce to
+Das-Kaw's single-color EMHD current-channel problem.
+
+**Fix 1 (genuine improvement)**: extended `vz_edge_taper` (previously modes
+1/6 only) to mode 2 in `YM_Init.cu`. Mode 2 uses the same periodic-x,
+single-tanh `vz_A` profile as modes 1/6, so it has the same periodic-wrap
+velocity discontinuity documented in OUTER_REGION.md as the driver of the
+"kz=0 collapse by t≈12" failure mode. With the taper (and *without*
+preloading the By1 equilibrium — see Fix 2 below), a V0=0.1 run that
+previously would have failed by t≈12-14 now survives to t≈38 before halting.
+
+**Fix 2 (attempted, made things worse, reverted for production use)**: also
+extended `init_by1_eq` (the current-consistent By1 background, `∂x By1 =
+Jz1 = -2V0·tanh(ξ)`, previously mode 6 only) to mode 2, reasoning that
+mode 2's By1 *is* the whole physics (unlike modes 1/6, where it's a
+parasitic side-channel) so it shouldn't be optional. This was wrong in
+practice: pre-loading the *full* equilibrium field from t=0 exposes the full
+pinch force (see below) immediately, and the run NaN'd by t≈13 — *earlier*
+than leaving By1=0 and letting it build up self-consistently. The code
+change is kept (gated behind the existing `init_by1_eq` flag, default off)
+since it may be useful once Fix 3 below is implemented, but the dispersion
+runs in this entry all use `init_by1_eq=0`.
+
+**Root cause of the underlying collapse (analytic)**: mode 2 has *two*
+dynamical, mirror-symmetric fluids (Q1=±1, vz=±V0·tanh(ξ), equal density),
+not Das-Kaw's *one* dynamical electron fluid against a fixed neutralizing
+ion background. Linearizing the code's own force law (`F_x = -Q1(Ex1 +
+vz·By1)`) at the self-consistent By1 equilibrium gives, for the two beams:
+
+```
+F_x,A = -Ex1 - v0(x)·By1_eq(x)
+F_x,B = +Ex1 - v0(x)·By1_eq(x)
+```
+
+A single Ex1 has *opposite*-sign leverage on the two beams, so it can only
+ever cancel the *difference* of these forces, never their common part
+(`-v0·By1_eq`, identical for A and B). Worse, Gauss's law pins Ex1=0 in the
+first place: `∂x Ex1 = ρ = n_A - n_B`, and the natural symmetric initial
+condition (n_A=n_B=1) forces ρ=0, so Ex1=0 is the *only* self-consistent
+choice — there is no freedom to pick a balancing Ex1 even in principle. The
+result is an unopposed, common-mode, cold (pressureless) force pinching
+*both* beams toward the shear-layer center together. This is confirmed
+directly in the snapshot data: `nA` and `nB` pile up together (not
+oppositely) exactly at x≈Lx/2, reaching 10-19× the background density well
+within the run. Das-Kaw's own paper names the balancing mechanism this setup
+lacks: "the electrostatic field here plays the same role as pressure in
+MHD" — true for their single dynamical species, not achievable here for two
+mirrored ones.
+
+**V0 scan** (`v0_scan.sh`, kz=2, EPS=0.15, `init_by1_eq=0`,
+`vz_edge_taper=50`, target_tu=80): the pinch collapse is present at every V0
+tested, with growth outrunning the target Das-Kaw signal in every case —
+lowering V0 delays it but does not open a clean multi-e-folding window
+before contamination (consistent with the pinch force scaling ~V0² against
+the target growth's ~V0, i.e. the *ratio* of timescales does not improve as
+fast as hoped):
+
+| V0 | outcome |
+|---|---|
+| 0.1 | NaN at t=37.9 |
+| 0.05 | NaN at t=66.8 |
+| 0.03 | E/E0=126 (halt) at t=78.8 |
+| 0.02 | survives to t=80, but `max(nA)` already exceeds 1.5× background by t≈17 — well under one predicted e-folding (γ_sech≈0.036 ⇒ 27.8 TU) |
+
+`analysis/plot_emhd_pinch_diagnostic.py` (run on t133, data too large to
+move) produces `emhd_pinch_diagnostic.png`: the weighted By1[kz=2] amplitude
+is dominated by noise through t≈55 (density already >5× background by
+then), then rises — its late-time slope is suggestively close to both
+theory curves, but by that point the linear-regime assumption is
+thoroughly violated, so this cannot be read as a validated measurement.
+
+**Das-Kaw theory reference added** (`analysis/dispersion_ym.py`): the
+paper's exact closed-form step-profile dispersion relation (Eq. 16,
+`ω² = -kz²V0²(1+4kz²)/(3+4kz²)`) is now available as `daskaw_step_rate()`,
+alongside the pre-existing ad hoc `emhd_kh_rate()` sech interpolation; both
+are overlaid automatically for `--field By1 --plot-dispersion`. A `--eps`
+flag was added so the overlay can match whatever `eps_override` a given
+campaign actually used (previously hardcoded to the module's π default,
+silently wrong for any `eps_override` run).
+
+**Verdict**: the taper fix is real and worth keeping, but color-1 EMHD_KH
+as currently structured (two mirrored dynamical fluids) cannot deliver a
+clean GPU-vs-Das-Kaw dispersion measurement — the model lacks the
+force-balance mechanism (a single confining species) that makes Das-Kaw's
+own equilibrium possible, and no choice of V0 in the tested range opens a
+long-enough clean window. **Not closed.** Two paths forward, neither
+attempted here: (a) add real thermal pressure (`warm_T`) *derived* to
+exactly balance the common-mode pinch force (not just empirically scanned —
+the T1.4 warm-closure entry above found ad hoc `warm_T` ineffective against
+a differently-structured filamentation instability, but pressure is the
+structurally correct antidote to a compressive pinch specifically); or (b)
+add a new run mode with one dynamical color-1 fluid against a fixed,
+immobile, uniform neutralizing background charge — a direct port of
+Das-Kaw's actual assumption instead of the mirrored two-fluid setup mode 2
+currently uses.
