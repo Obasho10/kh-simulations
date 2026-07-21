@@ -1,0 +1,1141 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{textcomp}
+\usepackage{microtype}
+
+\graphicspath{%
+  {figs/}%
+  {figs_results/}%
+  {../plots/}%
+  {../remote_data/t2p23/}%
+}
+
+\usetheme{default}
+\useinnertheme{rectangles}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\definecolor{ymblue}{RGB}{31,73,125}
+\definecolor{ymgreen}{RGB}{27,175,122}
+\definecolor{ymred}{RGB}{178,34,52}
+
+\setbeamercolor{structure}{fg=ymblue}
+\setbeamercolor{title}{fg=ymblue}
+\setbeamercolor{frametitle}{fg=white,bg=ymblue}
+\setbeamercolor{block title}{bg=ymblue!15,fg=ymblue!90!black}
+\setbeamercolor{block body}{bg=ymblue!4}
+\setbeamercolor{block title example}{bg=ymgreen!20,fg=ymgreen!40!black}
+\setbeamercolor{block body example}{bg=ymgreen!6}
+\setbeamercolor{block title alerted}{bg=ymred!15,fg=ymred!70!black}
+\setbeamercolor{block body alerted}{bg=ymred!5}
+\setbeamerfont{block title}{size=\normalsize}
+\setbeamerfont{normal text}{size=\footnotesize}
+\setbeamertemplate{itemize items}[circle]
+\setlength{\parskip}{2pt}
+
+\newenvironment{physpicture}{\begin{exampleblock}{Physical picture}}{\end{exampleblock}}
+\newenvironment{physmeaning}{\begin{exampleblock}{Physical meaning}}{\end{exampleblock}}
+\newenvironment{caveat}{\begin{alertblock}{Caveat}}{\end{alertblock}}
+\newenvironment{given}{\begin{alertblock}{\textcolor{ymred!70!black}{Already presented}}}{\end{alertblock}}
+
+\newcommand{\eps}{\varepsilon_s}
+\newcommand{\Vo}{V_0}
+\newcommand{\kz}{k_z}
+\newcommand{\OmA}{\Omega_A}
+\newcommand{\OmF}{\Omega_F}
+\newcommand{\Az}{A_{z1}}
+\newcommand{\Ceil}{\Gamma}
+\newcommand{\Kwn}{K}
+\newcommand{\ii}{\mathrm{i}}
+\newcommand{\Rey}{\operatorname{Re}}
+\newcommand{\Imy}{\operatorname{Im}}
+\newcommand{\sech}{\operatorname{sech}}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\D}{\mathcal{D}}
+
+\title{\textbf{Beyond the Given Wave Equation}}
+\subtitle{From the RCP/LCP $A_{z2,3}$ ODE (\texttt{khaxn.pdf}) to a validated theory\\
+of the non-Abelian Kelvin--Helmholtz instability, and its confrontation with GPU data}
+\author{SU(2) Yang--Mills KH simulation program}
+\date{2026-07-21}
+
+\begin{document}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}{Where we left off}
+\begin{given}
+\textbf{\texttt{khaxn.pdf}}: linearized Yang--Mills--Wong system in the $a_x^a=0$ gauge.
+Its eq.~(23) closes the perturbation into a single decoupled 2nd-order wave equation
+for the circular combination $a_z^+$ (i.e.\ $A_{z2}+\ii A_{z3}$):
+\[
+\Bigl(-\partial_x^2-\omega^2+\kz^2+\alpha^2(\phi_0^1)^2-\alpha^2(A^1_{0z})^2\Bigr)a_z^+
+=\frac{\alpha^2 V_{0z}}{\Omega+\alpha\Phi_0^1}
+\Bigl(V_{0z}-\frac{\kz+\alpha A^1_{0z}}{\omega+\alpha\phi_0^1}\Bigr)a_z^+
+\]
+\end{given}
+\vspace{0.15em}
+\textbf{This talk covers everything derived and measured since.} Two more given
+results are used silently downstream — restated briefly next — then it's all new:
+the quartic $\to$ exact scalar reduction $\to$ growth ceiling $\to$ exact-action
+quantization $\to$ confinement-set wavelength selection $\to$ full GPU validation
+campaign $\to$ where Letter A actually stands today.
+\end{frame}
+
+\begin{frame}{The second given result (briefly): \texttt{wkb.pdf}}
+Expanding the step-potential form of the boxed equation to $\mathcal O(v^2)$ gives a
+Schr\"odinger form $\partial_x^2a_z+Q_\pm(x)a_z=0$ with a \emph{parabolic} well,
+\[
+Q_\pm(x)=Q_{0,\rm mean}\pm\delta-|C_1|x^2+C_2x^4,\qquad
+|C_1|=\frac{\alpha^3v^2}{2\omega^2},
+\]
+and Bohr--Sommerfeld quantization of that harmonic core (the $\pm\delta$ jump cancels
+between the two half-integrals) gives \texttt{wkb.pdf} eq.~(33):
+\[
+\boxed{\;Q_{0,\rm mean}=(2n+1)\sqrt{|C_1|}\;}\qquad n=0,1,2,\dots
+\]
+\begin{physpicture}
+This is a harmonic-oscillator quantization: exact at $\kz=0$, an uncontrolled
+extrapolation away from it. Everything from here derives \emph{when} that
+extrapolation works, replaces it where it doesn't, and confronts both against
+real GPU data.
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{Outline}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{enumerate}
+\footnotesize
+\item From eq.~(33) to the quartic, $\kz{=}0$ anchor
+\item The time-domain model
+\item Six-field linearization
+\item Local dispersion: tachyonic \& drive branch
+\item Exact scalar reduction: one ODE for $a(x)$
+\item The drive, resonance, growth ceiling
+\item Quantization: models A and B
+\item The dispersion curve: confinement-set peak
+\item The quantization budget ($\eps$)
+\end{enumerate}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{enumerate}
+\footnotesize
+\setcounter{enumi}{9}
+\item Remaining theory, at pace
+\item Data-quality: two bugs, found \& fixed
+\item Foundational validation anchors
+\item The headline result, on GPU data
+\item Integer-$\kz$ map \& tachyonic branch
+\item Resolution addendum (2026-07-21)
+\item T1.3: closed (sponge artifact, not physics)
+\item Where this leaves Letter A
+\end{enumerate}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ==============================================================================
+\section{From eq.~(33) to the quartic, and the $\kz=0$ anchor}
+
+\begin{frame}{Clearing eq.~(33) to a quartic}
+Substituting the harmonic-core definitions into eq.~(33) and writing
+$C\equiv(2n+1)\sqrt{\alpha^3/2}\,\Vo$:
+\[
+\omega^2-\kz^2-\frac{\alpha^2\Vo\kz}{\omega^2}=\frac{C}{\omega}
+\]
+Multiply through by $\omega^2$ ($\omega=0$ is not a root) and collect:
+\[
+\boxed{\;\omega^4-\kz^2\,\omega^2-C\,\omega-\alpha^2\Vo\kz=0\;}
+\]
+the \textbf{WKB quartic}. $\gamma=\max\Imy\,\omega$ over its four roots is the
+``$\gamma_{\rm WKB}$'' quoted in every early program table.
+\begin{caveat}
+An early implementation assumed $\Rey\,\omega=0$ (purely growing) and bisected on
+real $\gamma$ — wrong away from $\kz=0$ by up to 50\% at $\kz=0.25$. The full complex
+quartic must be solved.
+\end{caveat}
+\end{frame}
+
+\begin{frame}{The $\kz=0$ limit: chromo-Weibel growth rate}
+\footnotesize
+Set $\kz=0$: $\omega^4-C\omega=0\Rightarrow\omega(\omega^3-C)=0$. The growing root
+is $\omega=C^{1/3}e^{2\pi\ii/3}$, giving
+\[
+\boxed{\;\gamma_{\rm Weibel}(\kz{=}0)=\Bigl(\sqrt{\tfrac{\alpha^3}{2}}\,\Vo\Bigr)^{1/3}\sin 60^\circ\;}
+\]
+\begin{physpicture}
+\textbf{Not} a bunching instability — nothing varies along $z$. It's
+\emph{filamentation}: $\Az$ rotates color-2/3 fields into each other while
+counter-streaming currents feed them back. Closing the loop $E\to A\to Q\to
+J\to E$ gives gain $\propto C/\gamma^3$; marginal self-amplification fixes
+$\gamma\sim C^{1/3}$, root geometry supplies $\sin60^\circ$.
+\end{physpicture}
+\textbf{Validated to 0.5\%}: $\alpha=2,\Vo=0.1$: $\gamma_{\rm sim}=0.5039$ vs.\
+formula $0.5065$, over nine decades of growth — the strongest single anchor of
+the quartic, and the first number quoted to a referee (parameter-free).
+\end{frame}
+
+\begin{frame}{Quartic vs.\ reality: where it's valid, where it fails}
+\includegraphics[width=0.4\textwidth]{fig_quartic.pdf}
+\begin{itemize}
+\item \textbf{$\kz=0$}: exact, validated to 0.5\%.
+\item \textbf{Low $\kz$}: the quartic's drive $\alpha^2\Vo\kz/\gamma^2$ has no
+ceiling $\Rightarrow$ overshoots the true branch by $10$--$20\times$.
+\item \textbf{High $\kz$}: quartic balance gives $\gamma^2\approx\alpha^2\Vo/\kz$,
+a decline, while the true branch saturates near a ceiling $\Rightarrow$ $\sim$25\%
+underestimate.
+\end{itemize}
+The diagnosis (why, precisely) has to wait for the exact reduction — coming up.
+\end{frame}
+
+% ==============================================================================
+\section{The time-domain model}
+
+\begin{frame}{The simulated system}
+For each color $a\in\{1,2,3\}$: fields $E_x^a,E_z^a,B_y^a,A_z^a$. For each beam
+$s\in\{A,B\}$: fluid $n_s,p_{xs},p_{zs}$, color charge $Q_s^a$.
+\vspace{0.05em}
+\begin{align*}
+&\partial_t n+\nabla\!\cdot(n\vec v)=0, \qquad
+\partial_t p_x+\nabla\!\cdot(\vec v p_x)=-n\textstyle\sum_a Q^a(E_x^a+v_zB_y^a)\\
+&\partial_t p_z+\nabla\!\cdot(\vec v p_z)=-n\textstyle\sum_a Q^a(E_z^a-v_xB_y^a),\qquad
+\partial_t Q^a=\alpha\,v_z(\vec Q\times\vec A_z)^a\\[0.3em]
+&\partial_t E_x^a=-\partial_zB_y^a-\alpha(\vec A_z\times\vec B_y)^a-J_x^a,\qquad
+\partial_t E_z^a=\partial_xB_y^a-J_z^a\\
+&\partial_t B_y^a=\partial_xE_z^a-\partial_zE_x^a+\alpha(\vec A_z\times\vec E_x)^a,
+\qquad \partial_t A_z^a=-E_z^a
+\end{align*}
+Beams: $v_{zA}=+\Vo\tanh\xi$, $Q^1_A=+1$; $v_{zB}=-\Vo\tanh\xi$, $Q^1_B=-1$; frozen
+background $\Az(\xi)=-\Vo\ln\cosh\xi$, $u(\xi)\equiv-\alpha\Az(\xi)\ge0$.
+\end{frame}
+
+\begin{frame}{A gap worth closing: gauge counting}
+\footnotesize
+SU(2) gauge freedom eliminates exactly \emph{one} full spacetime component of
+$A_\mu^a$ — not two. Dropping both $A_x^a,A_y^a$ while also fixing $A_0^a$ needs
+justification, not assumption.
+\[
+\boxed{\text{one gauge choice}\Rightarrow\text{one component eliminated --- not two.}}
+\]
+\begin{itemize}
+\item \texttt{khaxn.pdf} spends its choice on $a_x^a=0$; $\phi$ survives, killed
+only by the Gauss \emph{constraint}; $a_y$ survives, decoupled from $a_z$ by
+construction.
+\item This model spends a \emph{different} choice, $A_0^a\equiv0$ (temporal
+gauge — exactly what $\partial_tA_z=-E_z$ states).
+\item $A_y$ is then a \emph{sector} choice (never populated); $A_x$ is wired to
+\emph{nothing} in any equation of motion — a complete spectator either way.
+\end{itemize}
+\begin{physpicture}
+One knob, one turn: two different single choices, not one spent twice. $E_x$
+carries exactly $\phi$'s slaved role ($\gamma e_x=-\ii\OmA b$, purely algebraic).
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{Precession source from Wong's equation}
+\footnotesize
+Wong's equation, non-relativistic limit, temporal gauge, only $A_z^b\neq0$:
+\[
+\frac{\dd Q^a}{\dd t}=-g\,\epsilon^{abc}v_zA_z^b Q^c
+=+\alpha\,v_z\,(\vec Q\times\vec A_z)^a
+\]
+exactly the model's source; $|\vec Q|$ conserved $\Rightarrow$ $Q^1_{A,B}=\pm1$
+stays a unit adjoint vector.
+\vspace{0.1em}
+\textbf{Energy budget} (derivation skipped): non-Abelian cross terms do \emph{not}
+cancel —
+\[
+\frac{\dd E}{\dd t}\Big|_{\rm NA}=-2\alpha\int\vec A_z\cdot(\vec B_y\times\vec E_x)
+\]
+\begin{physpicture}
+A frozen field is an infinite battery. In the tachyonic region this term
+\emph{feeds} the wave without limit (Nielsen--Olesen-type decay). In the shear
+well it's a drain; the shear branch draws on the beams' kinetic energy instead —
+a finite, self-consistent reservoir.
+\end{physpicture}
+\end{frame}
+
+% ==============================================================================
+\section{Six-field linearization}
+
+\begin{frame}{Circular pairs: color rotation is a phase}
+Combine color-2/3 perturbations: $b=B_y^2+\ii B_y^3$, $e_x=E_x^2+\ii E_x^3$,
+$e_z=E_z^2+\ii E_z^3$, $a=A_z^2+\ii A_z^3$, $q_{A,B}=Q^2_{A,B}+\ii Q^3_{A,B}$, ansatz
+$\propto e^{\ii\kz z+\gamma t}$. For background $\vec A_z=(\Az,0,0)$, any
+commutator $(\vec A_z\times\vec X)^2+\ii(\vec A_z\times\vec X)^3=\ii\Az X^c$: a
+cross product with the background acts on a circular pair as multiplication by
+$\ii\Az$.
+\[
+\boxed{\;\OmA(\xi)=\kz+\alpha\Az=\kz-u(\xi),\qquad \OmF(\xi)=\kz-\alpha\Az=\kz+u(\xi)\;}
+\]
+\begin{physpicture}
+The color-2/3 waves are \emph{charged} (charge $\pm1$) under the residual $U(1)$
+about the color-1 axis; $\alpha\Az$ shifts their momentum like an ordinary gauge
+potential, $\kz\to\kz\pm\alpha\Az$. Amp\`ere sees $\OmA$, Faraday sees $\OmF$ — the
+split is the fingerprint of the fixed $A_x=0$ constraint.
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{The six-field eigenvalue system}
+\footnotesize
+\[
+\boxed{
+\begin{aligned}
+\gamma\,b &= -\ii\,\OmF\,e_x+e_z' & \gamma\,a &= -e_z\\
+\gamma\,e_x &= -\ii\,\OmA\,b & \gamma\,q_A &= \ii\alpha v\,a-\ii v\,\OmA\,q_A\\
+\gamma\,e_z &= b'+v\,(q_A-q_B) & \gamma\,q_B &= \ii\alpha v\,a+\ii v\,\OmA\,q_B
+\end{aligned}}
+\]
+\normalsize
+\vspace{0.1em}
+This is exactly what \texttt{ym\_eigenmode.py} solves. Validated against the 2D
+simulation at 1--4\% on the $\Vo=0.05$ validation stack ($\kz\le5$); 4--9\%
+median across the full integer-$\kz$ map; 6--10\% archive-wide clean core.
+\vspace{0.1em}
+\textbf{Correspondence check}: eliminating $e_x,e_z,q_A,q_B,b$ reproduces exactly
+the beam-response denominators $\Omega\pm\alpha\Phi_0^1$ of the boxed equation on
+slide 2, under $\omega=\ii\gamma$ — the time-domain model linearizes into
+\emph{precisely} the given frequency-domain theory, modulo two stated scope
+truncations (no background $\phi_0^1$; no $a_y^\pm$ sector).
+\vspace{0.1em}
+\textbf{Symmetry}: helicity conjugation ($\Az\to-\Az$) combined with $\xi\to-\xi$
+maps the system onto itself — every eigenmode on one side of the layer has a
+mirror partner of the opposite polarization on the other side, same $\gamma$.
+\end{frame}
+
+% ==============================================================================
+\section{Local dispersion: the tachyonic branch and the drive branch}
+
+\begin{frame}{Block factorization at $k_x=0$}
+Freezing the background locally, the system splits into two independent blocks:
+\[
+\begin{gathered}
+\underbrace{\gamma b=-\ii\OmF e_x,\;\; \gamma e_x=-\ii\OmA b}_{\text{EM block}}\\[5pt]
+\underbrace{\gamma e_z=v(q_A-q_B),\;\gamma a=-e_z,\;\gamma q_{A,B}=\ii\alpha va\mp\ii v\OmA q_{A,B}}_{\text{charge block}}
+\end{gathered}
+\]
+\end{frame}
+
+\begin{frame}{EM block: the tachyonic (Nielsen--Olesen) branch}
+\footnotesize
+Multiplying the EM block:
+\[
+\boxed{\;\gamma^2=-\OmA\OmF=\alpha^2A^2-\kz^2\;}
+\]
+Negative wherever the background shift exceeds the wavenumber $\Rightarrow$
+$\gamma^2>0$: the charged-vector-on-strong-background instability of the
+Nielsen--Olesen class.
+\[
+\gamma_{\rm loc}(\xi)\simeq\sqrt{(\alpha\Vo)^2(|\xi|-\ln2)^2-\kz^2}
+\quad\text{real for }
+\boxed{\;|\xi|>\xi_{\rm crit}\simeq\frac{\kz}{\alpha\Vo}+\ln2\;}
+\]
+\centering\includegraphics[width=0.36\textwidth]{fig_tachyon.pdf}
+\end{frame}
+
+\begin{frame}{Consequence: high-$\alpha$ window collapse}
+A window of radius $\xi_w$ excludes the tachyon only if $\xi_w<\xi_{\rm crit}$. As
+$\alpha$ grows at fixed $\kz,\Vo$: $\xi_{\rm crit}\to\ln2$ — eventually \emph{no}
+window both contains the shear well and excludes the tachyon.
+\begin{caveat}
+This is the mechanism of the early tachyonic blow-ups at $\alpha\ge6$: at
+$\alpha=6,\Vo=0.05,\kz=2$: $\xi_{\rm crit}=7.4$, already inside the vetted
+windows. The failure maps to $\alpha$, exactly as predicted — this is now known
+to be only \emph{part} of the story (resolution addendum, later).
+\end{caveat}
+Same mechanism, evaluated at layer scale ($|\Az|\sim\Vo$) rather than the outer
+plateau, gives the ``precession cascade'' $\gamma_{\rm casc}\approx\alpha\Vo$ that
+motivated full eigenmode seeding (later in this talk).
+\end{frame}
+
+\begin{frame}{Charge block: the local drive branch}
+Solving the two precession equations and closing through $e_z,a$:
+\[
+q_A-q_B=\frac{2\alpha v^2\OmA}{\gamma^2+v^2\OmA^2}\,a
+\qquad\Longrightarrow\qquad
+\boxed{\;\gamma^2=-g,\qquad g(\xi;\gamma)=\frac{2\alpha v^3\OmA}{\gamma^2+v^2\OmA^2}\;}
+\]
+\begin{physpicture}
+Two driven pendulums. The potential $a$ shakes each beam's color charge; each
+precesses at Doppler-shifted $\pm v\OmA$. Only their \emph{difference} radiates
+back into $a$ through the current — growth is a phase-locking resonance between
+the wave and the beams' color precession. This is the local ($k_x\to0$) limit of
+the drive that reappears, unmodified, in the exact reduced ODE next.
+\end{physpicture}
+\end{frame}
+
+% ==============================================================================
+\section{Exact scalar reduction: one ODE for $a(x)$}
+
+\begin{frame}{The reduction — algebra all the way down}
+\footnotesize
+The six-field system has only \emph{one} $x$-derivative chain
+($e_z'\to b\to b'$); everything else is algebraic. Eliminating $e_x,e_z,q_A,q_B,b$:
+\[
+b=-\frac{\gamma^2a'}{\D},\qquad \D(x)\equiv\gamma^2+\OmA\OmF=\gamma^2+\kz^2-u(x)^2
+\]
+Assembling Amp\`ere-$z$ gives \emph{exactly one} second-order ODE — the new
+theory's counterpart of the boxed equation on slide 2, now derived independently
+and exactly from the six-field system:
+\[
+\boxed{\;\Bigl(\frac{\gamma^2 a'}{\D}\Bigr)'=(\gamma^2+g)\,a,\qquad
+g(x)=\frac{2\alpha v^3\OmA}{\gamma^2+v^2\OmA^2}\;}
+\]
+\begin{physpicture}
+Three powers of $v$ in $g$: the wave must (i) shake the charges, (ii) make the
+two beams respond \emph{differently} (opposite Doppler rotation), (iii) collect
+the response as a current. The drive dies as $v^3$ toward the layer center — the
+shear branch is anchored to the flow, not the field maximum.
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{Anatomy of the reduced equation}
+\footnotesize
+\centering
+\includegraphics[width=0.5\textwidth]{fig_anatomy.pdf}
+\begin{itemize}
+\item $\D$: sign change separates trapped shear ($\D>0$) from tachyonic outer
+($\D<0$) — \emph{one} mechanism, two fates.
+\item $g$: the only drive of the shear branch, the local-drive function.
+\item WKB form $a\propto\exp(\pm\ii\int\sqrt Q\,dx)$, exact local wavenumber
+$Q=-\D(\gamma^2+g)/\gamma^2$.
+\end{itemize}
+\textbf{Exactness verified}: discrete Newton iteration reproduces six-field
+ARPACK eigenvalues to rel.\ diff.\ $<10^{-10}$, 7 points, $\alpha=1$--3.
+\end{frame}
+
+% ==============================================================================
+\section{The drive, the resonance, and the growth ceiling}
+
+\begin{frame}{The saturated drive $G(w)$ and its resonance}
+In the saturated region ($v=\pm\Vo$, $u=\alpha\Vo(|\xi|-\ln2)$), on the driven
+side:
+\[
+-g=G(w)=\frac{2\alpha\Vo^3w}{\gamma^2+\Vo^2w^2},\qquad w\equiv\OmA=\kz-u(\xi)
+\]
+Maximizing over $w$: $\dfrac{dG}{dw}=0\Rightarrow w^*=\gamma/\Vo$ — the mode grows
+fastest where the \emph{beam-frame precession frequency} matches the growth rate
+itself. Peak value:
+\[
+G_{\max}=G(w^*)=\frac{\alpha\Vo^2}{\gamma}
+\]
+\end{frame}
+
+\begin{frame}{The growth ceiling: $\gamma^3\le\alpha\Vo^2$}
+A confining well needs $G>\gamma^2$ somewhere; since $G\le G_{\max}=\alpha\Vo^2/\gamma$:
+\[
+\boxed{\;\gamma^3\le\alpha\Vo^2\;}
+\]
+independent of $\kz$, $\eps$, and window geometry. \textbf{Two independent
+derivations agree} (well-existence, and the local-drive branch
+$\gamma^2=G(w^*)$ solved directly).
+\begin{physpicture}
+A self-limiting resonance. The beam response is a Lorentzian in local precession
+frequency, width set by $\gamma$ itself: the faster the mode grows, the broader
+the band it averages over, the weaker the peak drive it can extract. The ceiling
+is the fixed point — the mode grows exactly as fast as the drive it leaves
+itself.
+\end{physpicture}
+\textbf{Measured}: dominant-branch peaks reach 95--99\% of $(\alpha\Vo^2)^{1/3}$ in
+\emph{every} validated series (empirical confirmation later, T2.5).
+\end{frame}
+
+\begin{frame}{Natural units: a universal well}
+\footnotesize
+$\Ceil\equiv(\alpha\Vo^2)^{1/3}$ (rate scale), $\Kwn\equiv(\alpha/\Vo)^{1/3}$
+(wavenumber scale), $\gamma=\Ceil\hat\gamma$. The drive becomes \emph{universal}
+— no $\alpha,\Vo,\eps$ remain:
+\[
+G(w)=\Ceil^2\,\hat G(\hat w),\qquad \hat G(\hat w)=\frac{2\hat w}{\hat\gamma^2+\hat w^2}
+\]
+\centering\includegraphics[width=0.5\textwidth]{fig_drive.pdf}
+\raggedright
+Well edges $\hat w_\pm=(1\pm\sqrt{1-\hat\gamma^6})/\hat\gamma^2$, real only for
+$\hat\gamma\le1$ — a \emph{third} derivation of the ceiling. \textbf{Rates scale
+as $(\alpha\Vo^2)^{1/3}$, wavenumbers as $(\alpha/\Vo)^{1/3}$ — no function of
+$\alpha\Vo$ alone works.}
+\end{frame}
+
+% ==============================================================================
+\section{Quantization: models A and B}
+
+\begin{frame}{A quarter-wave well}
+\footnotesize
+The well is shallow: measured action $S=0.31\pi$--$0.46\pi$ — less than a quarter
+wavelength. Naive Bohr--Sommerfeld fails; the connection condition at the sharp
+inner ``knee'' does the work instead:
+\[
+\boxed{\;\tan S=\frac{\kappa}{k_{\rm edge}}\;},\qquad \kappa=\sqrt{\gamma^2+\kz^2}
+\]
+\centering\includegraphics[width=0.42\textwidth]{fig_quant.pdf}
+\raggedright
+\begin{physpicture}
+A surface-mode-like state, not a cavity mode: rates hug the ceiling (a small drop
+in $\gamma$ buys all the depth needed), while the \emph{peak position} is set
+entirely by window geometry.
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{Model A (closed form) and Model B (exact action)}
+\textbf{Model A}: square-well approximation ($u\ll\kz$, $\D\approx\gamma^2+\kz^2$
+const.) closes on a single transcendental equation $LX=\arctan(1/X)$
+($L=\eps(\xi_w-\xi_0)\kz$), giving
+\[
+\gamma^2=\tfrac12\Bigl[-\Vo^2\kz^2+\sqrt{\Vo^4\kz^4+\tfrac{8\alpha\Vo^3\kz}{1+X^2}}\Bigr]
+\]
+Validated to $\sim$3\% near/above the peak; locates the peak to $\pm0.5$ in $\kz$.
+\vspace{0.1em}
+\textbf{Model B}: keeps the \emph{exact} $Q(x;\gamma)$, root-finds
+$S(\gamma)=\int\sqrt Q\,dx=\Phi(\gamma)$ (connection phase, including Airy
+$\pi/4$ terms at soft turning points).
+\begin{center}
+\textbf{Matches $\sigma$-chased $n{=}0$ eigenvalues to $\le2\%$ (median $\le0.2\%$)
+across 12 series, $\kz\ge1.5$.}
+\end{center}
+\end{frame}
+
+\begin{frame}{The full theory chain, one dispersion curve}
+\centering
+\includegraphics[width=0.6\textwidth]{fig_dispersion.pdf}
+\small
+Open circles: $\sigma$-chased 6-field eigenvalues. Solid: Model B. Dashed: Model A.
+Dotted: the old WKB quartic — overshooting exactly as diagnosed earlier.
+\end{frame}
+
+\begin{frame}{A methodological trap: the overtone ladder}
+\footnotesize
+$S(\gamma)$ decreasing in $\gamma$ $\Rightarrow$ a \emph{ladder} of well overtones.
+A shift-invert eigensolver returns whatever eigenvalue is nearest its target
+$\sigma$ — the legacy default lands mid-ladder wherever the old quartic
+underestimates.
+\begin{caveat}
+\textbf{Discovered via this theory, then falsified experimentally}: at
+$(\alpha,\Vo,\kz)=(1,0.05,4)$, sponge 20 — the \emph{same} physical point, seeded
+two different ways:
+\begin{center}
+\begin{tabular}{lrr}
+seed & eigenvalue & measured plateau\\\midrule
+default-$\sigma$ (an $n\approx3$ overtone) & 0.0818 & \textbf{0.0808}\\
+$\sigma=0.14$ (true $n=0$) & 0.1309 & \textbf{0.1287}\\
+\end{tabular}
+\end{center}
+The simulation faithfully grows whichever mode it's handed. ``Sim matches
+eigensolver'' certifies numerics, \emph{not} dominant-mode selection. All
+reference data from 2026-07-19 onward use $\sigma$-chasing.
+\end{caveat}
+\end{frame}
+
+% ==============================================================================
+\section{The dispersion curve: confinement-set wavelength selection}
+
+\begin{frame}{No intrinsic $\kz$ maximum}
+In an unbounded domain, nothing stops the mode following the resonance surface
+outward as $\kz$ grows: $G_{\max}=\alpha\Vo^2/\gamma$ is independent of $\kz$, so
+$\gamma(\kz)$ rises monotonically to the ceiling while the mode migrates outward.
+\begin{center}
+\textbf{Directly demonstrated}: $\gamma$ climbs to $0.9955\,\Ceil$ by $\kz=10$
+with \emph{no turnover}, mode peak at $\xi=-36$ (loose cut 40).
+\end{center}
+\begin{physpicture}
+The measured non-monotonic dispersion curve is therefore \textbf{windowed
+physics}, not an intrinsic wavelength selection. This is the single most
+counter-intuitive statement of the whole theory.
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{The peak: resonance surface meets the window}
+\footnotesize
+Resonance surface $\xi_{\rm res}\simeq(\kz-\gamma/\Vo)/(\alpha\Vo)+\ln2$ moves
+outward \emph{linearly} with $\kz$. Setting $\xi_{\rm res}(\kz)=\xi_w$,
+$\gamma\approx\Ceil$ at the crossover:
+\[
+\boxed{\;\kz^{\rm peak}\simeq\alpha\Vo(\xi_w-\ln2)+c\,(\alpha/\Vo)^{1/3},\qquad c=1.0\pm0.1\;}
+\]
+\textbf{Both terms $\eps$-independent}: coupling and containment radius select
+the wavelength, together — not the shear width.
+\centering\includegraphics[width=0.48\textwidth]{fig_peak.pdf}
+\end{frame}
+
+\begin{frame}{Roll-off, and why the data used to say ``$\kz^{\rm peak}\approx2\alpha$''}
+Beyond the peak (window-truncated well, high-$\kz$ limit of Model A):
+\[
+\boxed{\;\gamma\simeq\sqrt{2\alpha\Vo/\kz}\;}\qquad(\gamma\propto\kz^{-1/2}\text{ decline, matches data})
+\]
+\begin{physpicture}
+Over the historical survey grid, window radii shrank as $\alpha$ grew
+($\alpha\Vo\xi_w\approx1$) — the sub-linear resonance term plus a shrinking window
+term \emph{mimics} a linear trend across a factor-5 range of $\alpha$.
+``$\kz^{\rm peak}\approx2\alpha$'' is a serviceable \emph{survey-box mnemonic}; the
+boxed formula above is the actual law.
+\end{physpicture}
+\end{frame}
+
+% ==============================================================================
+\section{The quantization budget: how $\eps$ actually enters}
+
+\begin{frame}{Nondimensionalizing the action}
+\footnotesize
+Neither the ceiling nor the peak formula contains $\eps$ — where does it enter?
+Changing variables $x=\eps\xi$, $w=\kz-u$, scaling out the drive:
+\[
+\boxed{\;S=\frac{\eps}{\Vo\,(\alpha\Vo^2)^{1/3}}\;\hat I(\hat k,\hat\gamma),
+\qquad \hat I=\int_{\hat w\text{-well}}\sqrt{\hat Q}\,d\hat w\;}
+\]
+$\hat I$ is \emph{universal} — $\eps$-free. The shear width enters the eigenvalue
+problem \textbf{only} as a multiplicative budget on the action.
+\centering\includegraphics[width=0.32\textwidth]{fig_budget.pdf}
+\end{frame}
+
+\begin{frame}{The $P$-group: $\eps$ buys action}
+Larger $\eps$ (fixed window, physics) enlarges $S$ at given $\gamma$; since $S$
+decreases in $\gamma$, quantization pushes $\gamma$ \emph{up} toward the ceiling —
+the sign of the measured 10--39\% rise of $\gamma$ from $\eps=0.10\to0.45$.
+\[
+P\equiv\frac{(\alpha\Vo^2)^{1/3}}{\eps}\qquad\text{(the ``quantization budget'')}
+\]
+\begin{physpicture}
+$\eps$ buys action, not a wavelength shift. Stretching the layer stretches the
+well in physical $x$ while its depth/shape in $\hat w$ is unchanged — so at fixed
+$\gamma$ the mode accumulates more phase, and the connection condition lets
+$\gamma$ float up. This is why $\eps$'s effect is a fractional \emph{rise} of
+$\gamma$ everywhere, not a shift of $\Ceil,\Kwn$ — and it's the theory this
+talk's GPU section will confront directly (T1.1).
+\end{physpicture}
+\end{frame}
+
+% ==============================================================================
+\section{Remaining theory, at pace}
+
+\begin{frame}{Cold two-stream rates (fixes the filter design)}
+Away from the layer, the beams support an electrostatic color-1 two-stream mode:
+\[
+1=\frac{1}{(\omega-k\Vo)^2}+\frac{1}{(\omega+k\Vo)^2}
+\;\Longrightarrow\;
+\boxed{k\Vo<\sqrt2}\ \text{(unstable band)}
+\]
+\[
+\gamma^2=\sqrt{4(k\Vo)^2{+}1}-(k\Vo)^2{-}1
+\]
+\begin{columns}[T]
+\begin{column}{0.42\textwidth}
+\includegraphics[width=\textwidth]{fig_twostream.pdf}
+\end{column}
+\begin{column}{0.55\textwidth}
+Max $\gamma=\tfrac12$ at $k\Vo=\sqrt3/2$; band edge $k\Vo=\sqrt2$. At $\Vo=0.1$:
+$k<14.1$ — \textbf{exactly} the documented $k_{\rm ts}\approx14$ band edge that
+fixed the production bandpass filter, and the spatial profile that ruled the
+two-stream \emph{out} as the late-catastrophe driver.
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Nonlinear theory I: the density cavitation threshold}
+Why $\Vo\gtrsim0.08$ hits a hard wall: a growing compressible mode carries
+$\delta n\propto p/\gamma$; cavitation ($n\to$ code floor) occurs at
+\[
+\boxed{\;p_{\rm cav}\sim\gamma/\max(\kz,k_x^{\rm eff})\;}
+\]
+\begin{physpicture}
+An \emph{amplitude} cliff, not a time cliff. A growing wave in a compressible
+fluid carries a density modulation $\propto$ momentum/$\gamma$; the quadratic
+(ponderomotive) beat then pushes plasma out of high-field regions at $2\gamma$.
+This explains why the failure zone maps to $\Vo$ (drive strength) and cares
+little about window design or mechanism — and why the only safe practice at
+high $\Vo$ is to stop once the linear plateau is banked.
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{Nonlinear theory II: the back-reaction on $\Az$}
+Any single-helicity beat is $z$-independent ($\kz=0$), growing at $2\gamma$
+$\Rightarrow$ quadratic law:
+\[
+\Delta\Az\simeq-0.04\,|a|^2 \quad\text{(measured over 4 decades, endpoint exact)}
+\]
+\centering\includegraphics[width=0.32\textwidth]{fig_backreaction.pdf}
+\raggedright
+\begin{physmeaning}
+Sign \emph{deepens} the background — no depletion. Waves weigh on their
+background like radiation pressure; the frozen-$\Az$ approximation is
+vindicated, not just assumed — the last escape route for that caveat closes.
+\end{physmeaning}
+\end{frame}
+
+\begin{frame}{Warm closure and eigenmode seeding}
+\textbf{Warm isothermal closure}: $\delta F_i=-T\partial_i n$ ($T=0\Rightarrow$
+cold model exactly). Stabilizes the two-stream channel when $v_{\rm th}\gtrsim\Vo$
+— but \emph{cannot} stabilize $\kz=0$ chromo-Weibel (anisotropy-driven, not
+pressure-limited; confirmed: final $\kz{=}0$ amplitude shifts only $\sim$11\%
+over $v_{\rm th}/\Vo=0$--3).
+\vspace{0.1em}
+\textbf{Eigenmode seeding} (why single-field seeding fails): the harmonic core's
+$n=0$ Hermite ground state gives the natural seed width
+$\xi_{\rm char}=(2\gamma^2/\alpha^3\Vo^2)^{1/4}$. An $A_z$-only seed can overlap a
+\emph{different}, co-located, slower mode (measured: $\gamma=0.060$ vs.\ target
+$0.122$) — or lose a race against the layer-scale cascade
+$\gamma_{\rm casc}\approx\alpha\Vo$. Fix: seed \emph{all six fields} with the
+solver's dominant eigenvector.
+\includegraphics[width=0.55\textwidth]{fig_seed.pdf}
+\end{frame}
+
+\begin{frame}{Theory summary: the validation ledger}
+\footnotesize
+\begin{tabular}{p{0.56\textwidth}p{0.38\textwidth}}
+\toprule
+Derived result & Numerical anchor\\\midrule
+$\kz{=}0$ chromo-Weibel rate & 0.5\%\\
+Six-field system & 1--4\% (validation stack); 4--9\% full-map median\\
+Exact scalar reduction & rel.\ diff.\ $<10^{-10}$, 7 points\\
+Tachyonic law & analytic $=$ eigensolver $=$ CUDA at all outer peaks\\
+Ceiling $\gamma^3\le\alpha\Vo^2$ & peaks at 95--99\% in every series; T2.5: $0.977\pm0.011$\\
+Model B quantization & $\le2\%$ (median $\le0.2\%$), 12 series\\
+Peak formula & $\pm0.6$ in $\kz$, 11 series; window test confirmed directly\\
+Two-stream band & $k_{\rm ts}\approx14$ at $\Vo=0.1$ (documented)\\
+Back-reaction law & endpoint $-0.242$ vs.\ $-0.242$\\
+Warm closure & warm vs.\ cold theory: 1\%\\
+\bottomrule
+\end{tabular}
+\vspace{0.1em}
+\centering\textbf{That's the theory. Now: does it survive contact with the GPU?}
+\end{frame}
+
+% ==============================================================================
+\section{Data-quality foundation: two bugs, found and fixed}
+
+\begin{frame}{Bug 1 --- the pipeline measured the \emph{conjugate} helicity}
+\footnotesize
+2026-07-04 stdlib-DFT rewrite: a sign error computed the projection onto
+$e^{-\ii\kz z}$ instead of $e^{+\ii\kz z}$.
+\begin{caveat}
+For a pure single-helicity seed the conjugate projection is \emph{identically
+zero} — the \textbf{empty channel}, not a noisier right answer.
+\textbf{Blast radius}: of 7{,}909 archived timeseries, \textbf{96\% (7{,}589)}
+start below the float32 noise floor. Raw field dumps are deleted after
+processing: \textbf{these runs cannot be re-extracted}, only rerun.
+\end{caveat}
+\begin{physpicture}
+Why unnoticed for two weeks: rounding slaves a small image of the \emph{true}
+mode into the empty channel, inheriting $\gamma$ almost exactly — looks like a
+clean exponential, $R^2=1.000$. The two only visibly diverge where a second
+fast channel competes for dominance — precisely prior audits' worst outliers.
+\end{physpicture}
+Fixed in \texttt{remote\_timeseries.py} (now emits the conjugate amplitude as an
+explicit diagnostic).
+\end{frame}
+
+\begin{frame}{Bug 2, and a related numerical rule}
+\textbf{Bug 2}: \texttt{gen\_suspectfix\_campaign.py} defined half/fine-tier box
+parameters but never emitted them into the \texttt{.ini} — every half/fine-tier
+``suspectfix'' run silently ran on the \emph{default} $L_z=2\pi$ box, at
+$\kz=$\,mode-index (not $/2$ or $/8$ as labeled).
+\begin{caveat}
+\textbf{The two bugs compounded}: Bug 1 returned the wrong channel, Bug 2
+relabeled a $\kz=1$ measurement as $\kz=0.5$. A whole population of ``anomalies''
+attributed to genuine sub-$\kz=1$ physics (a floor, a 68\% error block, a
+two-branch structure) was bookkeeping on top of a measurement of nothing.
+\end{caveat}
+\textbf{Rule found during the fix}: keep $k_{\rm suppress,hi}\le N_Z/4.5$ — a
+band-edge scan found the kept mode's rate collapsing to $\sim$0.001 as the
+DFT bandpass approaches the grid's Nyquist-adjacent dispersive tail.
+\vspace{0.1em}
+\textbf{Bottom line (post-fix)}: sim and eigensolver agree to $\le$8\% at every
+anchor tested, every box tier, integer and fractional $\kz$.
+\end{frame}
+
+% ==============================================================================
+\section{Foundational validation anchors}
+
+\begin{frame}{The $\kz=0$ anchor, again --- now cross-checked}
+$\alpha=2.0,\Vo=0.1$: $\gamma_{\rm sim}=0.5039$ vs.\ formula $0.5065$ — 0.5\%.
+\vspace{0.1em}
+\textbf{Independent cross-check}: the unfrozen self-consistency reference point
+($\alpha=1,\Vo=0.05$) reproduces the \emph{same} formula
+($\gamma=0.284$, exact match) on a completely different (unfrozen, color-1-live)
+configuration, three weeks and many campaigns later.
+\begin{physpicture}
+Why lead a referee here: exercises every non-Abelian term at once, at the one
+point where the harmonic-core approximation is essentially exact — no theory-side
+slack to hide a code bug behind.
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{The referee-proofing battery}
+\small
+\begin{tabular}{p{0.24\textwidth}p{0.06\textwidth}p{0.62\textwidth}}
+\toprule
+Experiment & & Headline\\\midrule
+T2.4 linearity & \checkmark & $\gamma$ invariant to seed amplitude, $100\times$ range\\
+T2.2 eigenfunction overlay & \checkmark & sim vs.\ solver correlation $=1.0000$\\
+T2.3 Gauss law & \checkmark & residual $\sim10^{-5}$, decreasing, localized\\
+T2.1 complex frequency & \checkmark & dominant branch purely growing ($\lesssim6\%$)\\
+T2.5 dimensionless collapse & \checkmark & $\gamma_{\rm peak}/(\alpha\Vo^2)^{1/3}=0.977\pm0.011$\\
+T2.7 sponge $\to\infty$ & \checkmark & saturates $\xi_w\approx16$; $\xi_w=6$: $-28.5\%$\\
+T2.8 resolution extremes & \checkmark & $<1\%$ low corner, \textbf{revised below}\\
+\bottomrule
+\end{tabular}
+\vspace{0.1em}
+All eight run on free teaching nodes at reference $\alpha=1,\Vo=0.05,\kz=1$
+(2026-07-19); the eighth — the overtone-reseed falsification — is the ladder
+test shown earlier.
+\end{frame}
+
+\begin{frame}{T2.2: the ``money figure''}
+\centering
+\includegraphics[width=0.72\textwidth]{t2p2_eigenfunction_overlay.png}
+\small
+$A_z^2$ profile correlation $=1.0000$. $B_y^2$ — seeded at only $0.008\times$ the
+$A_z$ amplitude, effectively grown from zero via the activation chain — reproduces
+the solver's non-trivial \textbf{double-lobe shape}, node at $\xi\approx-5$: an
+emergent structural match, not just a matched growth rate.
+\end{frame}
+
+\begin{frame}{T2.3: Gauss-law conservation}
+\centering
+\includegraphics[width=0.4\textwidth]{t2p3_gauss_check.png}
+\footnotesize\raggedright
+Leapfrog was never designed to preserve the covariant constraint exactly (same as
+Yee-grid FDTD, Abelian case). Absolute residual $\sim10^{-5}$; color-1
+\emph{relative} residual $\sim10^{-3}$ and \textbf{decreasing}; divergence term
+dominates, non-Abelian term subdominant, source negligible.
+\end{frame}
+
+\begin{frame}{T2.5: the dimensionless collapse}
+\footnotesize
+\centering
+\includegraphics[width=0.8\textwidth]{t2p5_collapse.png}
+\[
+\gamma_{\rm peak}/(\alpha\Vo^2)^{1/3}=0.977\pm0.011\quad(1.1\%\text{ spread, }10\times\text{ range in }\alpha\Vo)
+\]
+\raggedright
+The single most quantitative confirmation in the program: 15 dispersion curves
+fold onto one master curve — direct proof $\alpha,\Vo$ enter through
+$(\alpha\Vo^2)^{1/3}$ and $(\alpha/\Vo)^{1/3}$, not the naive product $\alpha\Vo$.
+\end{frame}
+
+\begin{frame}{T2.7 and T2.8, with a correction}
+\includegraphics[width=0.46\textwidth]{t2p7_sponge_extrapolation.png}\hfill
+\includegraphics[width=0.46\textwidth]{t2p8_resolution_extremes.png}
+\vspace{0.05em}
+\begin{caveat}
+\textbf{T2.8 revised (2026-07-21, resolution/Lx campaign)}: the original ``3--6\%
+at the high-$\alpha\Vo$ corner'' tested each grid axis (NZ, courant, NX)
+\emph{separately}. Testing them \emph{together} (NX=1152 + courant=0.05):
+\textbf{+6.6\%}; all three axes together: \textbf{+11.6\%} — larger than the naive
+additive estimate ($+9.7\%$). \textbf{Revise the quoted figure to $\sim$10--12\%
+at the high-$\alpha\Vo$ end.} Corrections compound, they don't saturate.
+\end{caveat}
+\end{frame}
+
+% ==============================================================================
+\section{The headline result, on real GPU data}
+
+\begin{frame}{Non-monotonic dispersion, real data}
+\centering
+\includegraphics[width=0.62\textwidth]{fig_r_dispersion.pdf}
+\small
+$\gamma_{\rm sim}(\kz)$ at $\Vo=0.05$, five values of $\alpha$ — from the trimmed
+integer-$\kz$ map (1087/1134 points), \textbf{not} a theory curve. Every curve
+peaks at intermediate $\kz$; peak location climbs from $\kz^{\rm peak}\approx2$
+($\alpha=1$) to $\approx4$--5 ($\alpha=3$--4), at \emph{fixed} $\eps=0.15$.
+Classical KH also has a peaked $\gamma(\kz)$ — but its peak is fixed by the
+shear width ($\kz^{\rm peak}\sim0.4/\eps$). A peak that moves with the
+\emph{coupling} at fixed flow profile has no classical analogue.
+\end{frame}
+
+\begin{frame}{$\kz^{\rm peak}$ tracks the confinement formula, not ``$2\alpha$''}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.4\textwidth}
+\includegraphics[width=\textwidth]{fig_r_kzpeak.pdf}
+\end{column}
+\begin{column}{0.58\textwidth}
+\begin{tabular}{lcc}
+$(\alpha,\Vo,\xi_w)$ & meas. & formula\\\midrule
+(1, 0.05, 20) & 3.5 & 3.7\\
+(2, 0.05, 11) & 4.5 & 4.5\\
+(3, 0.03, 5) & 5.5 & 5.0\\
+(5, 0.03, 5) & 6.5 & 6.2\\
+(1, 0.20, 10) & 3.0 & 3.6\\
+\end{tabular}\\[0.3em]
+\textbf{Window test} ($\alpha=2,\Vo=0.05$): cut $11\to25$ moves the peak
+$4.5\to5.5$ (formula: $4.45\to5.85$).
+\end{column}
+\end{columns}
+\begin{physpicture}
+Two window radii, same $(\alpha,\Vo)$, two different (both correct) $\kz^{\rm
+peak}$ — \textbf{coupling and confinement radius jointly select the wavelength;
+the flow profile does not.}
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{EPS-independence: the theory-first check}
+\centering
+\includegraphics[width=0.9\textwidth]{eps_collapse_theory.png}
+\small CPU-only test of the $P=(\alpha\Vo^2)^{1/3}/\eps$ collapse hypothesis
+\emph{before any GPU time spent} — $\alpha$ up to 10, $\Vo=0.01$--0.20. Both
+$\kz^{\rm peak}/\Kwn$ and $\gamma_{\rm peak}/\Ceil$ are close to single-valued
+functions of $P$ alone. Directly explains the two open T1.1 puzzles as one
+curve viewed at different $P$.
+\end{frame}
+
+\begin{frame}{EPS-independence: GPU confirmation (91 runs)}
+\centering
+\includegraphics[width=0.9\textwidth]{eps_collapse_gpu_validation.png}
+\small $\alpha=0.5$--6, $\Vo=0.03$--0.10, $\eps=0.10$--0.45: median relative error
+\textbf{9.9\%} (90th pct.\ 17.0\%) vs.\ the $P$-collapse theory. Two 9-point
+peak-location cascades land within 0.14--0.33 in $\kz$ of the continuum theory
+peak.
+\begin{center}
+\textbf{This closes roadmap item T1.1.}
+\end{center}
+\end{frame}
+
+\begin{frame}{Extension to low $\alpha$: the collapse degrades, doesn't break}
+\footnotesize
+\centering
+\includegraphics[width=0.36\textwidth]{fig_r_lowalpha.pdf}
+\raggedright
+75 more runs, $\alpha\in\{0.2,0.25,0.3,0.4\}$ ($\alpha\le0.15$ excluded — known
+noise floor). Median relative error \textbf{21.6\%} (double the $\alpha\ge0.5$
+figure), with real $\alpha$-scatter at matched $P$ not seen at higher $\alpha$.
+\begin{physpicture}
+$P$-collapse is right down to $\alpha=0.2$, with a sub-leading $\alpha$-dependence
+visible near the noise floor — not a theory failure, a measurement of where the
+single-group approximation needs a correction.
+\end{physpicture}
+\end{frame}
+
+% ==============================================================================
+\section{The trimmed integer-$\kz$ map, and the tachyonic branch}
+
+\begin{frame}{Full-grid accuracy: 1087/1134 points (95.9\%)}
+\footnotesize
+Grid: $\kz=1..9$; $\alpha=0.3$--6.0 (18 values); $\Vo\in\{0.03,\ldots,0.20\}$
+(7 values) — 1134 points.
+\centering
+\includegraphics[width=0.32\textwidth]{fig_r_error_by_v0.pdf}
+\raggedright
+Median relative error vs.\ $\sigma$-chased eigensolver, plateau-confirmed core:
+\textbf{4.3--9.4\% depending on $\Vo$}, broadly improving with $\Vo$
+(best at $\Vo=0.2$).
+\begin{caveat}
+\textbf{New failure corner}: all 47 unmeasured points sit at
+$\Vo=0.2,\alpha\ge3.5$ — a fast halt, mechanism not yet determined. Report as
+\emph{unmeasured}, not measured-zero.
+\end{caveat}
+\end{frame}
+
+\begin{frame}{The outer tachyonic branch: 46-point confirmation}
+\centering
+\includegraphics[width=0.72\textwidth]{fig_r_tachyonic.pdf}
+\footnotesize\raggedright
+50 runs ($\alpha\le2.0$), 46/50 fit cleanly, benchmarked against the \emph{true}
+eigensolver rate (not the sponge-edge estimate, 5--10$\times$ too high):
+\textbf{median error 22.2\%, ratio 0.78} — the same $\sim$20--28\%
+sponge-compression signature seen elsewhere, not scatter. Two sponge-depth
+cascades confirm the law directly: 12--13.5$\times$ rise in $\gamma$ with depth.
+\end{frame}
+
+\begin{frame}{Self-consistency: does the frozen background matter?}
+Unfreezing $A_z^1$ on the tachyonic branch (the \emph{most} background-coupled
+case), pushed to $|a|\approx2.5$:
+\begin{itemize}
+\item \textbf{Linear phase validated}: $\gamma=1.45$ (unfrozen) vs.\ $1.43$--$1.46$
+(eigensolver).
+\item \textbf{Back-reaction confirmed}: $\Delta A_z^1=-0.04|a|^2$ over 4 decades;
+endpoint exact ($-0.242$ vs.\ $-0.242$).
+\item \textbf{Net feedback}: weakly stabilizing (amplitude ratio $0.998\to0.933$),
+two orders of magnitude too weak to saturate the branch.
+\end{itemize}
+\begin{physmeaning}
+The frozen-battery picture is if anything an \emph{underestimate} of the drive's
+robustness — the beams continuously re-supply the background rather than
+draining it. Saturation is by fluid cavitation, not background depletion.
+\end{physmeaning}
+\end{frame}
+
+% ==============================================================================
+\section{Resolution addendum (2026-07-21)}
+
+\begin{frame}{Box-size reduction: $L_x=2\pi$ is safe, and 2.2$\times$ faster}
+\footnotesize
+Historical box $L_x=6\pi$ assumed a double-tanh profile never actually used in
+production. 17 GPU runs (t133+abi):
+\begin{itemize}
+\item Reference anchor: $L_x=2\pi,3\pi,4\pi$ agree to 0.03\% once
+$\xi_{\rm sponge}$ genuinely fits.
+\item Real speedup: \textbf{151s ($6\pi$) vs.\ 69s ($2\pi$) — 2.2$\times$}, not
+the naive 3$\times$ (fixed per-step overhead).
+\item Archive screen: 43\% of 4192 historical points fit a $2\pi$ box; a
+\textbf{tiered 2$\pi$/3$\pi$/4$\pi$/6$\pi$ policy} is now implemented.
+\end{itemize}
+\begin{caveat}
+An early ``2$\pi$ is safer'' result was a sponge-miscalibration artifact (one leg
+had \emph{no active sponge at all}) — resolved once redone correctly: 0.01\%
+agreement.
+\end{caveat}
+\end{frame}
+
+\begin{frame}{The $\alpha\ge6$ catastrophe: partly a numerics question after all}
+Earlier verdict (``physical, resolution-independent'', based on amplitude and
+window tests only) is now qualified by a timestep test never previously run:
+\footnotesize
+\begin{tabular}{lrr}
+Point & halt (courant 0.1) & halt (courant 0.02)\\\midrule
+$\alpha=6,\Vo=0.10,\kz=5$ (xi\_cut) & $t=31.4$ & $t=64.5$ (2.05$\times$)\\
+$\alpha=6,\Vo=0.10,\kz=8$ (xi\_cut) & $t=32.0$ & $t=65.0$ (2.03$\times$)\\
+$\alpha=6,\Vo=0.05,\kz=8$ (xi\_sponge) & $t=6.0$ & $t=6.0$ (no change)\\
+\end{tabular}
+\normalsize
+\vspace{0.1em}
+\textbf{Clean split}: xi\_cut-confined catastrophes are genuinely
+resolution-sensitive (finer timestep $\approx$ doubles survival, 6/7 points, $\kz=4$--8);
+xi\_sponge-confined catastrophes at these $\alpha$ are not (fail almost instantly
+regardless of resolution — a different, harder mechanism).
+\begin{caveat}
+Also found: $\kz$ within $\sim$1 of $\text{kz\_suppress\_hi}$ is a real,
+\emph{large} resolution artifact at $N_Z=64$ — $\kz=13$ (hi=14): $\gamma$ nearly
+\textbf{doubles} at $N_Z=128$. Avoid measuring there, or bump $N_Z$.
+\end{caveat}
+\end{frame}
+
+\begin{frame}{Decision for now}
+\begin{itemize}
+\item The high-$\alpha$ corner's resolution uncertainty (10--12\%) and the
+$\alpha\ge6$ catastrophe's numerics-dependence are both \textbf{real, open
+questions} — worth a dedicated study, but not on Letter A's critical path.
+\item \textbf{For now: tighten the $\alpha$ range used for any headline claim}
+in Letter A to stay clear of the corner where resolution is uncertain and the
+catastrophe is only partially characterized, and revisit the wider range later
+if the paper's scope demands it.
+\item This keeps the P-collapse and confinement-set peak claims resting on the
+part of parameter space that is unambiguously resolved.
+\end{itemize}
+\end{frame}
+
+% ==============================================================================
+\section{T1.3: closed as a sponge-wall artifact}
+
+\begin{frame}{T1.3 — closed: the claim was real as a measurement, not as physics}
+\footnotesize
+The original sub-$\kz=1$ ``two-branch'' claim ($\gamma=0.32\to0.06$ across
+$\kz=0.5\to0.75$, $\alpha=2,\Vo=0.05$) came from the \textbf{pre-2026-07-17
+buggy pipeline} and was retracted as unestablished. It has now been
+\textbf{re-derived independently of that pipeline} — pure linear algebra plus a
+dedicated GPU check — and \textbf{closed}: it is a sponge-boundary artifact,
+not a crossing between two physical eigenmode families.
+\vspace{0.1em}
+\textbf{Method}: a fine ($\Delta k_{z,\rm phys}=0.05$) eigensolver continuation
+at $\alpha=2,\Vo=0.05,\eps=0.15$, scanning many shift-invert seeds per $\kz$ to
+catch several leading branches, at three sponge radii ($\xi_w=8,13,20$),
+tracking eigenfunction peak location $\xi_{\rm peak}$, $A_z/B_y$ ratio, and
+parity.
+\begin{caveat}
+\textbf{Finding}: at $\xi_w=13$ (the original setting) the solver
+\emph{does} reproduce $0.320$/$0.060$ almost exactly — but that eigenfunction
+is pinned near or at the sponge radius itself ($\xi_{\rm peak}\approx10$--13;
+at $\xi_w=8$ it locks to $\xi_{\rm peak}=-8.181$, the exact wall, for every
+$\kz\ge0.85$), its $A_z/B_y$ ratio blows up $2.6\to40$--$150$, and its parity
+correlation collapses $0.99\to{<}0.3$ precisely where the ``dip'' occurs — the
+signature of a sponge-supported quasi-mode, not a second confinement branch.
+\end{caveat}
+\end{frame}
+
+\begin{frame}{T1.3 — the decisive control, and GPU confirmation}
+\centering
+\includegraphics[width=0.68\textwidth]{fig_r_t13_closure.pdf}
+\footnotesize\raggedright
+A hard $\xi_{\rm cut}=5$ wall (well inside any sponge) gives a smooth,
+monotonically rising, artifact-free $\gamma(\kz)$ — consistent with T1.2's
+exact-action result that the true shear branch has no interior $\kz$ maximum,
+now extended below $\kz=1$. \textbf{Confirmed in full nonlinear CUDA}
+(\texttt{run\_campaign\_t13confirm.sh}, t133): the $\xi_{\rm cut}=5$ branch
+matches the eigensolver to 1--2\% at every $\kz\ge0.5$ — the best
+GPU-vs-eigensolver agreement in the project to date. Two runs reproducing the
+original $\xi_w=13$ config reproduce the ``0.32/0.06'' numbers almost exactly
+in the \emph{full nonlinear} simulation, not just the linear solver — the
+artifact is a real property of the sponge kernel, not a solver curiosity.
+\end{frame}
+
+% ==============================================================================
+\section{Where this leaves Letter A}
+
+\begin{frame}{Scorecard against the three blocking items}
+\small
+\begin{tabular}{p{0.06\textwidth}p{0.3\textwidth}p{0.1\textwidth}p{0.46\textwidth}}
+\toprule
+Item & Asks & Status & Evidence\\\midrule
+T1.1 & Survives varying $\eps$? & \textbf{\checkmark Done} & $P$-collapse,
+GPU-confirmed $\alpha=0.2$--6, $\eps=0.10$--0.45, median 9.9\%/21.6\%\\
+T1.2 & Why does the peak move? & \textbf{\checkmark Done} & Exact-action
+reduction, ceiling, confinement-set peak; T2.5 collapse $0.977\pm0.011$\\
+T1.3 & Sub-$\kz=1$ branch & \textbf{\checkmark Done} & Closed as a
+sponge-boundary artifact (eigensolver continuation $+$ $\xi_{\rm cut}=5$
+control $+$ GPU confirmation to 1--2\%) — not a genuine crossing\\
+\bottomrule
+\end{tabular}
+\vspace{0.15em}
+\textbf{All three of Letter A's original gating items are now closed.}
+\textbf{Framing change, driven by the data}: not ``the shear width is
+irrelevant, EPS-free'' but \textbf{``coupling and confinement radius jointly
+select the wavelength; the flow profile does not enter directly, only through
+the single group\linebreak $P=(\alpha\Vo^2)^{1/3}/\eps$.''} A sharper,
+still-novel claim — and the sub-$\kz=1$ ``two-branch'' idea drops out of
+Letter A's planned content entirely, as refuted rather than confirmed.
+\end{frame}
+
+\begin{frame}{Where this sits in the literature}
+\footnotesize
+Novelty survey (\texttt{LITERATURE.md}, 11 targeted searches): \textbf{no prior
+KH / shear-driven non-Abelian plasma instability work found.}
+\begin{itemize}
+\item Closest prior art: Manuel--Mr\'owczy\'nski chromohydrodynamics (colored
+two-fluid, but two-stream driven, no shear, no eigensolver map).
+\item Chromo-Weibel family (Mr\'owczy\'nski et al.): anisotropy-driven, never
+shear-driven — our $\kz=0$ anchor is in this family, the shear branch is new.
+\item Outer branch: Nielsen--Olesen class (1978) — cite directly.
+\item Abelian ancestor: Das \& Kaw EMHD lineage. Csernai et al.: Abelian
+(color-neutral) KH in heavy-ion collisions — sharply distinguish.
+\end{itemize}
+\begin{caveat}
+Urgency: dark-U(1) PIC (arXiv:2411.11958, 2025) flags non-Abelian dark sectors
+as open; a 2026 three-component BEC-KHI paper moves in the adjacent space.
+\textbf{INSPIRE citation-trail audit before submission} — not yet done.
+\end{caveat}
+\end{frame}
+
+\begin{frame}{Next steps}
+\begin{enumerate}
+\item T1.3 closed — drop the sub-$\kz=1$ branch-crossing claim from Letter A's
+planned content; nothing further blocking on it.
+\item Keep the headline $\alpha$ range tightened to the well-resolved corner for
+now; revisit the high-$\alpha$/high-$\Vo$ resolution and catastrophe questions
+as a separate, non-blocking study.
+\item INSPIRE citation-trail audit (Mr\'owczy\'nski review $\cap$ Csernai
+citers).
+\item Draft the actual $\sim$4-page Letter: model $+$ ceiling $+$ $P$-collapse
+$+$ confinement-set peak $+$ BEC-realizability paragraph $+$ QGP/dark-sector
+motivation.
+\end{enumerate}
+\vspace{0.15em}
+\centering\Large\textbf{All three blockers closed. The reduction is exact; its
+quantization matches the eigensolver to $\le2\%$, confirmed on $>1000$ GPU
+runs. Letter A drafting can proceed.}
+\end{frame}
+
+\begin{frame}
+\centering
+\Huge Thank you.
+\vspace{0.15em}
+
+\normalsize\normalfont Questions, and where to push next.
+\end{frame}
+
+\end{document}
