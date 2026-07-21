@@ -4013,3 +4013,38 @@ found ad hoc `warm_T` ineffective against a *differently-structured*
 anisotropic Weibel channel, so that verdict doesn't carry over automatically,
 but it's less obviously correct than removing the structural constraint via
 a fixed background).
+
+**Does this affect any of the project's other (production) results? No —
+and the reason is mechanical, not incidental.** Every production campaign
+(modes 0/1/3/4/5/6, as actually run) uses `suppress_kz0=1`, which since
+Campaign 15 forces `cudaMemset(By1/Ex1/Ez1, 0)` in step 6e of the timestep
+loop — *every single step*, immediately before step 7 computes the Lorentz
+force (`F_x,A = -Q1(Ex1 + vz·By1)`) for the next fluid push. With Ex1 and
+By1 identically zero at the moment that force is evaluated, the fluids
+never feel *any* color-1 electromagnetic force, full stop — not damped, not
+small, structurally absent. The pinch mechanism above requires exactly that
+force to exist in order to disturb the beams, so it cannot occur in the
+standard configuration: the background (n=1, vz=±V0·profile(x), Q1=±1) is
+an *exactly* static equilibrium of the system as actually run, not because
+Ex1 balances anything (it doesn't need to), but because color-1 is
+mechanically prevented from ever pushing on the fluid. This is also
+consistent with the theory (`khaxn.pdf`): the linearized equations there
+treat color-1 (`Q10`, `A10z(x)`, `V0z(x)`) as a fixed external background —
+no `φ1`/`Ex1` perturbation appears anywhere, `q1≡0` is asserted directly —
+which is the theoretical mirror of what step 6e enforces in code. Mode 2 is
+singular here precisely because its entire point is letting color-1 evolve
+freely (the only way to compare against Das-Kaw at all), which is the one
+thing production runs deliberately never do.
+
+Independent corroboration already existed in this file: Campaign 7 (mode 4,
+2026-06-30, line ~204 above) found *the same* failure before any of this
+was derived — "the color-1 two-stream instability terminates runs at t≈15
+TU regardless of α, suppress_kz0, or hyp_diff. By1 initialization attempts
+only accelerate the collapse" — down to the same "preloading By1 makes it
+worse" detail hit again this week. Step 6e (Campaign 15) was added
+specifically to kill it; this entry supplies the first-principles reason it
+was necessary. One honest caveat: Campaigns 1-14, run before step 6e
+existed, could in principle have been susceptible if run with
+`suppress_kz0=0` — but none of the results referenced elsewhere in this
+project (T1.x resolutions, EPS-scan v2, referee-proofing, Lx resolution,
+Paper A) come from that era.
