@@ -3975,13 +3975,41 @@ as currently structured (two mirrored dynamical fluids) cannot deliver a
 clean GPU-vs-Das-Kaw dispersion measurement — the model lacks the
 force-balance mechanism (a single confining species) that makes Das-Kaw's
 own equilibrium possible, and no choice of V0 in the tested range opens a
-long-enough clean window. **Not closed.** Two paths forward, neither
-attempted here: (a) add real thermal pressure (`warm_T`) *derived* to
-exactly balance the common-mode pinch force (not just empirically scanned —
-the T1.4 warm-closure entry above found ad hoc `warm_T` ineffective against
-a differently-structured filamentation instability, but pressure is the
-structurally correct antidote to a compressive pinch specifically); or (b)
-add a new run mode with one dynamical color-1 fluid against a fixed,
-immobile, uniform neutralizing background charge — a direct port of
-Das-Kaw's actual assumption instead of the mirrored two-fluid setup mode 2
-currently uses.
+long-enough clean window. **Not closed.**
+
+**Why a heavy-background + light-flowing-species setup fixes this (the
+right next step, not yet implemented)**: Das-Kaw's electrostatic
+confinement mechanism needs exactly *one* dynamical species. Ex1 is not a
+free parameter we can just set — it's sourced by Gauss's law, `∂x Ex1 = ρ =
+Σ Q^a n^a`. In Das-Kaw's actual model (light electron fluid flowing against
+a fixed, immobile, uniform-charge ion background), the light species is
+free to develop a small density deviation from the fixed background; *that*
+charge imbalance is exactly what self-consistently sources the Ex1 needed
+to cancel the light species' own `-Q(Ex1 + v0·By1)` pinch force — there is
+only one force-balance condition to satisfy, and Gauss's law has the
+freedom to satisfy it because the background doesn't move to cancel the
+imbalance out.
+
+Mode 2's mirrored two-fluid setup fails this specific way: both beams are
+dynamical, so Gauss's law only sees the *difference* `n_A - n_B`. Since the
+pinch force `-v0(x)·By1_eq(x)` is common-mode (identical sign and
+magnitude for both beams — confirmed in the sim data, nA and nB pile up
+together, not oppositely), both densities drift *together* and `n_A - n_B`
+never departs from ≈0. There is no charge imbalance available to source a
+confining Ex1 at all, regardless of what the fluids do — this isn't a
+missing initial condition, it's a constraint the mirrored setup structurally
+cannot satisfy.
+
+**Concrete fix for next time**: add a run mode with one dynamical color-1
+fluid (the flowing "electron" analog) against a second fluid pinned
+immobile (infinite/very large mass, or simply excluded from the momentum
+push) at a fixed uniform density — a direct port of Das-Kaw's actual
+assumption instead of today's mirrored two-fluid setup. This should let Ex1
+develop self-consistently and hold a genuine static equilibrium, opening a
+real linear-growth window. A secondary, less certain alternative: add real
+thermal pressure (`warm_T`) *derived* to balance the common-mode pinch
+directly (not just empirically scanned — the T1.4 warm-closure entry above
+found ad hoc `warm_T` ineffective against a *differently-structured*
+anisotropic Weibel channel, so that verdict doesn't carry over automatically,
+but it's less obviously correct than removing the structural constraint via
+a fixed background).
