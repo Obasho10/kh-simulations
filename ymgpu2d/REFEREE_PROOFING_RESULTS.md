@@ -143,3 +143,11 @@ budget already quoted for the high-α points. No NaNs; R²=1.000 throughout.
 αV₀ but should be qualified to **~5% at the high-αV₀ end**; the narrowest
 production modes (α=3, V₀=0.1) carry a few-% grid uncertainty that a referee
 should be told about. `plots/t2p8_resolution_extremes.png`.
+
+**Update (2026-07-21):** the definitive combined-grid rerun this section called
+for has now been done (`RESOLUTION_FINDINGS.md` §"Lx box-size reduction +
+extreme-parameter close-out"). NX=1152+courant=0.05 together gives **+6.6%**;
+all three axes combined (NZ=128 too) gives **+11.6%** — both larger than the
+naive additive estimate (+9.7%) from the single-axis effects above, i.e. the
+corrections compound rather than saturate. **Revise the "~5%" statement above
+to ~10-12%.**

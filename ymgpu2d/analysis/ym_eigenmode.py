@@ -423,8 +423,17 @@ def main():
                 (qB * phase).real / scale,   # field 5: Q2B (color-2, beam B)
             ]).astype(np.float32)            # shape (6, NX)
             lz_tag = f'_lz{LZ:.4f}' if abs(LZ - 2.0*np.pi) > 1e-6 else ''
+            # Lx tag: same collision risk as EPS below, if a widened box is used
+            # (e.g. EPS-scan wide-EPS legs needing more room before the periodic
+            # wrap -- FINDINGS.md 2026-07-18).
+            lx_tag = f'_lx{LX:.4f}' if abs(LX - 6.0*np.pi) > 1e-6 else ''
+            # EPS tag disambiguates non-default shear widths (T1.1 EPS scan,
+            # 2026-07-18): filenames before this had no EPS marker at all, so
+            # every seed was implicitly EPS=0.15 and a narrow/wide-EPS seed
+            # would silently collide with (overwrite) the default one.
+            eps_tag = f'_EPS{EPS:.3f}' if abs(EPS - EPS_DEFAULT) > 1e-6 else ''
             seed_fname = (f'eigenmode_seed_kz{kz_int}_a{alpha:.2f}'
-                          f'_V{V0:.3f}_sp{args.xi_sponge:.1f}{lz_tag}.bin')
+                          f'_V{V0:.3f}{eps_tag}_sp{args.xi_sponge:.1f}{lz_tag}{lx_tag}.bin')
             header = np.array([6, args.NX], dtype=np.int32)
             with open(seed_fname, 'wb') as sf:
                 header.tofile(sf)

@@ -2804,6 +2804,683 @@ not cover it.
 
 ---
 
+## T1.1 EPS-scan + T1.4 warm-closure: fully staged, three correctness bugs
+## found and fixed before any GPU time spent (2026-07-18, evening)
+
+Both campaigns queued above are now generated, seeded, and launch-ready —
+`analysis/gen_epsscan_campaign.py` (80 runs, `scripts/epsscan_t126.sh`) and
+`analysis/gen_warmclosure_campaign.py` (24 runs, `scripts/warmclosure_t130.sh`),
+with `scripts/launch_after_recorr.sh` to sync/rebuild/smoke-test/launch both
+the moment the current campaign frees a node. Building the EPS-scan generator
+surfaced three real bugs, all fixed in source before generating anything:
+
+1. **Seed-filename collision (`ym_eigenmode.py`)**: `--export-seed` encoded
+   kz/α/V0/sponge/Lz in the filename but never EPS (or Lx) — a narrow- or
+   wide-EPS seed would have silently overwritten the default-EPS one for the
+   same (α,V0,kz,sponge). Fixed: filenames now carry `_EPS<val>` and `_lx<val>`
+   tags whenever they differ from the project defaults (0.15, 6π).
+2. **`remote_timeseries.py` hardcoded NX=768.** `nx_override` had never
+   actually been exercised by any prior campaign, so this never bit until
+   now: the EPS=0.10 leg needs `nx_override=1152` (EPS/DX≳6 needs a genuinely
+   finer grid than the 768 default — 1024 only gives EPS/DX=5.4, still under
+   the rule; 1152 clears it at 6.0). Reshaping the flat CSV with the wrong NX
+   would have silently misread every such run's field dumps (wrong stride,
+   wrong amplitudes, no crash). Fixed two ways: `main_ym.cu` now tags the
+   output directory `_nx<N>` (and `_lx<N>`, provenance only — extraction
+   doesn't depend on Lx) whenever an override is set, and
+   `remote_timeseries.py` parses NX from that tag instead of assuming 768.
+3. **Wide-EPS periodic-box-too-small (found via the eigensolver hunt, not
+   inspection).** `analysis/find_safe_sponge.py`'s ladder search validated a
+   sponge at every EPS by walking down from a formula-based starting guess
+   until two consecutive candidates showed no separate "outer" eigenvalue.
+   At the default `Lx=6π` box, the domain's own ξ-half-width (`3π/EPS`)
+   shrinks faster than the sponge radius does as EPS grows — by EPS=0.45 the
+   picked sponge (ξ_sponge=21, from the then-current fallback) sat almost
+   exactly *at* the domain edge (ξ_edge=20.94). A sponge that never activates
+   trivially can't produce a distinguishable "outer branch" for `classify()`
+   to flag, so the "clean, 2-consecutive" verdict there was a false negative,
+   not evidence the point is actually clean. Fixed by doubling the box for
+   EPS≥0.30 (`lx_override=12π`) with NX doubled in lockstep
+   (`nx_override=1536` at EPS≥0.30, vs the 768 default) so dx is *identical*
+   across every EPS leg — a pure box-size fix, not a resolution change.
+   Re-hunting then found genuinely tight, validated sponges at the wide end
+   (e.g. α=2, EPS=0.45, kz=1: ξ_sponge 21→5; α=1, EPS=0.45, kz=1: ξ_sponge
+   21→10) with healthy positive wrap buffer (8–13 ξ-units, vs the −0.06 the
+   old fallback gave). `analysis/eps_tachyon_scan.py`'s `wrap_buffer` column
+   is exactly this check, kept in the manifest for future scans.
+
+**Eigensolver-only prediction (no GPU time; `analysis/eps_tachyon_scan.py`
+output, `plots/epsscan_eigensolver_prediction.png`)** — a pre-registered
+check ahead of the real campaign, not a substitute for it (sim/exact has
+historically run 0.5–0.7×, never 1×):
+
+- **kz_peak(EPS) genuinely drifts**, at both α: α=1.0 goes 5→4→4→3→3 and
+  α=2.0 goes 5→5→4→4→4 as EPS runs 0.10→0.15→0.225→0.30→0.45. This is the
+  opposite of the T1.2 exact-action prediction that kz_peak≈2α should be
+  EPS-free — **if the GPU campaign confirms this, it overturns rather than
+  confirms the current headline claim.** Caveat worth stating up front: the
+  peak is broad and flat (γ(kz) varies only a few % across 2–3 adjacent
+  integer kz near the max at every EPS), so which integer kz "wins" the
+  argmax is a fragile statistic on top of a real signal — the GPU run's own
+  fit noise could shift the observed peak by ±1 kz independent of any real
+  physics. Look at the whole γ(kz) curve shape, not just argmax, before
+  concluding anything.
+- **γ(kz) at *fixed* kz and *fixed* xi_sponge still rises substantially with
+  EPS** — e.g. α=2, kz=2: 0.109→0.151 (+39%) from EPS=0.10→0.45; α=1, kz=3:
+  0.101→0.131 (+30%). Because xi_sponge is unchanged across the comparison
+  this is not the known sponge-compression artifact, and because the box-size
+  bug above is now fixed it is not the wrap-buffer artifact either — it looks
+  like a real, so-far-unexplained EPS-dependence of the growth rate itself,
+  on top of (and independent from) whatever is happening to kz_peak. ξ_char
+  and ξ_crit (both EPS-invariant by construction) evidently aren't the whole
+  story for the actual eigenvalue; worth a term in the T1.2 exact-action
+  follow-up.
+- **No distinct tachyonic/outer branch survives at any of the 80 vetted
+  points** (`gamma_eig_outer` is NaN everywhere in the manifest) — the
+  production sponge choice is doing its job across the whole grid. It was
+  visible at looser candidate sponges during the ladder search itself (e.g.
+  α=2, EPS=0.45, kz=1: outer branch ~2.9–3.4 TU⁻¹ at ξ_sponge=52→20, roughly
+  30× the real branch's 0.107, before the ladder walked down to ξ_sponge=5
+  and it disappeared) — consistent with OUTER_REGION.md's account of the
+  tachyonic branch as a real, sponge-suppressible mode, not a discretization
+  artifact, at every EPS tested here.
+
+Launch readiness: `scripts/launch_after_recorr.sh` now checks both
+`recorr_*` and `intkz_*` progress-log naming (the active campaign was
+relaunched mid-way as a trimmed integer-kz-only run on 7 streams, excluding
+t130 for an active human session — see [[campaign-status]]) and, independent
+of that, checks for a logged-in human on t126/t130 via `who` immediately
+before touching either node, aborting per-node rather than assuming GPU-idle
+means machine-free.
+
+---
+
+## Comprehensive post-intkz campaign LAUNCHED (2026-07-19, ~02:47 IST) — 224
+## runs across 6 streams, plus a kz=0 growth-rate extension; 3 real bugs
+## found and fixed in the process (2 pre-existing, 1 introduced same day)
+
+The intkz campaign is PAUSED (user hold), not finished — 988/1134 done, 146
+runs held for later (see [[campaign-status]]). Live `who` + `nvidia-smi` +
+`ps aux` checks (not assumed from memory) on every node found: **t130, t132
+have an active human session (ds_students)** — excluded; **t126, t133,
+t140, abi0-2 are completely idle** (no user, no running job) — these six
+streams are what this campaign uses.
+
+**Expanded scope** (user asked for "a little more comprehensive," ≥6h of
+runs, and a kz=0 growth-rate extension):
+- **T1.1 EPS-scan**: added α=1.5 to the existing {1.0, 2.0} × 5 EPS × 8 kz
+  grid → 120 points (was 80). `gen_epsscan_campaign.py` is now incremental
+  (reuses any (α,V0,kz,EPS) row already in the manifest — the 80 original
+  points cost ~0s to "recompute" this time, only the 40 new α=1.5 points
+  needed a real eigensolver hunt, ~18 min instead of the original ~35).
+  LPT-split across **t126 + t140** (2 A5000s, ~2.5h wall each).
+- **T1.4 warm-closure**: extended kz range from C35's original 1..6 to
+  **1..8** (2 new eigenmode seeds, same α=2.0/V0=0.05/EPS=0.15/ξ_sponge=11.0
+  convention) → 32 runs. Moved off t130 (human present) to **t133**.
+- **NEW: kz=0 chromo-Weibel growth-rate extension** (`gen_kz0_campaign.py`),
+  answering the "more parameter points, latest techniques" ask. Original
+  measurement (Campaign 8, 2026-06-30, 200 pts) used run_mode=3 (NAB_DTANH,
+  a DOUBLE shear layer) and is documented to suppress γ at low α by a
+  geometric bonding/antibonding artifact (factor ~α^0.88), validated to only
+  0.5% at α=2 where the two wells decouple. This extension uses the current
+  production geometry instead (run_mode=6, single shear layer — no
+  double-well artifact), so the WKB polynomial γ=(√(α³/2)·V0)^(1/3)·sin(π/3)
+  can be tested across the FULL range, not just α=2. Technique: k_mode=0
+  hits kernel_ym_init's xi_char formula at kz=0, which blows the seed width
+  up to ~1e6 — i.e. an (to any physical precision) spatially uniform Az2
+  seed, exactly matching the homogeneous-plasma physics being measured; no
+  eigenmode seed file needed. suppress_kz0=0 is mandatory (it normally
+  zeroes exactly this channel every step); xi_sponge=0 (the mode is uniform,
+  not localised, so the shear-confinement sponge doesn't apply and Campaign
+  8 didn't use one either). Grid: α∈{0.5,1,1.5,2,2.5,3,4,5,6} ×
+  V0∈{0.01,0.02,0.03,0.05,0.07,0.08,0.1,0.2} (both the project's standard
+  production grids, for direct comparability) = 72 points, LPT-split across
+  **abi0/1/2** (ABI_SLOWDOWN-aware).
+- **Total: 224 runs, ~5.9 GPU-h (A5000-equivalent), ~1.2–2.5h wall-clock**
+  depending on stream (close to the requested ≥6h of work; wall-clock is
+  much shorter since it's spread across 6 parallel streams).
+
+**Bugs found and fixed before/during launch:**
+1. **Heredoc quoting bug (pre-existing, both epsscan and warmclosure
+   generators)**: `seed_profile_file = $WDIR/seeds/{seed}` was written
+   inside a *quoted* heredoc (`<<'EOINI'`), which suppresses ALL shell
+   expansion — every single run's .ini therefore contained the literal
+   8-character string `$WDIR/seeds/...` instead of the real path, and every
+   run crashed instantly with "cannot open seed profile". This is exactly
+   why "at least 6 hours of runs" would have produced ~0 minutes of real
+   GPU time had it shipped as originally staged (2026-07-18) — caught only
+   because of an accidental early launch (see below), not by the smoke test
+   (epsscan's smoke test doesn't exercise `seed_profile_file` at all — a
+   real gap). Fixed: unquoted the delimiter (`<<EOINI`) in both generators'
+   INI_TEMPLATE (and warmclosure's SMOKE_TEMPLATE, which also referenced
+   `$WDIR`); verified by executing the exact heredoc snippet locally with a
+   fake `$WDIR` and confirming it expands correctly.
+2. **t140's Makefile auto-detect picked a broken `nvcc`**: `which nvcc`
+   resolved to `/usr/bin/nvcc` (missing `cuda_runtime.h` — not a real CUDA
+   toolkit install), while the working one is at
+   `/usr/local/cuda-12.0/bin/nvcc`. Built explicitly with
+   `make NVCC=/usr/local/cuda-12.0/bin/nvcc -B`; the Makefile's PATH-first
+   auto-detect logic is still a latent trap on this node for any future
+   plain `make`.
+3. **ssh backgrounding didn't reliably detach**: `nohup cmd &`, and even
+   `nohup cmd </dev/null &`, `disown`, and `setsid nohup cmd </dev/null &`
+   all left the launch orchestrator's `ssh` call blocked until the
+   *entire multi-hour remote campaign finished* on this cluster, rather
+   than returning once the job was backgrounded (verified: the remote job
+   itself ran correctly the whole time — only the orchestrating `ssh` call
+   hung). Fixed by using `ssh -f` (the documented "background just before
+   command execution" flag) instead — verified to return in <1s regardless
+   of the backgrounded command's duration, for both a plain `sleep` test and
+   the real campaign scripts. `scripts/launch_comprehensive.sh` updated.
+4. **Self-inflicted, not a code bug**: an early attempt to test
+   `launch_comprehensive.sh`'s check functions via `source script.sh`
+   instead of calling them from an already-loaded shell executed the
+   *entire script top-to-bottom*, actually launching the (still-buggy, see
+   #1) EPS-scan on t126 for real. This is how bug #1 was caught — every one
+   of that accidental run's 80 points crashed identically within under two
+   minutes wall-clock (instant crashes, not real runs). Cleaned up (killed,
+   crashed output dirs removed, log reset) and relaunched cleanly with the
+   fixed script once #1 was fixed. Lesson: never `source` an orchestration
+   script meant to be executed — test its functions some other way.
+
+**Verified before moving on**: all 6 streams' progress logs show
+`smoke test OK` with no `CRASHED` line following (t126 specifically
+re-checked after the bug-1 fix and relaunch: `seed_file=` in the sim's own
+startup banner now shows the real expanded absolute path, and the run
+progresses through real timesteps rather than exiting immediately).
+
+Monitor: `logs/epsscan_{t126,t140}_progress.log`,
+`logs/warmclosure_t133_progress.log`,
+`logs/kz0ext_abi{0,1,2}_progress.log` on each respective node. Collection
+follows the same pattern as recorr/intkz (rsync timeseries + energy CSVs,
+extend `recorr_collect.py`-style fitting once done).
+
+---
+
+## kz=0 extension campaign was CONTAMINATED, not measuring the intended mode
+## — found by checking accuracy, root cause already diagnosed in
+## OUTER_REGION.md, fixed and relaunched (2026-07-19, ~03:00 IST)
+
+User asked how accurate the just-finished kz=0 runs were. Pulled all 72
+`timeseries_k0.csv` from abi and fit γ via a best-window log-linear search
+(`analysis/eps_tachyon_scan.py`-style, requiring ≥3 e-folds of growth and
+≥15% of the series' time span to accept a window, avoiding short-window
+overfits). Result: **only 12/72 fits even had enough rows to attempt** (the
+rest terminated after <10 output rows), and **all 12 fitted γ came out
+3–6× faster than the WKB prediction** (e.g. α=1.0,V0=0.02: fit 1.027 vs
+predicted 0.209; α=3.0,V0=0.01: fit 1.208 vs predicted 0.288) — and,
+tellingly, several fitted values clustered around near-identical numbers
+(≈0.46, ≈0.75, ≈1.21) across *unrelated* (α,V0) pairs, the signature of a
+shared numerical artifact rather than an alpha/V0-dependent physical rate.
+
+Checked `energy.csv` for one of the crashed points (α=1.0, V0=0.1): E/E0
+went 1.0 → 1.23 → 81.0 → 28,483 across four consecutive output steps
+(t≈2.5→3.5) — a genuine catastrophic blowup, not the gentle Weibel growth
+being measured.
+
+**Root cause, already diagnosed and fixed in a prior investigation that
+this campaign forgot to reuse**: OUTER_REGION.md's "Self-consistent
+(unfrozen Az1) test" (2026-07-15/16) found that any `suppress_kz0=0` run
+(mandatory here — the flag would otherwise zero exactly the color-2/3 kz=0
+channel being measured) exposes two OTHER, faster obstructions before the
+genuine kz=0 physics is even reached: (1) the periodic-wrap vz-discontinuity
+collapse (documented as *the real reason* `suppress_kz0=1` is mandatory in
+production, not the Weibel mode itself) and (2) a secular By1 pump from an
+out-of-equilibrium color-1 sector. Both have existing, already-implemented
+fixes: `vz_edge_taper=50` and `init_by1_eq=1`. `gen_kz0_campaign.py` used
+neither. Fixed by adding both to the `.ini` template (no source-code changes
+needed — the fields already existed in `YM_Config.cuh`, just weren't set).
+
+**Verification the fix is correct, not just self-consistent**:
+OUTER_REGION.md's own reference point for these two fixes (α=1.0, V0=0.05)
+reports its measured blowup rate as γ=0.284 — which is *exactly* this
+campaign's WKB-formula prediction at that same (α,V0)
+(`gamma_kz0(1.0,0.05)=0.2842`). I.e. an independent, prior measurement
+using these fixes already lands on the number this campaign is trying to
+reproduce; re-running with the same fixes should now measure the correct
+physics rather than the contamination pattern above. Spot-checked
+immediately after relaunch: `energy.csv` for the slowest point (α=0.5,
+V0=0.01) now stays flat (E/E0 = 1.0000 → 1.00002 over 8 TU) instead of
+exploding — clean, slow growth as expected for this corner (γ_wkb=0.118,
+e-folding time ~8.5 TU).
+
+**UPDATE: the init_by1_eq/vz_edge_taper fix did NOT work.** Rerunning the
+72-point grid with it produced the *identical* contamination pattern
+(3-6x-too-fast rates clustering at shared values) — in fact a cleaner
+re-analysis showed the fitted rate depends on the *product* α·V0 alone,
+not the α,V0 combination the WKB formula predicts (e.g. α=0.5,V0=0.02 and
+α=1.0,V0=0.01, same product 0.01, fitted to the same γ within noise).
+
+**Real root cause**: run_mode=6's frozen `Az1(ξ) = −V0·log(cosh(ξ))` grows
+*without bound* away from the shear layer. The outer-region tachyonic
+branch (OUTER_REGION.md: charged color-2/3 waves go unstable wherever
+`|α·Az1(ξ)| > kz`) has **no threshold at all when kz=0** — literally any
+ξ≠0 satisfies it, with a rate that itself grows without bound. A sponge
+cannot fix this: it only cuts the domain off at some ξ_sponge, but the
+*entire retained region* (0 < ξ < ξ_sponge) still satisfies the
+threshold-free condition. This is a genuine, previously-undocumented
+limitation of frozen single-well shear geometries (modes 1/5/6)
+*specifically at kz=0* — fine at kz≥1, where the threshold is real and a
+sponge does its job as designed (as the whole rest of this program relies
+on).
+
+**Fix (v2): switched to run_mode=3 (NAB_DTANH), i.e. reproduced Campaign
+3's original method exactly** rather than trying to improve on it: seed an
+arbitrary nonzero k_mode (k_mode=1) and let kz=0 grow on its own from
+machine-precision floating-point noise (~1e-13) over ~25-30 e-foldings.
+NAB_DTANH's periodic, bounded, double-well Az1 never diverges (every point
+in the domain is within a bounded distance of one of the two layers), so
+the tachyonic-at-kz=0 problem never arises — presumably why Campaign 3's
+single point worked in the first place. Its known cost (bonding/antibonding
+suppression of *seeded, finite-kz* modes) is irrelevant here since nothing
+is seeded at finite kz on purpose — only the noise-driven kz=0 component is
+measured, using the exact geometry Campaign 3 already validated it in.
+
+**A second, independent bug** turned up building the new extractor
+(`extract_kz0_noise.py`, needed because the run is seeded at k_mode=1 but
+only kz=0 is wanted, and `remote_timeseries.py` infers its target k from
+the seeded k_mode in the directory name): the first version averaged
+Az2/Az3 over x *and* z together, which cancels most of the real signal
+(the kz=0-in-z profile has genuine x-structure with both signs). Fixed to
+match `remote_timeseries.py`'s established convention exactly: take the
+magnitude *per x-column* first (mean over z), then average the per-x
+magnitudes over x.
+
+**Validated directly against Campaign 3's historical reference point**
+(α=2.0, V0=0.1, the ONLY point with an independent prior measurement):
+ran it manually end-to-end with the v2 method — **measured γ=0.5066 vs
+predicted γ=0.5065, a 0.02% match (R²=1.00000)**, reproducing (and
+slightly beating) Campaign 3's own documented 0.5% match. The full
+timeseries is a clean, monotonic single-exponential curve tracking
+Campaign 3's documented values almost point-for-point (t=15: ~2.3e-9 vs
+their 1.2e-9 at t=14.7; t=45: ~6.7e-3 vs their 3.5e-3 at t=44.2 — same
+order of magnitude at every matched time).
+
+**Status**: full 72-point grid relaunched on abi0-2 with the validated v2
+method (`gen_kz0_campaign.py`, `extract_kz0_noise.py`), ~2h estimated wall
+time (target_tu now scaled for noise-floor growth: `clip(35/γ,100,500)`,
+up from the seeded-eigenmode campaigns' `clip(15/γ,100,400)`, since ~25-30
+e-foldings from machine noise need more time than growing from a finite
+intentional seed). Rerun `analysis/measure_kz0_accuracy.py` against the
+rsynced data once done for the full-grid accuracy numbers.
+
+---
+
+## EPS-scan (120 pts) and warm-closure (32 pts) GPU results — kz_peak drift
+## CONFIRMED with real sim data; warm-closure gives an unexpected result
+## (2026-07-19)
+
+Both campaigns finished cleanly (0 CRASHED across all 152 runs) while the
+kz=0 investigation above was underway. Fit every timeseries with a
+best-R²-window log-linear search (same method as `measure_kz0_accuracy.py`);
+all 120 EPS-scan fits and all 32 warm-closure fits converged with R² ≥ 0.997
+(most ≥ 0.9999) — clean single-exponential windows throughout, no fitting
+degeneracy.
+
+### T1.1 EPS-scan: kz_peak DRIFT is real, not just an eigensolver artifact
+
+Sim/exact (vs the eigensolver, `epsscan_manifest.csv`'s `gamma_eig_real`):
+median **0.855**, IQR [0.696, 0.992] — in the historically expected range
+(RESEARCH_ROADMAP.md's own status line: "sim/exact = 0.94–0.99" for the
+original α=2 series; wider spread here since this scan deliberately probes
+corners — narrow/wide EPS, α=1.0 — that series never touched). No systematic
+alpha-dependence beyond a mild trend (α=1.0 median 0.83, α=1.5: 0.85, α=2.0:
+0.96); EPS=0.10 (narrowest, most resolution-sensitive) fits *best* (0.977).
+
+**kz_peak(EPS) from the actual GPU data** (argmax γ_sim over kz, per α):
+
+| α | EPS=0.10 | 0.15 | 0.225 | 0.30 | 0.45 |
+|---|---|---|---|---|---|
+| 1.0 | kz=4 | kz=2 | kz=2 | kz=2 | kz=2 |
+| 1.5 | kz=5 | kz=4 | kz=2 | kz=3 | kz=3 |
+| 2.0 | kz=5 | kz=4 | kz=3 | kz=4 | kz=3 |
+
+**kz_peak genuinely moves with EPS in the real simulation, not just the
+eigensolver pre-analysis** — confirming, not just predicting, the headline
+finding from `eps_tachyon_scan.py`. At the historical baseline EPS=0.15,
+kz_peak ≈ 2α roughly holds (α=1.0→2, α=1.5→4 [off by one], α=2.0→4) — this
+is why the original series never saw the drift. Away from EPS=0.15 in
+either direction, kz_peak moves by 1–3 integer steps and does **not** track
+2α. **This is evidence against, not for, the "gauge-coupling-selected
+wavelength, EPS-independent" headline claim** — the shear width does
+appear to matter to wavelength selection after all. Needs T1.2 theory
+follow-up (an EPS-dependent correction term) before any paper draft
+commits to the EPS-free claim.
+
+### T1.4 warm-closure: does NOT cleanly validate the filtered-cold picture — unexpected result
+
+The 4 legs (cold + 3 warm_T values) all survived to a clean fit at every
+kz=1..8 (no early crash even for the cold, all-filters-off control — mildly
+surprising on its own, though `t_final` is systematically shorter for cold,
+40–66 TU vs 65–75 TU for warm, consistent with cold instability setting in
+earlier as expected).
+
+**Unexpected finding**: warm_T *increases* the measured γ at every single
+kz relative to the cold (filters-off) control — the opposite of the hoped
+mechanism (pressure stabilizing a faster contaminating channel to reveal a
+*slower*, cleaner KH signal). Verified this is a real trace difference, not
+a fit artifact: at kz=4, cold and every warm leg start from the same seed
+and track together to t≈38 TU (amp≈1.8e-4 in all four), then diverge —
+by t≈58 TU cold reaches 1.5e-3 while all three warm legs reach 3.8e-3,
+consistently 2.5× higher, and the three warm_T values (v_th/V0 = 2.0, 2.5,
+3.0) agree with each other to <2% despite spanning a 2.25× range in warm_T
+itself (i.e. not warm_T-dose-dependent above the threshold where *some*
+pressure is present).
+
+| kz | cold | wt2p0 | wt2p5 | wt3p0 | eigensolver (filtered-cold ref) |
+|---|---|---|---|---|---|
+| 1 | 0.084 | 0.098 | 0.098 | 0.098 | 0.071 |
+| 2 | 0.128 | 0.154 | 0.155 | 0.154 | 0.125 |
+| 3 | 0.123 | 0.154 | 0.155 | 0.155 | 0.151 |
+| 4 | 0.122 | 0.150 | 0.149 | 0.149 | 0.152 |
+| 5 | 0.118 | 0.163 | 0.133 | 0.133 | 0.153 |
+| 6 | 0.128 | 0.156 | 0.156 | 0.136 | 0.151 |
+| 7 | 0.135 | 0.159 | 0.159 | 0.159 | 0.148 |
+| 8 | 0.139 | 0.163 | 0.164 | 0.164 | 0.143 |
+
+The cold leg tracks the eigensolver's peak-then-decline shape reasonably
+(ratio 0.77–1.20 across kz, similar spread to the EPS-scan above) — the
+warm legs instead sit systematically higher and noticeably *flatter*
+across kz=2–8 (0.149–0.164, no clear peak-at-kz≈4 the way the theory or
+even the cold data shows). This is consistent with warm_T feeding energy
+into (or more efficiently coupling to) some kz-independent channel — a
+candidate suspect given this project's history is the kz=0 chromo-Weibel
+mode cascading into finite kz via non-Abelian coupling (documented
+elsewhere, e.g. Campaign 3's "Az2(kz=1) grew monotonically... driven by
+the kz=0 mode through non-Abelian coupling, not genuine KH growth") — but
+this is a hypothesis, not yet checked, and warm_T's job was supposed to be
+suppressing *fluid two-stream*, not the kz=0 Weibel (documented in the
+2026-07-12 mode-2 test to be pressure-*insensitive*, being
+anisotropy-driven). **Does not support the T1.4 "credibility" claim as
+hoped** — the filters-off warm measurement does not reduce to the
+filtered-cold production result; it shows a different, flatter profile.
+Needs direct diagnosis (per-channel energy decomposition, T1.5-style) before
+this campaign can be called a validation either way.
+
+---
+
+## Warm-closure per-channel energy diagnosis (2026-07-19): the kz=0-cascade
+## hypothesis is WRONG; warm_T is working as designed — the *cold* leg is
+## the contaminated one, not the warm legs
+
+Diagnosed the kz=4 puzzle directly (`analysis/diagnose_warmclosure_channels.py`
+against a fresh rerun with raw snapshots retained, cold vs wt2p5): per-snapshot
+energy in each channel using the exact `YM_Energy.cu` formula, plus kz=0 and
+kz=4 amplitudes of Az2/Az3, By1, and the colour charges Q2A/Q3A/Q2B/Q3B.
+
+**Scale check**: colour-1 EM + fluid kinetic energy dominate the *total*
+system energy by 4–6 orders of magnitude over the colour-2/3 sector being
+measured (E_EM_color1 ~ 10–160, E_kinetic_A/B ~ 1–55, oscillating rapidly
+and anti-correlated with each other — vs E_EM_color2/3 ~ 1e-4 to 1e-2, and
+the Az2/Az3 amplitude itself ~1e-6 to 1e-4). This quantifies, for the first
+time, exactly how "subdominant" the intended mode is in the unfiltered
+system — the motivating concern for T1.4 in the first place.
+
+**The kz=0-cascade hypothesis is WRONG**: az_kz0 (the candidate "driver") is
+actually *smaller* in the warm run than the cold run at matched times (e.g.
+t≈37: cold 2e-6, warm 4.2e-7 — cold has *more* kz=0 leakage, not less).
+Ruled out.
+
+**What's actually happening: colour-1 EM growth AT THE TARGET kz is
+dramatically faster in cold than warm.** Fitting `by1_kztarget` (the kz=4
+component of By1, i.e. exactly the "colour-1 EM instability, γ≈1.1" channel
+documented since Campaign 14/15 as needing the `suppress_kz0` memset to
+kill) over t=10–40: **cold γ=1.395, warm γ=0.730 — warm_T roughly halves
+it.** By t=30, By1's kz=4 component (4.5e-4) is already **8× larger** than
+the intended Az2/Az3 signal (5.5e-5) *in the cold run* — i.e. the "cold,
+all-filters-off" control has already been overtaken by exactly the fast
+contaminating channel the filters normally suppress, well before its fit
+window ends. In the warm run, by1_kztarget stays ~6 orders of magnitude
+below az_kztarget throughout the same window — negligible.
+
+**Reinterpretation**: warm_T *is* doing its designed job — suppressing a
+fast fluid/colour-1 channel (consistent with pressure providing exactly the
+kind of restoring force that resists density/current perturbations). The
+"surprising" result from the previous entry (warm measures *faster* than
+cold) is not warm_T inflating the signal; it's that **the cold control is
+the contaminated measurement**, its low apparent rate reflecting a mix of
+the true (slower-growing, being-overtaken) KH mode with an increasingly
+dominant colour-1 instability, not a clean rate at all. The warm
+measurement, with that contamination suppressed, is the more trustworthy
+one — and it lands much closer to the eigensolver reference: at kz=4, warm
+(0.150) is within 1% of the eigensolver prediction (0.152), vs cold (0.122)
+at 20% low. The colour-charge channels tell the same story (qA/qB kz=4
+growth: cold γ≈0.09–0.10, warm γ≈0.11–0.13 — closer to az_kztarget's own
+rate in both cases, consistent with the whole precession chain running
+cleaner once colour-1 stops competing for the same degrees of freedom).
+
+**Revised T1.4 read**: this *does* support the credibility claim, with one
+correction to how to state it — **compare the warm measurement against the
+theory/eigensolver, not against the cold-filters-off number**, which is
+itself unreliable once colour-1 has caught up. warm_T's specific claimed
+job (stabilizing the fluid/colour-1 channel) is now empirically confirmed,
+not just asserted. Open items: (1) the "flatter than theory" profile across
+the full kz=1..8 range isn't fully explained by this single-point (kz=4)
+diagnosis — kz=1's 39% high and kz=5's split behaviour across warm_T values
+need their own check; (2) a real warm eigensolver (fluid n/p degrees of
+freedom, not yet implemented) is now more clearly worth building, to get a
+theory number that's actually warm rather than comparing a warm sim against
+a cold theory reference.
+
+---
+
+## kz=0 extension campaign CLOSED OUT (2026-07-19): technique validated at
+## one point, full-grid numbers are NOT reliable — growth is not a clean
+## single exponential and no automatic fit window fixes that
+
+Final status of the kz=0 chromo-Weibel extension (T1.1/roadmap "kz=0
+chromo-Weibel mode" item), closing out this thread.
+
+**What's solid**: the v2 method (run_mode=3/NAB_DTANH, Campaign 3's
+original approach — seed an arbitrary nonzero k_mode, let kz=0 grow from
+machine-precision noise) reproduces Campaign 3's own historical reference
+point (α=2.0, V0=0.1) to **0.02%** (γ_fit=0.5066 vs γ_WKB=0.5065,
+R²=1.00000) — better than their own documented 0.5% match. The technique
+and the analytic formula γ(kz=0)=(√(α³/2)·V0)^(1/3)·sin(π/3) are both
+confirmed correct at this point.
+
+**What's not solid**: fitting the full 72-point grid (α∈[0.5,6],
+V0∈[0.01,0.2]) with the same automated best-window log-linear search shows
+a large, *systematic* bias that flips sign exactly at the validated anchor:
+under-predicts by up to 80% at low α/V0, over-predicts by up to 67% at high
+α/V0, crossing zero almost exactly at (α=2, V0=0.1) in both the α- and
+V0-directions independently. R² is excellent everywhere (mostly ≥0.999),
+so these are not noisy/bad fits — they're clean fits of the *wrong thing*.
+
+**Root cause, found via a targeted convergence test** (α=1.0, V0=0.01
+rerun with target_tu=700, ran to its own 100×E0 energy-threshold halt at
+t=361.7): growth from machine noise is **not** a clean single exponential
+from t=0. Sliding-window local rates: ~0.02–0.06 (noisy, non-monotonic)
+for t=0–330, then a sudden jump to **0.17** — matching the WKB prediction
+of 0.166 to within 4% — only in the final ~10–30 TU before the run's own
+nonlinear halt. The long pre-asymptotic phase is what the grid's fits
+(constrained to a much shorter `target_tu = clip(35/γ_wkb, 100, 500)`, an
+estimate that turned out to badly underestimate the settling time needed
+away from the one calibration point) were actually measuring — a real, if
+slow-growing, transient, just not the eigenvalue.
+
+**Tried to fix the fit, not just diagnose it**: rewrote the window search
+to anchor at the trace's end and walk backward (rather than a global best-
+R² search that tends to lock onto the long, deceptively-clean-looking
+transient). Tested 5 different tail-exclusion/min-efold settings against
+the convergence-test trace: every one landed either clearly in the
+transient (rate 3-4× low) or already inside the nonlinear runaway (rate
+2-3× high) — **the true window is a knife-edge a few TU wide with no
+robust automatic detector**, at least not one found in this pass. Reverted
+`measure_kz0_accuracy.py` to the original global-best-R² search rather than
+ship an equally-wrong "fix"; the limitation is documented directly in the
+function's docstring.
+
+**Decision: close this out as-is, don't keep chasing it.** The technique
+and formula are validated at one point to high precision — that result
+stands and is worth keeping (it's a real, independent confirmation of the
+analytic kz=0 growth rate, achieved with the *current* single-shear-layer-
+avoiding, well-understood geometry). The **72-point grid's numbers should
+NOT be treated as a quantitative sweep** — at best they're qualitative
+(the WKB scaling direction is presumably right; don't quote specific γ
+values from this grid in any writeup). A trustworthy full sweep would need
+either (a) per-point manual inspection of each trace (labor-intensive, ~72
+individual judgment calls), or (b) a smarter automatic extraction — e.g.
+envelope detection to separate the oscillatory pre-asymptotic background
+from the true growing mode, or abandoning the noise-driven approach for an
+explicitly-seeded small-amplitude kz=0 perturbation in a geometry that
+avoids both known failure modes (NAB_DTANH's boundedness AND a controlled,
+known-size initial condition, rather than relying on uncontrolled
+floating-point roundoff as the seed). Neither is quick; left as a possible
+future task, not undertaken now.
+
+`gen_kz0_campaign.py`'s `target_tu` was bumped to a flat 800 TU (relying on
+each run's own energy-threshold auto-halt rather than a γ-dependent guess)
+in case of a future rerun — cheap regardless of point speed since fast
+points still self-terminate early — but the *existing* 72-point dataset was
+not regenerated, since a longer trace alone doesn't fix the fitting
+problem above.
+
+---
+
+## kz0v3: dense (alpha, V0) deviation map + alpha-resolution refinement (2026-07-19)
+
+Follow-up to the closed-out extension above, run the same day. Rather than
+try to fix the fitting bias, this campaign set out to *map* it precisely:
+a wider, denser grid (180 pts: V0 ∈ {0.03,...,0.10 step 0.01, 0.20} × alpha
+∈ {0.4,...,8.0 step 0.4}), then a second pass adding alpha=1.8,2.2,2.6,3.0,
+3.4,3.8,4.2 (63 more pts, step 0.2 within alpha∈[1.6,4.4]) once the coarse
+grid showed where the deviation shrinks. Method identical to the closed-out
+campaign (`run_mode=3`/NAB_DTANH, `k_mode=1` seed, kz=0 grows from machine
+noise, `target_tu=800` flat with each run auto-halting at its own 100×E0
+energy threshold, `hyp_diff=2e-4`). Scripts: `gen_kz0_grid2.py` (coarse,
+run_tag prefix `kz0v3`) + `gen_kz0_grid2_refine.py` (fine, prefix
+`kz0v3fine`). Analysis: `measure_kz0_grid2_accuracy.py`. Both ran on abi;
+zero crashes across all 243 runs. The fine pass ran on GPU1+GPU2 only —
+GPU0 was mid-job for another user (`python3 main.py --n 4`) at launch time,
+left untouched.
+
+**Result: 201/243 points fit (`too_short` for the remaining 42 — the
+fastest-growing corner, high α and V0=0.2, saturates in ≲5 snapshots,
+too few for the ≥10-row/≥3-efold fit requirement). Median |rel_err| across
+all fitted points: 30.9%.**
+
+**The deviation has a clean, monotonic structure in V0 at fixed α**: strongly
+negative (fit undershoots γ_WKB) at low V0, crossing to positive (fit
+overshoots) at high V0, e.g. at α=2.0: V0=0.03 → −65.5%, V0=0.10 → **+0.02%**
+(the historical Campaign-3 anchor point, reproduced here independently),
+V0=0.20 → +67.0%. This matches the mechanism already diagnosed in the
+closed-out campaign above: at low V0 (slow growth), the run needs many
+e-folds and the global best-R² window locks onto the long pre-asymptotic
+transient (rate below the true eigenvalue); at high V0 (fast growth), the
+available window increasingly includes late-time/near-nonlinear
+contamination (rate above the true eigenvalue). The zero-crossing V0 at
+each α is where these two biases happen to cancel — not a special physical
+point, an artifact of where the fixed-length trace/window search happens to
+land.
+
+**Aggregating over V0 (median per α) exposes a valley, not a monotonic
+trend**: median |rel_err| falls from 56% (α=0.8) to a minimum of **21%
+at α=2.6–2.8**, then rises back to ~28-30% by α=4.4 and beyond. The signed
+median bias crosses zero at **α≈3.4–3.6** (−0.4% at 3.4, +3.4% at 3.6) —
+close to but not identical to the |rel_err| minimum, since the V0=0.2 point
+contributes a large positive outlier that pulls the signed median differently
+from the absolute one. Apparent further improvement above α≈6 (down to
+17-24%) is **not trustworthy**: by α=6.4-8.0 only 4-6 of 9 V0 points still
+fit at all (the rest are `too_short`), so that tail is a small-sample
+artifact of which points survive, not a second true valley. Restricting to
+the well-sampled range (α ≤ 4.4, n=8-9 per α), the α≈2.6-3.6 band is the
+real, robust region of best agreement — consistent with, and now
+considerably better resolved than, the single historically-validated point
+(α=2.0, V0=0.1).
+
+Combined coarse+fine table: `sweep/kz0v3_combined_results.csv`. Plot
+(rel_err heatmap over the full (α,V0) grid + median-|rel_err|-vs-α with the
+valley band and small-n caveat marked): `plots/kz0v3_relerr_map.png`.
+
+**Bottom line, same caveat as before, now with a sharper picture**: this is
+still the same known-biased extraction method (FINDINGS.md "kz=0 extension
+campaign CLOSED OUT" above) — these numbers characterize *where the bias is
+smallest*, not a certified quantitative sweep. Don't quote a γ_kz0 value
+from any single point in this grid as ground truth; the α≈2.6-3.6, V0≈0.08-
+0.12 region is where the automatic fit happens to be least wrong, which is
+useful for knowing where a manual/careful re-measurement would be cheapest
+to validate, not a substitute for one.
+
+---
+
+## kz0v4: corner-anomaly check + valley power-law characterization (2026-07-19)
+
+Follow-up to kz0v3 after inspecting `plots/kz0v3_relerr_map.png`: two things
+stood out — an isolated near-zero-error pixel at (α=0.8, V0=0.04) sitting
+inside a sea of −60% points, and what looked like a clean α-V0 valley worth
+resolving further. 144 more runs (25-pt corner grid: α∈{0.6,0.7,0.8,0.9,1.0}
+× V0∈{0.030,0.035,0.040,0.045,0.050}; 119-pt valley refinement: α∈{1.7,1.9,
+2.1,...,4.3,4.6,5.0,5.4} × V0∈{0.04,...,0.10}), same method, on abi
+GPU1+GPU2 (GPU0 was mid-job for another user throughout, left alone). Zero
+crashes. Scripts: `gen_kz0_grid3_valley.py`; analysis via
+`measure_kz0_grid2_accuracy.py`'s functions (glob adapted for `kz0v4`).
+Plot: `plots/kz0v4_valley_detail.png`.
+
+**Corner anomaly: NOT real, confirmed knife-edge fit-window artifact.**
+The 5×5 fine grid around (0.8, 0.04) shows no smooth structure at all —
+immediate V0 neighbors 0.005 apart swing wildly: α=0.8 gives −64.7% (V0=
+0.030), −23.3% (0.035), **+7.1%** (0.040), −70.3% (0.045), −66.5% (0.050).
+Same story at α=0.6 (−55%, −15%, −59%, **+25%**, −61%). This is a
+checkerboard, not a dip. Also reran (0.8, 0.04) itself as an independent
+launch: gamma_fit shifted from 0.2454 (original) to 0.2527 (rerun) —
+**not** bit-identical despite zero RNG in the source, so GPU floating-point
+reduction order differs run-to-run at the ~3% level, and 140-165 TU of
+pure-noise exponential growth is enough to amplify that into a measurably
+different trace (though both reruns land in the same "anomalously low
+error" regime here, rather than jumping to the −60% background — the
+knife-edge is narrow but not a single infinitely-thin point). Conclusion:
+these isolated low-error pixels are the already-documented "true window is
+a knife-edge a few TU wide with no robust automatic detector" failure mode
+(FINDINGS.md "kz=0 extension campaign CLOSED OUT") showing up as a
+parameter-space artifact, not a physical feature. Don't chase other
+isolated low-error points in the low-α corner (α≲1.2) — the underlying fits
+there are all in the same noisy/unreliable regime documented already, this
+one pixel just happened to land less-wrong.
+
+**Valley: genuinely smooth, and a strikingly clean power law once resolved
+at 0.1-α-step.** The 119-pt refinement gives α resolution of 0.1-0.2 from
+α=1.7 to 5.4 with none of the corner's chaos — every fixed-α row is a
+clean, monotonic, single-crossing function of V0 (e.g. α=3.3: −36.6% at
+V0=0.04 down to +37.6% at V0=0.10, one sign change, no jumps). Combining
+with kz0v3's finer points and recomputing the rel_err=0 crossing V0(α) at
+every available α (38 values, α=1.6-8.0) gives:
+
+```
+V0_cross(alpha) = 0.1747 * alpha^-0.802
+```
+
+fit by log-log linear regression, with **median residual 0.24%, max 2.27%**
+across the full range — essentially a perfect power law over a 5x range in
+α. (Equivalently, α·V0_cross climbs slowly and smoothly from 0.196 at α=1.6
+to 0.265 at α=8.0 — confirming the earlier, coarser estimate wasn't a fixed
+combined-coupling constant, but a real, well-defined, weak drift.)
+
+**Is this physically interesting? Almost certainly not as *kz=0 mode
+physics* — it characterizes the fit bias, not the plasma.** The corner
+result is the control that makes this call possible: it shows that when the
+automatic fit's underlying trace is dominated by long, noisy pre-asymptotic
+transient (low α, needing >100 TU to saturate), the window search is
+chaotically sensitive to α and V0 — no smooth curve survives there. The
+valley's smoothness only appears once α is large enough that saturation is
+fast and the true late-time phase occupies a non-trivial, smoothly-varying
+fraction of each trace. The V0_cross(α) power law is then just the locus
+where two smoothly-varying, systematic biases (transient-dominated
+undershoot vs. nonlinear-contamination overshoot, both documented in the
+closed-out campaign) exactly cancel — a property of *how the auto-fit's
+two error sources trade off as gamma_wkb changes with (α,V0)*, most likely
+because the pre-asymptotic transient's own rate/duration is close to
+universal (set by discretization/round-off, roughly independent of α,V0)
+while only the final fast phase's duration scales with the true
+α,V0-dependent γ_wkb. That's a real, reproducible, and now precisely
+quantified regularity — but about this measurement's numerics, not a new
+fact about the chromo-Weibel instability. It would be a reasonable ingredient
+for a future smarter bias-correction (interpolate/extrapolate off this
+curve rather than trust the raw fit), but should not be reported as
+physics in any writeup.
+
+Combined result table: `sweep/kz0v4_results.csv`. No dataset regeneration
+needed for kz0v3 — this is purely additive.
 ## intkz Campaign — trimmed integer-kz map (2026-07-18/19, PAUSED at 87%)
 
 Focused replacement for the stalled full recorrection campaign (which lost 5/8

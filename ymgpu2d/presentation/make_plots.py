@@ -273,9 +273,12 @@ def fig05():
     aa = np.linspace(0.3, 5.2, 50)
     ax.plot(aa, 2 * aa, 'k--', lw=1.5, label=r'$k_{z,\rm peak} = 2\alpha$')
     ax.plot(aa, 1.5 * aa, 'k:', lw=1.2, label=r'$k_{z,\rm peak} = 1.5\alpha$')
+    ax.axvspan(0, 1.05, color='gray', alpha=0.10, zorder=0)
+    ax.text(0.52, 8.25, 'α≤1: overtone\nartifact (§8.8)', fontsize=7.5,
+            color='dimgray', ha='center', va='top', style='italic')
     ax.set_xlabel(r'coupling $\alpha$'); ax.set_ylabel(r'$k_z$ at peak $\gamma$ (simulation, reliable points)')
-    ax.set_title('Coupling-selected wavelength: the fastest-growing $k_z$\n'
-                 'tracks the gauge coupling, weakly dependent on $V_0$')
+    ax.set_title('The fastest-growing $k_z$ tracks the gauge coupling at fixed EPS=0.15\n'
+                 '(the EPS scan, fig16, shows the shear width also enters — §5.3a)')
     ax.legend(fontsize=9); ax.grid(alpha=0.3); ax.set_xlim(0, 5.4); ax.set_ylim(0, 8.5)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT, 'fig05_kzpeak_vs_alpha.png'), dpi=140)
@@ -598,6 +601,187 @@ def fig15():
     plt.close(fig)
 
 
+# ────────────────────────────────────────────────────────────────────────────
+# fig16 — T1.1 EPS scan (2026-07-19): γ(kz) per EPS at each α, sim vs
+#         eigensolver, plus the kz_peak(EPS) drift panel. Data:
+#         sweep/epsscan_results.csv (GPU fits) + gamma_eig_real (eigensolver
+#         at each run's exact vetted sponge/box).
+# ────────────────────────────────────────────────────────────────────────────
+def fig16():
+    import pandas as pd
+    df = pd.read_csv(os.path.join(SWEEP, 'epsscan_results.csv'))
+    df = df[df['status'] == 'ok']
+    eps_vals = sorted(df['EPS'].unique())
+    alphas = sorted(df['alpha'].unique())
+    # sequential ramp for the ordered EPS axis (dark = wide layer)
+    cmap = plt.get_cmap('viridis')
+    eps_color = {e: cmap(0.08 + 0.72 * i / (len(eps_vals) - 1))
+                 for i, e in enumerate(eps_vals)}
+
+    fig, axes = plt.subplots(2, 2, figsize=(11.5, 8.6))
+    for ax, alpha in zip(axes.flat[:3], alphas):
+        ga = df[df['alpha'] == alpha]
+        for e in eps_vals:
+            g = ga[ga['EPS'] == e].sort_values('kz')
+            c = eps_color[e]
+            ax.plot(g['kz'], g['gamma_eig_real'], '--', lw=1.1, color=c, alpha=0.75)
+            ax.plot(g['kz'], g['gamma_sim'], 'o-', ms=5, lw=1.6, color=c,
+                    mec='white', mew=0.5, label=f'EPS={e:g}')
+            ipk = g['gamma_sim'].idxmax()
+            ax.plot(g.loc[ipk, 'kz'], g.loc[ipk, 'gamma_sim'], '*', ms=13,
+                    color=c, mec='k', mew=0.5, zorder=6)
+        ax.set_title(f'α = {alpha:g}   (V₀ = 0.05)', fontsize=10)
+        ax.set_xlabel(r'$k_z$'); ax.set_ylabel(r'$\gamma$ [TU$^{-1}$]')
+        ax.grid(alpha=0.3)
+        if alpha == alphas[0]:
+            eps_handles, eps_labels = ax.get_legend_handles_labels()
+
+    ax = axes.flat[3]
+    a_colors = {1.0: '#1f77b4', 1.5: '#d62728', 2.0: '#2ca02c'}
+    for alpha in alphas:
+        ga = df[df['alpha'] == alpha]
+        pk_sim, pk_eig = [], []
+        for e in eps_vals:
+            g = ga[ga['EPS'] == e]
+            pk_sim.append(g.loc[g['gamma_sim'].idxmax(), 'kz'])
+            pk_eig.append(g.loc[g['gamma_eig_real'].idxmax(), 'kz'])
+        c = a_colors[alpha]
+        ax.plot(eps_vals, pk_sim, 'o-', ms=7, lw=1.8, color=c, mec='k',
+                mew=0.4, label=f'α={alpha:g} (sim)')
+        ax.plot(eps_vals, pk_eig, 's--', ms=5, lw=1.0, color=c, alpha=0.55,
+                mfc='none', label=f'α={alpha:g} (eigensolver)')
+        ax.axhline(2 * alpha, color=c, ls=':', lw=0.9, alpha=0.5)
+        ax.text(0.462, 2 * alpha + 0.08, f'2α={2*alpha:g}', fontsize=7.5,
+                color=c, ha='right', va='bottom')
+    ax.axvline(0.15, color='gray', lw=0.8, ls='-', alpha=0.6)
+    ax.text(0.152, 5.55, 'historical baseline\nEPS = 0.15', fontsize=7.5,
+            color='dimgray', va='top')
+    ax.set_xlabel('shear-layer half-width EPS')
+    ax.set_ylabel(r'$k_z$ at peak $\gamma$')
+    ax.set_title('The peak DRIFTS with EPS — the shear width does\n'
+                 'enter wavelength selection (contra the EPS-free claim)',
+                 fontsize=10)
+    ax.legend(fontsize=7.5, ncol=2); ax.grid(alpha=0.3)
+    ax.set_ylim(0.5, 6.0)
+
+    fig.suptitle('T1.1 EPS scan (120 GPU runs, 2026-07-19): γ(k$_z$; EPS) at V₀=0.05 — '
+                 'sim (solid, ★=peak) vs eigensolver (dashed)', fontsize=11.5)
+    fig.legend(eps_handles, eps_labels, ncol=5, loc='upper center',
+               bbox_to_anchor=(0.5, 0.955), fontsize=8.5, frameon=False)
+    fig.tight_layout(rect=[0, 0, 1, 0.925])
+    fig.savefig(os.path.join(OUT, 'fig16_epsscan_dispersion.png'), dpi=140)
+    plt.close(fig)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# fig17 — T1.4 warm-closure filters-off run (2026-07-19): cold control vs
+#         three warm_T legs vs the (cold, filtered) eigensolver reference.
+#         Data: sweep/warmclosure_results.csv. The cold leg is the
+#         contaminated one (colour-1 EM at the target kz, γ=1.395 vs 0.730
+#         warm) — see FINDINGS.md per-channel diagnosis.
+# ────────────────────────────────────────────────────────────────────────────
+def fig17():
+    import pandas as pd
+    df = pd.read_csv(os.path.join(SWEEP, 'warmclosure_results.csv'))
+    df = df[df['status'] == 'ok']
+    man = pd.read_csv(os.path.join(SWEEP, 'epsscan_manifest.csv'))
+    ref = man[(man['alpha'] == 2.0) & (man['EPS'] == 0.15)].sort_values('kz')
+
+    piv = df.pivot_table(index='kz', columns='label', values='gamma_sim')
+    warm_ramp = {'wt2p0': '#fdae6b', 'wt2p5': '#f16913', 'wt3p0': '#a63603'}
+    warm_name = {'wt2p0': 'warm v_th/V₀=2.0', 'wt2p5': 'warm v_th/V₀=2.5',
+                 'wt3p0': 'warm v_th/V₀=3.0'}
+
+    fig, ax = plt.subplots(figsize=(8.2, 5.6))
+    ax.plot(ref['kz'], ref['gamma_eig_real'], 'k-', lw=2.0,
+            label='eigensolver (cold, filtered reference)')
+    ax.plot(piv.index, piv['cold'], 'x--', ms=8, lw=1.4, color='#7f7f7f',
+            label='cold, ALL filters off (contaminated control)')
+    for lab in ['wt2p0', 'wt2p5', 'wt3p0']:
+        ax.plot(piv.index, piv[lab], 'o-', ms=5.5, lw=1.6,
+                color=warm_ramp[lab], mec='white', mew=0.5,
+                label=warm_name[lab] + ', filters off')
+    ax.annotate('warm legs agree with each other to <2%\n'
+                'and with the eigensolver to ~1% at kz=3–4;\n'
+                'pressure suppresses the colour-1 EM channel\n'
+                '(γ_By1 at kz=4: 1.40 cold → 0.73 warm)',
+                xy=(4, 0.1496), xytext=(4.6, 0.108),
+                fontsize=8.5, ha='left',
+                arrowprops=dict(arrowstyle='->', color='dimgray', lw=0.9))
+    ax.annotate('cold control is overtaken by the\ncolour-1 EM instability '
+                '(By¹ 8× the\ntarget signal by t=30) — its low γ\nis the '
+                'contaminated measurement',
+                xy=(3, 0.1230), xytext=(1.15, 0.0885),
+                fontsize=8.5, ha='left', color='#555555',
+                arrowprops=dict(arrowstyle='->', color='#7f7f7f', lw=0.9))
+    ax.set_xlabel(r'$k_z$'); ax.set_ylabel(r'$\gamma$ [TU$^{-1}$]')
+    ax.set_title('T1.4 warm closure at α=2, V₀=0.05 (filters OFF): the warm plasma\n'
+                 'reproduces the filtered-cold theory — the production filters were physics, not tuning',
+                 fontsize=10.5)
+    ax.grid(alpha=0.3); ax.legend(fontsize=8.5, loc='lower right')
+    ax.set_ylim(0.06, 0.175)
+    fig.tight_layout()
+    fig.savefig(os.path.join(OUT, 'fig17_warmclosure.png'), dpi=140)
+    plt.close(fig)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# fig18 — the corrected-pipeline archive (intkz + recorrection campaigns,
+#         fixed helicity extraction, vetted sponges, NZ/4.5 filter rule):
+#         sim vs σ-chased eigensolver across the integer-kz map.
+#         Data: sweep/recorr_results.csv.
+# ────────────────────────────────────────────────────────────────────────────
+def fig18():
+    import pandas as pd
+    df = pd.read_csv(os.path.join(SWEEP, 'recorr_results.csv'))
+    core = df[(df['tier'] == 'int') & (df['kz'] >= 1) & (df['kz'] <= 9) &
+              (df['alpha'] > 0.3) & (df['gamma_sim'] > 0) &
+              df['gamma_chased'].notna()].copy()
+    pl = core[core['has_plateau']]
+    npl = core[~core['has_plateau']]
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.5, 5.2))
+
+    lim = [8e-3, 1.5]
+    ax1.plot(lim, lim, 'k-', lw=1.0)
+    ax1.fill_between(lim, [l * 0.8 for l in lim], [l * 1.2 for l in lim],
+                     color='gray', alpha=0.15, lw=0, label='±20% band')
+    ax1.plot(npl['gamma_chased'], npl['gamma_sim'], 'o', ms=3, color='#c6dbef',
+             mec='none', alpha=0.8, label=f'no plateau (n={len(npl)})')
+    ax1.plot(pl['gamma_chased'], pl['gamma_sim'], 'o', ms=3.5, color='#1f77b4',
+             mec='none', alpha=0.75, label=f'plateau-confirmed (n={len(pl)})')
+    ax1.set_xscale('log'); ax1.set_yscale('log')
+    ax1.set_xlim(lim); ax1.set_ylim(lim)
+    ax1.set_xlabel("γ (σ-chased eigensolver, at each run's sponge)")
+    ax1.set_ylabel(r'$\gamma$ (simulation)')
+    ax1.set_title('Corrected-pipeline archive: integer-kz clean core\n'
+                  '(kz=1–9, α>0.3, all V₀) — sim vs true eigensolver', fontsize=10)
+    ax1.legend(fontsize=8.5, loc='upper left'); ax1.grid(alpha=0.3, which='both')
+
+    med = pl.groupby('V0')['rel_err'].median() * 100
+    p90 = pl.groupby('V0')['rel_err'].quantile(0.9) * 100
+    ns = pl.groupby('V0').size()
+    x = np.arange(len(med))
+    ax2.bar(x, med.values, 0.62, color='#1f77b4', label='median |rel. err.|')
+    ax2.plot(x, p90.values, 'v', ms=7, color='#08306b', label='90th percentile')
+    for xi, (m, n) in enumerate(zip(med.values, ns.values)):
+        ax2.text(xi, m + 0.5, f'{m:.1f}%', ha='center', fontsize=8)
+        ax2.text(xi, 0.55, f'n={n}', ha='center', fontsize=7, color='white')
+    ax2.set_xticks(x); ax2.set_xticklabels([f'{v:g}' for v in med.index])
+    ax2.set_xlabel(r'$V_0$'); ax2.set_ylabel('|γ_sim − γ_exact| / γ_exact  [%]')
+    ax2.set_title(f'Plateau-confirmed error vs V₀ — overall median '
+                  f'{pl["rel_err"].median()*100:.1f}%\n(weak-signal V₀=0.01 excepted, '
+                  'accuracy improves with V₀)', fontsize=10)
+    ax2.legend(fontsize=8.5); ax2.grid(alpha=0.3, axis='y')
+
+    fig.suptitle('The post-bug-fix measurement archive (helicity extraction fixed, '
+                 'vetted sponges, NZ/4.5 filter rule) — 2026-07-19', fontsize=11.5)
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
+    fig.savefig(os.path.join(OUT, 'fig18_recorr_accuracy.png'), dpi=140)
+    plt.close(fig)
+
+
 if __name__ == '__main__':
     fig01(); fig03(); fig04(); fig05(); fig06(); fig07(); fig11(); fig12(); fig13(); fig14(); fig15()
+    fig16(); fig17(); fig18()
     print('wrote figures to', OUT)
