@@ -4,7 +4,7 @@
 \usepackage{booktabs}
 \usepackage{graphicx}
 \graphicspath{{figs/}}
-\usepackage{microtype}
+\usepackage[expansion=false]{microtype}
 \usepackage{xcolor}
 \usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
 
@@ -643,6 +643,54 @@ We differentiate term by term using
 \eqref{eq:continuity}--\eqref{eq:currents}, at the continuum level and over
 the periodic box (so all pure divergences integrate to zero).
 
+\begin{step}[Setting up the calculation]
+Differentiate \eqref{eq:energydef} under the integral sign. The field part
+is immediate from the product rule,
+\begin{equation}
+\frac{\dd}{\dd t}\Bigl[\tfrac12\sum_a\bigl((E_x^a)^2+(E_z^a)^2+(B_y^a)^2\bigr)\Bigr]
+=\sum_a\Bigl[E_x^a\,\partial_tE_x^a+E_z^a\,\partial_tE_z^a+B_y^a\,\partial_tB_y^a\Bigr],
+\end{equation}
+and each $\partial_t(\cdot)$ is then replaced by the \emph{full}
+right-hand side of \eqref{eq:amperex}--\eqref{eq:faraday} --- curl term,
+current term, and non-Abelian commutator term alike; nothing is dropped at
+this stage, and the three steps below simply sort the resulting terms into
+three physically distinct piles.
+
+The fluid part needs one extra piece of algebra because $n_s$ also depends
+on $t$. Write $K_i\equiv p_i^2/(2n)$ for either momentum component of
+either beam (beam label suppressed) and use the chain rule together with
+\eqref{eq:continuity}--\eqref{eq:momz}:
+\begin{equation}
+\partial_tK_i=\frac{p_i}{n}\,\partial_tp_i-\frac{p_i^2}{2n^2}\,\partial_tn
+=v_i\bigl[-\nabla\!\cdot\!(\vec v\,p_i)+F_i\bigr]
+-\frac{v_i^2}{2}\bigl[-\nabla\!\cdot\!(n\vec v)\bigr].
+\end{equation}
+Expand both divergences with the product rule, using $p_i=nv_i$:
+$\nabla\!\cdot\!(\vec v\,p_i)=v_i\nabla\!\cdot\!(n\vec v)
++n\,\vec v\!\cdot\!\nabla v_i$. Substituting and collecting the two
+$\nabla\!\cdot\!(n\vec v)$ pieces (coefficients $-v_i^2$ and $+v_i^2/2$,
+net $-v_i^2/2$):
+\begin{equation}
+\partial_tK_i=-\tfrac12v_i^2\,\nabla\!\cdot\!(n\vec v)
+-n v_i(\vec v\!\cdot\!\nabla v_i)+v_iF_i .
+\end{equation}
+Compare with $\nabla\!\cdot\!(\vec vK_i)=\nabla\!\cdot\!\bigl(\vec v\,
+nv_i^2/2\bigr)=\tfrac12v_i^2\,\nabla\!\cdot\!(n\vec v)
++nv_i(\vec v\!\cdot\!\nabla v_i)$ (same product rule, run on $K_i$
+directly): the right side above is exactly $-\nabla\!\cdot\!(\vec vK_i)$
+plus the leftover $v_iF_i$. Hence the fluid kinetic-energy identity used
+below,
+\begin{equation}
+\partial_tK_i=-\nabla\!\cdot\!(\vec v\,K_i)+v_iF_i ,
+\label{eq:kinlemma}
+\end{equation}
+holding term by term for $i\in\{x,z\}$ and each beam: transport is
+conservative (a pure divergence, integrates to zero over the periodic box),
+and the only source is $v_iF_i$ --- structurally identical to the field
+energy, where transport is the Poynting divergence and the only source is
+the work $\vec J\cdot\vec E$ plus the non-Abelian terms.
+\end{step}
+
 \begin{step}[Transport terms]
 The Maxwell curl terms combine into divergences:
 \begin{equation}
@@ -675,19 +723,91 @@ same minus sign appears in \eqref{eq:currents} and in
 \end{step}
 
 \begin{step}[Non-Abelian cross terms: the battery]
-The remaining contributions are the two commutator terms,
+Collect what is left after the previous two steps. Substitute the full
+right-hand sides of \eqref{eq:amperex} and \eqref{eq:faraday} into the
+field part of $\dd E/\dd t$ set up above, and the full
+\eqref{eq:momx}--\eqref{eq:momz} into the fluid part via
+\eqref{eq:kinlemma}. Every term is now accounted for except two: the
+commutator piece of Amp\`ere-$x$, multiplied by $E_x^a$, and the
+commutator piece of Faraday, multiplied by $B_y^a$ (the curl pieces became
+the Poynting flux of the transport step and integrate to zero; the current
+pieces cancelled against the Lorentz-force work of the previous step; the
+fluid transport pieces of \eqref{eq:kinlemma} also integrate to zero, same
+step). What remains is
+\begin{equation}
+\frac{\dd E}{\dd t}\bigg|_{\mathrm{NA}}
+=\int\Bigl[\underbrace{E_x^a\cdot\bigl(-\alpha(\vec A_z\times\vec B_y)^a\bigr)}
+_{\text{leftover from Amp\`ere-}x}
++\underbrace{B_y^a\cdot\bigl(+\alpha(\vec A_z\times\vec E_x)^a\bigr)}
+_{\text{leftover from Faraday}}\Bigr],
+\end{equation}
+i.e., writing out the two commutators (sum over the repeated color index
+$a$ understood in each product),
 \begin{equation}
 \frac{\dd E}{\dd t}\bigg|_{\mathrm{NA}}
 =\int\Bigl[-\alpha\sum_a E_x^a(\vec A_z\times\vec B_y)^a
 +\alpha\sum_a B_y^a(\vec A_z\times\vec E_x)^a\Bigr].
 \end{equation}
-Write both as scalar triple products in color space,
-$[\vec X,\vec Y,\vec Z]\equiv\epsilon^{abc}X^aY^bZ^c$. The triple product
-is odd under exchanging its first and third arguments, so
-$[\vec B_y,\vec A_z,\vec E_x]=-[\vec E_x,\vec A_z,\vec B_y]$ and
+\end{step}
+
+\begin{step}[An epsilon-tensor identity]
+Write both terms as scalar triple products in color space,
+$[\vec X,\vec Y,\vec Z]\equiv\epsilon^{abc}X^aY^bZ^c$ (sum over
+$a,b,c\in\{1,2,3\}$; the first vector supplies the free index that is also
+the $\epsilon$ tensor's first slot), so
+$\sum_aE_x^a(\vec A_z\times\vec B_y)^a=[\vec E_x,\vec A_z,\vec B_y]$ and
+$\sum_aB_y^a(\vec A_z\times\vec E_x)^a=[\vec B_y,\vec A_z,\vec E_x]$. We need
+the relation between these two. Start from the second and relabel the three
+\emph{dummy} summation indices $a\to c,\,b\to b,\,c\to a$ (legal: summed
+indices carry no meaning of their own):
+\begin{equation}
+[\vec B_y,\vec A_z,\vec E_x]=\epsilon^{abc}B_y^aA_z^bE_x^c
+=\epsilon^{cba}B_y^cA_z^bE_x^a
+=\epsilon^{cba}\,E_x^aA_z^bB_y^c .
+\end{equation}
+The index string $\epsilon^{cba}$ differs from $\epsilon^{abc}$ only by
+swapping the 1st and 3rd slots ($a\leftrightarrow c$) --- a single
+transposition, which flips the sign of the totally antisymmetric symbol:
+$\epsilon^{cba}=-\epsilon^{abc}$ (spot check: $\epsilon^{213}=-\epsilon^{123}
+=-1$, consistent with the definition $\epsilon^{123}=+1$ and total
+antisymmetry). Hence
+\begin{equation}
+[\vec B_y,\vec A_z,\vec E_x]=-\epsilon^{abc}E_x^aA_z^bB_y^c
+=-[\vec E_x,\vec A_z,\vec B_y].
+\label{eq:tripleflip}
+\end{equation}
+In words: swapping the outer two vectors of a triple product costs a minus
+sign, with the middle vector as a spectator. This is the general rule
+behind every ``$[\cdots]=-[\cdots]$'' step used in the program.
+\end{step}
+
+\begin{step}[Assembling the battery term]
+Insert \eqref{eq:tripleflip} into the result of the first step of this
+sequence:
+\begin{align}
+\frac{\dd E}{\dd t}\bigg|_{\mathrm{NA}}
+&=-\alpha\int[\vec E_x,\vec A_z,\vec B_y]
++\alpha\int[\vec B_y,\vec A_z,\vec E_x]\notag\\
+&=-\alpha\int[\vec E_x,\vec A_z,\vec B_y]-\alpha\int[\vec E_x,\vec A_z,\vec B_y]
+=-2\alpha\int[\vec E_x,\vec A_z,\vec B_y] .
+\end{align}
+Finally translate back to an ordinary dot-and-cross product:
+$[\vec E_x,\vec A_z,\vec B_y]=\vec A_z\cdot(\vec B_y\times\vec E_x)$. Proof:
+in components, $(\vec B_y\times\vec E_x)^b=\epsilon^{bca}B_y^cE_x^a$ (the
+standard formula, indices cycled), so
+\begin{equation}
+\vec A_z\cdot(\vec B_y\times\vec E_x)
+=A_z^b\,\epsilon^{bca}B_y^cE_x^a
+=\epsilon^{bca}E_x^aA_z^bB_y^c .
+\end{equation}
+The index string $bca$ is a \emph{cyclic} permutation of $abc$
+($a\to b\to c\to a$), and cyclic permutations of $\epsilon$ are always even
+(no sign change: two transpositions), so $\epsilon^{bca}=\epsilon^{abc}$,
+and the two expressions agree term by term:
+$\vec A_z\cdot(\vec B_y\times\vec E_x)=\epsilon^{abc}E_x^aA_z^bB_y^c
+=[\vec E_x,\vec A_z,\vec B_y]$. Therefore
 \begin{equation}
 \frac{\dd E}{\dd t}\bigg|_{\mathrm{NA}}
-=-2\alpha\int[\vec E_x,\vec A_z,\vec B_y]
 =-2\alpha\int \vec A_z\cdot(\vec B_y\times\vec E_x).
 \label{eq:battery}
 \end{equation}
@@ -698,20 +818,57 @@ interaction energy inside the field-strength commutators), and
 \end{step}
 
 \begin{step}[Evaluation on the frozen background]
-With $\vec A_z=(\Az,0,0)$ plus small wave components, the leading term of
-\eqref{eq:battery} is
+Specialize \eqref{eq:battery} to the production background: the color-1
+component of $\vec A_z$ is the frozen $\Az(\xi)$ of \eqref{eq:Az1}, and the
+color-2/3 components of $\vec A_z$ are pure wave perturbation, absent from
+the background (\S\ref{sec:sixfield}). Keeping only the background piece,
+$\vec A_z\approx(\Az,0,0)$ (its own wave part would make this term
+higher-order than the quadratic energy already is, since $B_y,E_x$ are
+themselves perturbations), only the color-1 component of the cross product
+survives the dot product:
+\begin{equation}
+\vec A_z\cdot(\vec B_y\times\vec E_x)\approx\Az\,(\vec B_y\times\vec E_x)^1
+=\Az\,\bigl(B_y^2E_x^3-B_y^3E_x^2\bigr),
+\end{equation}
+using the component formula $(\vec B\times\vec E)^1=B^2E^3-B^3E^2$.
+Substituting into \eqref{eq:battery}:
 \begin{equation}
 \frac{\dd E}{\dd t}\bigg|_{\mathrm{NA}}
-=-2\alpha\int \Az\,\bigl(B_y^2E_x^3-B_y^3E_x^2\bigr)
-=-2\alpha\int\Az\;\Imy\!\left(b^{*}e_x\right),
+=-2\alpha\int \Az\,\bigl(B_y^2E_x^3-B_y^3E_x^2\bigr).
+\end{equation}
+Now introduce the same complex ``circular'' pairs used throughout
+\S\ref{sec:sixfield}, $b=B_y^2+\ii B_y^3$ and $e_x=E_x^2+\ii E_x^3$ --- at
+this point purely a notational bundling of two real numbers into one
+complex one, nothing physical yet. Multiply out
+\begin{equation}
+b^{*}e_x=(B_y^2-\ii B_y^3)(E_x^2+\ii E_x^3)
+=\underbrace{\bigl(B_y^2E_x^2+B_y^3E_x^3\bigr)}_{\Rey(b^*e_x)}
++\ii\underbrace{\bigl(B_y^2E_x^3-B_y^3E_x^2\bigr)}_{\Imy(b^*e_x)},
+\end{equation}
+so the bracket above is exactly $\Imy(b^*e_x)$:
+\begin{equation}
+\frac{\dd E}{\dd t}\bigg|_{\mathrm{NA}}
+=-2\alpha\int\Az\;\Imy\!\left(b^{*}e_x\right).
 \label{eq:battery23}
 \end{equation}
-where $b=B_y^2+\ii B_y^3$ and $e_x=E_x^2+\ii E_x^3$ are the circular pairs
-of \S\ref{sec:sixfield}. For any mode obeying the linearized Amp\`ere-$x$
-relation $\gamma e_x=-\ii\OmA b$ (eq.~\eqref{eq:lin-ex} below),
-$\Imy(b^*e_x)=-\OmA|b|^2/\gamma$, so
+Now use the linearized Amp\`ere-$x$ relation derived independently in
+\S\ref{sec:sixfield}, $\gamma e_x=-\ii\OmA b$ (eq.~\eqref{eq:lin-ex} below)
+--- legitimate here because it is simply the statement that $e_x$ and $b$
+are not independent once the equations of motion hold. Solve for
+$e_x=-\ii\OmA b/\gamma$ (real $\gamma$, $\OmA$ for a mode on the
+real-$\gamma$ branch) and substitute:
+\begin{align}
+b^*e_x&=b^*\Bigl(\frac{-\ii\OmA b}{\gamma}\Bigr)
+=\frac{-\ii\OmA}{\gamma}\,b^*b\notag\\
+&=\frac{-\ii\OmA}{\gamma}\,|b|^2,
+\end{align}
+using $b^*b=|b|^2$ (real, non-negative). A number of the form
+$-\ii\times(\text{real})$ has $\Imy=-(\text{that real number})$, so
+$\Imy(b^*e_x)=-(\OmA/\gamma)|b|^2$. Substituting back into
+\eqref{eq:battery23}:
 \begin{equation}
 \frac{\dd E}{\dd t}\bigg|_{\mathrm{NA}}
+=-2\alpha\int\Az\Bigl(-\frac{\OmA}{\gamma}|b|^2\Bigr)
 =\frac{2\alpha}{\gamma}\int\Az\,\OmA\,|b|^2 .
 \label{eq:batterysign}
 \end{equation}
@@ -775,17 +932,32 @@ each with the ansatz $f(x,z,t)=\hat f(x)\,e^{\ii\kz z+\gamma t}$, i.e.
 \end{equation}
 Why circular pairs work: every non-Abelian term in
 \eqref{eq:amperex}--\eqref{eq:potential} and \eqref{eq:precession} is a
-cross product with the color-1 background, and for any color vector
-$\vec X=(X^1,X^2,X^3)$ the 2/3-components of $\vec A_z\times\vec X$ with
-$\vec A_z=(\Az,0,0)$ background are
+cross product with the color-1 background, and this always reduces to a
+single phase multiplication. Recall the general cross-product component
+formula $(\vec Y\times\vec X)^i=\epsilon^{ijk}Y^jX^k$, i.e.\
+$(\vec Y\times\vec X)^1=Y^2X^3-Y^3X^2$,
+$(\vec Y\times\vec X)^2=Y^3X^1-Y^1X^3$,
+$(\vec Y\times\vec X)^3=Y^1X^2-Y^2X^1$. Apply this with $\vec Y=\vec A_z
+=(\Az,0,0)$ (only $Y^1=\Az$ nonzero) and a generic color vector
+$\vec X=(X^1,X^2,X^3)$ whose own color-1 component $X^1$ is either absent
+(the perturbed color-2/3 fields have no color-1 part by definition) or
+decoupled at this order (see the parenthetical below):
+\begin{align}
+(\vec A_z\times\vec X)^2&=Y^3X^1-Y^1X^3=0-\Az X^3=-\Az X^3,\\
+(\vec A_z\times\vec X)^3&=Y^1X^2-Y^2X^1=\Az X^2-0=+\Az X^2 .
+\label{eq:crosscomponents}
+\end{align}
+Combine these as $(2)+\ii(3)$ and factor:
 \begin{equation}
-(\vec A_z\times\vec X)^2=-\Az X^3,\qquad
-(\vec A_z\times\vec X)^3=+\Az X^2
-\quad\Longrightarrow\quad
-(\vec A_z\times\vec X)^2+\ii(\vec A_z\times\vec X)^3=\ii\,\Az\,X^c ,
+(\vec A_z\times\vec X)^2+\ii(\vec A_z\times\vec X)^3
+=-\Az X^3+\ii\Az X^2
+=\ii\Az\bigl(X^2+\ii X^3\bigr)
+=\ii\,\Az\,X^c ,
 \label{eq:crosscomplex}
 \end{equation}
-where $X^c=X^2+\ii X^3$. (Contributions with the perturbed $a$ against
+where $X^c\equiv X^2+\ii X^3$ and the middle equality is checked by
+expanding the right side back out: $\ii\Az(X^2+\ii X^3)=\ii\Az X^2-\Az X^3$,
+which matches term by term. (Contributions with the perturbed $a$ against
 background color-2/3 fields vanish because the latter are zero; the
 color-1 wave fields $B_y^1,E_x^1$ couple only at second order or through
 backgrounds excluded from this model --- see the scope remark in
@@ -819,59 +991,127 @@ Define the two shifted wavenumbers that this produces,
 \label{ssec:sixderive}
 
 \begin{step}[Amp\`ere-$x$]
-Linearize \eqref{eq:amperex} for colors 2,3 and combine as
-$(2)+\ii(3)$. The curl term gives $-\ii\kz b$. The commutator, by
-\eqref{eq:crosscomplex} with $\vec X=\vec B_y$, gives
-$-\alpha\,\ii\Az\,b$. The current perturbation vanishes: by
-\eqref{eq:currents}, $\delta J_x^{2,3}$ needs either a background
-$v_x$ (zero) or a product of two perturbations ($Q^{2,3}_s$ and
-$\delta v_{xs}$). Hence
+Write \eqref{eq:amperex} out for the two colors $a=2,3$ separately:
+\begin{equation}
+\partial_tE_x^2=-\partial_zB_y^2-\alpha(\vec A_z\times\vec B_y)^2-J_x^2,
+\qquad
+\partial_tE_x^3=-\partial_zB_y^3-\alpha(\vec A_z\times\vec B_y)^3-J_x^3 .
+\end{equation}
+Form (second equation)$\times\ii$ plus (first equation); by
+\eqref{eq:circpairs} the left side is $\partial_t(E_x^2+\ii E_x^3)
+=\partial_te_x$:
+\begin{equation}
+\partial_te_x=-\partial_z(B_y^2+\ii B_y^3)
+-\alpha\bigl[(\vec A_z\times\vec B_y)^2+\ii(\vec A_z\times\vec B_y)^3\bigr]
+-(J_x^2+\ii J_x^3).
+\end{equation}
+Take each of the three terms in turn.
+\begin{itemize}
+\item \emph{Curl term.} $-\partial_z(B_y^2+\ii B_y^3)=-\partial_zb$; the
+plane-wave ansatz $\partial_z\to\ii\kz$ turns this into $-\ii\kz\,b$.
+\item \emph{Commutator term.} This is exactly the bracket evaluated in
+\eqref{eq:crosscomplex} with $\vec X=\vec B_y$ (so $X^c=b$):
+$(\vec A_z\times\vec B_y)^2+\ii(\vec A_z\times\vec B_y)^3=\ii\Az\,b$.
+Multiplying by the overall $-\alpha$ gives $-\ii\alpha\Az\,b$.
+\item \emph{Current term.} From \eqref{eq:currents},
+$J_x^a=-n_AQ_A^av_{xA}-n_BQ_B^av_{xB}$. Its color-2,3 perturbation
+$\delta J_x^{2,3}$ is a sum of terms each containing either the background
+$v_{xA,B}$ (zero for both beams, \eqref{eq:beams} has no $x$-flow) or a
+product of two first-order perturbations ($\delta Q^{2,3}_s\cdot\delta
+v_{xs}$, itself second order and dropped in a linear theory). Hence
+$J_x^2+\ii J_x^3=0$ at linear order.
+\end{itemize}
+Collecting the two surviving terms and applying $\partial_t\to\gamma$:
 \begin{equation}
 \gamma\,e_x=-\ii\kz b-\ii\alpha\Az b
-=-\ii\,\OmA\,b .
+=-\ii(\kz+\alpha\Az)\,b
+=-\ii\,\OmA\,b ,
 \label{eq:lin-ex}
 \end{equation}
+using $\OmA=\kz+\alpha\Az$ from \eqref{eq:Omdef} in the last step.
 \end{step}
 
 \begin{step}[Faraday]
-Linearize \eqref{eq:faraday}: $\partial_xE_z\to e_z'$,
-$-\partial_zE_x\to-\ii\kz e_x$, and the commutator
-$+\alpha(\vec A_z\times\vec E_x)\to+\ii\alpha\Az e_x$:
+Write \eqref{eq:faraday} for $a=2,3$ and combine as $(2)+\ii(3)$ exactly as
+above, using $\partial_t(B_y^2+\ii B_y^3)=\partial_tb$:
+\begin{equation}
+\partial_tb=\partial_x(E_z^2+\ii E_z^3)-\partial_z(E_x^2+\ii E_x^3)
++\alpha\bigl[(\vec A_z\times\vec E_x)^2+\ii(\vec A_z\times\vec E_x)^3\bigr].
+\end{equation}
+Term by term: $\partial_x(E_z^2+\ii E_z^3)=\partial_xe_z\to e_z'$ (a prime
+denotes $\partial_x$, left as a derivative since the $x$-profile is not
+Fourier-expanded); $-\partial_z(E_x^2+\ii E_x^3)=-\partial_ze_x\to
+-\ii\kz e_x$ under the ansatz; and the commutator term is
+\eqref{eq:crosscomplex} with $\vec X=\vec E_x$ (so $X^c=e_x$), giving
+$+\ii\alpha\Az\,e_x$. Hence, with $\partial_t\to\gamma$,
 \begin{equation}
 \gamma\,b=-\ii\kz e_x+\ii\alpha\Az e_x+e_z'
-=-\ii\,\OmF\,e_x+e_z' .
+=-\ii(\kz-\alpha\Az)e_x+e_z'
+=-\ii\,\OmF\,e_x+e_z' ,
 \label{eq:lin-b}
 \end{equation}
-Note the opposite relative sign of the two $\alpha\Az$ shifts in
-\eqref{eq:lin-ex} vs \eqref{eq:lin-b}: Amp\`ere-$x$ sees $\OmA$, Faraday
-sees $\OmF$. Their product, not either alone, is what enters the local
-dispersion relation (\S\ref{sec:local}); the split originates in the model
-keeping $A_x=0$ fixed while $E_x\neq0$, and is inherited from the two
-distinct covariant structures in \texttt{khaxn.pdf} (cf.\ its eqs.\ (2)/(3)
-vs (16)/(19)).
+using $\OmF=\kz-\alpha\Az$ from \eqref{eq:Omdef}. Note the opposite
+relative sign of the two $\alpha\Az$ shifts in \eqref{eq:lin-ex} vs
+\eqref{eq:lin-b}: Amp\`ere-$x$ sees $\OmA$, Faraday sees $\OmF$. This
+sign difference has nothing to do with $\vec X$ being $b$ versus $e_x$ ---
+\eqref{eq:crosscomplex} gives the \emph{same} $+\ii\Az X^c$ structure
+either way. It comes entirely from the overall sign in front of the
+commutator in the two model equations: \eqref{eq:amperex} has
+``$-\alpha(\cdots)$'' while \eqref{eq:faraday} has ``$+\alpha(\cdots)$''.
+That one model-level sign difference is the entire origin of $\OmA\neq
+\OmF$; their product, not either alone, is what enters the local
+dispersion relation (\S\ref{sec:local}), and the split is inherited from
+the two distinct covariant structures in \texttt{khaxn.pdf} (cf.\ its
+eqs.\ (2)/(3) vs (16)/(19)).
 \end{step}
 
 \begin{step}[Amp\`ere-$z$]
-Linearize \eqref{eq:amperez}: no commutator (\S\ref{ssec:modeleqs}), curl
-term $\partial_xB_y\to b'$ (backward difference in the code; see
-\S\ref{ssec:discrete}). The current perturbation now survives at first
-order because the beams carry background $v_z=\pm v$:
+Write \eqref{eq:amperez} for $a=2,3$ and combine as before:
+\begin{equation}
+\partial_te_z=\partial_x(B_y^2+\ii B_y^3)-(J_z^2+\ii J_z^3)
+=b'-(J_z^2+\ii J_z^3),
+\end{equation}
+where $\partial_xB_y\to b'$ again denotes $\partial_x$ (backward
+difference in the code; see \S\ref{ssec:discrete}); this equation has no
+commutator term at all, since the candidate $A_x$-term vanishes
+identically (\S\ref{ssec:modeleqs}). What remains is to linearize the
+current. From \eqref{eq:currents}, for each beam $s$ and color $a$,
+$J_z^a=-n_sQ_s^av_{zs}$, summed over $s$; each of $n_s,Q_s^a,v_{zs}$ is
+background-plus-perturbation. Expand the product to first order for the
+color-2 piece of beam A (color-3 and beam B follow by relabelling):
+\begin{equation}
+\delta\bigl(n_AQ_A^2v_{zA}\bigr)
+=\underbrace{(\delta n_A)\,\underbrace{Q_{A,0}^2}_{=0}v_{zA}}_{0}
++n_{A,0}\,(\delta Q_A^2)\,v_{zA}
++n_{A,0}\,\underbrace{Q_{A,0}^2}_{=0}\,(\delta v_{zA}),
+\end{equation}
+using that the background $Q^{2,3}_{A,B}=0$ (only $Q^1=\pm1$ is nonzero in
+the background, \eqref{eq:beams}) kills the first and third terms; only
+the middle term, $\delta Q^a_A$ multiplying the \emph{background} velocity
+$v_{zA}=v$, survives. Repeating for beam B ($n_{B,0}=1$, $v_{zB}=-v$,
+$Q^{2,3}_{B,0}=0$) and assembling
+$\delta J_z^{2,3}=-\delta(n_AQ_A^{2,3}v_{zA})-\delta(n_BQ_B^{2,3}v_{zB})$:
 \begin{equation}
 \delta J_z^{2,3}
 =-\Bigl[n_A\,\delta Q^{2,3}_A v_{zA}+n_B\,\delta Q^{2,3}_B v_{zB}\Bigr]
+=-v\,\delta Q_A^{2,3}-(-v)\,\delta Q_B^{2,3}
 =-v\bigl(\delta Q_A^{2,3}-\delta Q_B^{2,3}\bigr),
 \end{equation}
-using $n_A=n_B=1$, $v_{zA}=-v_{zB}=v$ (density and velocity perturbations
-multiply the \emph{zero} background $Q^{2,3}$, hence drop). In circular
-form $\delta J_z^c=-v(q_A-q_B)$ and
+using $n_A=n_B=1$, $v_{zA}=v$, $v_{zB}=-v$. Combining $(2)+\ii(3)$ using
+$q_{A,B}\equiv\delta Q^2_{A,B}+\ii\delta Q^3_{A,B}$ from
+\eqref{eq:circpairs} gives $J_z^2+\ii J_z^3=-v(q_A-q_B)$. Substituting
+above, with $\partial_t\to\gamma$:
 \begin{equation}
-\gamma\,e_z=b'+v\,(q_A-q_B).
+\gamma\,e_z=b'-\bigl[-v(q_A-q_B)\bigr]=b'+v\,(q_A-q_B).
 \label{eq:lin-ez}
 \end{equation}
 \end{step}
 
 \begin{step}[Potential]
-Directly from \eqref{eq:potential}:
+Equation \eqref{eq:potential}, $\partial_tA_z^a=-E_z^a$, is already linear
+and carries no commutator, so restricting to $a=2,3$ and combining
+$(2)+\ii(3)$ is immediate: $\partial_ta=-e_z$, and with $\partial_t\to
+\gamma$,
 \begin{equation}
 \gamma\,a=-e_z .
 \label{eq:lin-a}
@@ -879,45 +1119,103 @@ Directly from \eqref{eq:potential}:
 \end{step}
 
 \begin{step}[Precession, beam A]
-Take \eqref{eq:precession} in advective form for beam A
-($Q^1_A=1$ background, $v_{zA}=v$). The advection term contributes the
-Doppler shift $\ii\kz v\,q_A$; the source needs the 2- and 3-components of
-$\vec Q\times\vec A_z$ keeping first-order terms. With
-$\vec Q=(1,Q^2,Q^3)$ and $\vec A_z=(\Az,a_2,a_3)$:
+Two pieces of setup, then the algebra.
+
+\emph{Advective form and its linearization.} As noted below
+\eqref{eq:precession}, combined with continuity the density-weighted
+equation is equivalent to $\dd Q^a/\dd t=\alpha v_z(\vec Q\times\vec
+A_z)^a$ along a fluid trajectory, i.e.\ $\partial_tQ^a+v_z\partial_zQ^a
+=\alpha v_z(\vec Q\times\vec A_z)^a$ at this order ($v_x=0$ in the
+background, so no $x$-advection of the background charge). Linearize
+about $Q^1_A=1$, $Q^{2,3}_A=0$, $v_{zA}=v(\xi)$: the perturbation
+$\delta Q^{2,3}_A$ obeys $\partial_t\delta Q^{2,3}_A+v\,\partial_z\delta
+Q^{2,3}_A=\alpha v\,(\vec Q\times\vec A_z)^{2,3}$ (the source is already
+first order, so it needs no further linearization beyond what follows
+next). Under the plane-wave ansatz $\partial_z\to\ii\kz$ the advective
+term becomes $\ii\kz v\,\delta Q^{2,3}_A$: a Doppler shift by the beam's
+own local velocity.
+
+\emph{The source, from the SU(2) cross product.} With $\vec Q=
+(1,Q^2,Q^3)$ (background color-1 plus color-2/3 perturbation) and
+$\vec A_z=(\Az,a_2,a_3)$ (background plus perturbation), use
+$(\vec X\times\vec Y)^2=X^3Y^1-X^1Y^3$, $(\vec X\times\vec Y)^3
+=X^1Y^2-X^2Y^1$ (the general formula of \eqref{eq:crosscomponents}, with
+now \emph{both} vectors carrying nonzero components):
 \begin{align}
 (\vec Q\times\vec A_z)^2&=Q^3\Az-Q^1a_3=Q^3\Az-a_3 ,\\
-(\vec Q\times\vec A_z)^3&=Q^1a_2-Q^2\Az=a_2-Q^2\Az .
+(\vec Q\times\vec A_z)^3&=Q^1a_2-Q^2\Az=a_2-Q^2\Az ,
 \end{align}
-Combine as $(2)+\ii(3)$:
+using $Q^1=1$. Both expressions are already first order (each is a
+product of the background $\Az$ or the background $Q^1=1$ with a
+perturbation), as required to sit on the right of a linear equation.
+Combine as $(2)+\ii(3)$, grouping the $\Az$-terms and the $a$-terms
+separately:
 \begin{equation}
-(\vec Q\times\vec A_z)^c
-=Q^3\Az-a_3+\ii a_2-\ii Q^2\Az
-=\ii\,(a_2+\ii a_3)-\ii\Az\,(Q^2+\ii Q^3)
-=\ii\,a-\ii\,\Az\,q_A .
+(\vec Q\times\vec A_z)^2+\ii(\vec Q\times\vec A_z)^3
+=\underbrace{\bigl(Q^3\Az-\ii Q^2\Az\bigr)}_{-\ii\Az(Q^2+\ii Q^3)}
++\underbrace{\bigl(-a_3+\ii a_2\bigr)}_{\ii(a_2+\ii a_3)} .
 \end{equation}
-Hence $\gamma q_A+\ii\kz v\,q_A=\alpha v(\ii a-\ii\Az q_A)$, i.e.
+Check each bracket by expanding it back out: $-\ii\Az(Q^2+\ii Q^3)
+=-\ii\Az Q^2+\Az Q^3$, matching $Q^3\Az-\ii Q^2\Az$; and
+$\ii(a_2+\ii a_3)=\ii a_2-a_3$, matching $-a_3+\ii a_2$. So, using
+$q_A\equiv Q^2+\ii Q^3$ and $a\equiv a_2+\ii a_3$ from
+\eqref{eq:circpairs},
 \begin{equation}
-\gamma\,q_A=\ii\alpha v\,a-\ii v\,(\kz+\alpha\Az)\,q_A
-=\ii\alpha v\,a-\ii v\,\OmA\,q_A .
+(\vec Q\times\vec A_z)^c=\ii\,a-\ii\,\Az\,q_A .
+\end{equation}
+
+\emph{Assembling.} The linearized precession equation reads
+$\gamma q_A+\ii\kz v\,q_A=\alpha v\,(\vec Q\times\vec A_z)^c
+=\alpha v(\ii a-\ii\Az q_A)$. Move the Doppler term to the right and
+collect the two terms proportional to $q_A$:
+\begin{equation}
+\gamma\,q_A=\ii\alpha v\,a-\ii\kz v\,q_A-\ii\alpha v\Az\,q_A
+=\ii\alpha v\,a-\ii v\,(\kz+\alpha\Az)\,q_A
+=\ii\alpha v\,a-\ii v\,\OmA\,q_A ,
 \label{eq:lin-qA}
 \end{equation}
-The combination is meaningful: the beam's Doppler shift $\kz v$ and its
+using $\OmA=\kz+\alpha\Az$ from \eqref{eq:Omdef} in the last step. The
+combination is meaningful: the beam's Doppler shift $\kz v$ and its
 precession frequency $\alpha v\Az$ enter only through the single product
 $v\,\OmA$.
 \end{step}
 
 \begin{step}[Precession, beam B]
-Repeat with $Q^1_B=-1$, $v_{zB}=-v$:
+Repeat the previous step's two pieces with $Q^1_B=-1$ and $v_{zB}=-v$.
+
+\emph{Cross product.} With $\vec Q=(-1,Q^2,Q^3)$, $\vec A_z=
+(\Az,a_2,a_3)$:
 \begin{align}
-(\vec Q\times\vec A_z)^2&=Q^3\Az+a_3,\qquad
-(\vec Q\times\vec A_z)^3=-a_2-Q^2\Az ,\\
-(\vec Q\times\vec A_z)^c
-&=Q^3\Az+a_3-\ii a_2-\ii Q^2\Az
-=-\ii\,a-\ii\Az\,q_B .
+(\vec Q\times\vec A_z)^2&=Q^3\Az-Q^1a_3=Q^3\Az+a_3 ,\\
+(\vec Q\times\vec A_z)^3&=Q^1a_2-Q^2\Az=-a_2-Q^2\Az ,
 \end{align}
-Then $\gamma q_B-\ii\kz v q_B=\alpha(-v)(-\ii a-\ii\Az q_B)$, i.e.
+where the sign flips relative to beam A come entirely from $Q^1_B=-1$
+replacing $Q^1_A=1$ in the terms $-Q^1a_3$ and $Q^1a_2$; nothing else
+changes. Combine as $(2)+\ii(3)$:
 \begin{equation}
-\gamma\,q_B=\ii\alpha v\,a+\ii v\,\OmA\,q_B .
+(\vec Q\times\vec A_z)^2+\ii(\vec Q\times\vec A_z)^3
+=\bigl(Q^3\Az+a_3\bigr)+\ii\bigl(-a_2-Q^2\Az\bigr)
+=\underbrace{\bigl(Q^3\Az-\ii Q^2\Az\bigr)}_{-\ii\Az(Q^2+\ii Q^3)}
++\underbrace{\bigl(a_3-\ii a_2\bigr)}_{-\ii(a_2+\ii a_3)} ,
+\end{equation}
+(check the second bracket: $-\ii(a_2+\ii a_3)=-\ii a_2+a_3$, matching
+$a_3-\ii a_2$; the first bracket is identical to beam A's), so with
+$q_B\equiv Q^2+\ii Q^3$,
+\begin{equation}
+(\vec Q\times\vec A_z)^c=-\ii\,a-\ii\,\Az\,q_B .
+\end{equation}
+
+\emph{Advective term.} With background $v_{zB}=-v$, the Doppler term in
+the advective precession equation is $-v\,\ii\kz\,q_B$ (opposite sign
+from beam A because the background flow is reversed).
+
+\emph{Assembling.} $\gamma q_B-\ii\kz v\,q_B=\alpha(-v)\bigl(-\ii a
+-\ii\Az q_B\bigr)=\ii\alpha v\,a+\ii\alpha v\Az\,q_B$. Move the Doppler
+term to the right:
+\begin{equation}
+\gamma\,q_B=\ii\alpha v\,a+\ii\kz v\,q_B+\ii\alpha v\Az\,q_B
+=\ii\alpha v\,a+\ii v\,(\kz+\alpha\Az)\,q_B
+=\ii\alpha v\,a+\ii v\,\OmA\,q_B .
 \label{eq:lin-qB}
 \end{equation}
 The two beams are driven identically ($+\ii\alpha v a$) but Doppler-rotate
