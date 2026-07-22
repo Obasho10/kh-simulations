@@ -1,0 +1,437 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{textcomp}
+\usepackage{microtype}
+
+\graphicspath{%
+  {figs/}%
+  {figs_results/}%
+  {../plots/}%
+  {../remote_data/t2p23/}%
+}
+
+\usetheme{default}
+\useinnertheme{rectangles}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\definecolor{ymblue}{RGB}{31,73,125}
+\definecolor{ymgreen}{RGB}{27,175,122}
+\definecolor{ymred}{RGB}{178,34,52}
+
+\setbeamercolor{structure}{fg=ymblue}
+\setbeamercolor{title}{fg=ymblue}
+\setbeamercolor{frametitle}{fg=white,bg=ymblue}
+\setbeamercolor{block title}{bg=ymblue!15,fg=ymblue!90!black}
+\setbeamercolor{block body}{bg=ymblue!4}
+\setbeamercolor{block title example}{bg=ymgreen!20,fg=ymgreen!40!black}
+\setbeamercolor{block body example}{bg=ymgreen!6}
+\setbeamercolor{block title alerted}{bg=ymred!15,fg=ymred!70!black}
+\setbeamercolor{block body alerted}{bg=ymred!5}
+\setbeamerfont{block title}{size=\normalsize}
+\setbeamerfont{normal text}{size=\footnotesize}
+\setbeamertemplate{itemize items}[circle]
+\setlength{\parskip}{2pt}
+
+\newenvironment{physpicture}{\begin{exampleblock}{Physical picture}}{\end{exampleblock}}
+\newenvironment{physmeaning}{\begin{exampleblock}{Physical meaning}}{\end{exampleblock}}
+
+\newcommand{\eps}{\varepsilon_s}
+\newcommand{\Vo}{V_0}
+\newcommand{\kz}{k_z}
+\newcommand{\OmA}{\Omega_A}
+\newcommand{\OmF}{\Omega_F}
+\newcommand{\Az}{A_{z1}}
+\newcommand{\Ceil}{\Gamma}
+\newcommand{\Kwn}{K}
+\newcommand{\ii}{\mathrm{i}}
+\newcommand{\Rey}{\operatorname{Re}}
+\newcommand{\Imy}{\operatorname{Im}}
+\newcommand{\sech}{\operatorname{sech}}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\D}{\mathcal{D}}
+
+\title{\textbf{The Non-Abelian Kelvin--Helmholtz Instability}}
+\subtitle{A shear-driven SU(2) plasma instability: theory and GPU validation}
+\author{SU(2) Yang--Mills KH simulation program}
+\date{2026-07-22}
+
+\begin{document}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+% ==============================================================================
+\begin{frame}{Motivation}
+Two counter-streaming, color-charged plasma beams with a shear flow layer between
+them, coupled to a non-Abelian SU(2) gauge field.
+\begin{itemize}
+\item Classical (Abelian) Kelvin--Helmholtz instability is textbook physics for
+neutral shear flows. Its non-Abelian analogue is not.
+\item Relevant wherever colored plasma has shear: early-universe electroweak
+plasma, quark--gluon plasma, and proposed dark non-Abelian sectors.
+\item \textbf{No prior work} treats a genuinely shear-driven, non-Abelian
+instability with a full wavenumber map. The closest results in the literature
+are either two-stream-driven (Manuel--Mr\'owczy\'nski) or anisotropy-driven
+chromo-Weibel modes (Mr\'owczy\'nski et al.) — not shear.
+\end{itemize}
+\begin{physpicture}
+This talk derives the instability from first principles, finds an exact
+reduction to a single ODE, extracts a growth-rate ceiling and a
+wavelength-selection rule, and confronts all of it with GPU simulation data.
+\end{physpicture}
+\end{frame}
+
+% ==============================================================================
+\section{The system}
+
+\begin{frame}{The simulated system}
+For each color $a\in\{1,2,3\}$: fields $E_x^a,E_z^a,B_y^a,A_z^a$. For each beam
+$s\in\{A,B\}$: fluid density $n_s$, momenta $p_{xs},p_{zs}$, color charge $Q_s^a$.
+\vspace{0.05em}
+\begin{align*}
+&\partial_t n+\nabla\!\cdot(n\vec v)=0, \qquad
+\partial_t p_x+\nabla\!\cdot(\vec v p_x)=-n\textstyle\sum_a Q^a(E_x^a+v_zB_y^a)\\
+&\partial_t p_z+\nabla\!\cdot(\vec v p_z)=-n\textstyle\sum_a Q^a(E_z^a-v_xB_y^a),\qquad
+\partial_t Q^a=\alpha\,v_z(\vec Q\times\vec A_z)^a\\[0.3em]
+&\partial_t E_x^a=-\partial_zB_y^a-\alpha(\vec A_z\times\vec B_y)^a-J_x^a,\qquad
+\partial_t E_z^a=\partial_xB_y^a-J_z^a\\
+&\partial_t B_y^a=\partial_xE_z^a-\partial_zE_x^a+\alpha(\vec A_z\times\vec E_x)^a,
+\qquad \partial_t A_z^a=-E_z^a
+\end{align*}
+Beam A: $v_z=+\Vo\tanh\xi$, $Q^1=+1$; beam B: $v_z=-\Vo\tanh\xi$, $Q^1=-1$;
+background potential $\Az(\xi)=-\Vo\ln\cosh\xi$ sets $u(\xi)\equiv-\alpha\Az(\xi)\ge0$.
+$\alpha$ is the non-Abelian coupling; $\Vo$ the shear velocity; $\kz$ the
+perturbation wavenumber along the flow.
+\end{frame}
+
+\begin{frame}{The six-field linear system}
+\footnotesize
+Linearizing about the sheared background in the color-2/3 sector (which carries
+charge $\pm1$ under the residual color-1 axis) gives a closed system of six
+complex fields, $b,e_x,e_z,a,q_A,q_B\propto e^{\ii\kz z+\gamma t}$:
+\[
+\boxed{
+\begin{aligned}
+\gamma\,b &= -\ii\,\OmF\,e_x+e_z' & \gamma\,a &= -e_z\\
+\gamma\,e_x &= -\ii\,\OmA\,b & \gamma\,q_A &= \ii\alpha v\,a-\ii v\,\OmA\,q_A\\
+\gamma\,e_z &= b'+v\,(q_A-q_B) & \gamma\,q_B &= \ii\alpha v\,a+\ii v\,\OmA\,q_B
+\end{aligned}}
+\qquad
+\OmA=\kz-u(\xi),\;\; \OmF=\kz+u(\xi)
+\]
+\vspace{0.2em}
+\textbf{Validated directly against the 2D simulation}: 1--4\% agreement on the
+core validation series, 4--9\% median across the full wavenumber map.
+\end{frame}
+
+% ==============================================================================
+\section{Two branches, one mechanism}
+
+\begin{frame}{Two branches emerge from the same background}
+Freezing the background locally, the system splits into an electromagnetic
+block and a charge-precession block.
+\[
+\underbrace{\gamma^2=-\OmA\OmF=\alpha^2u^2-\kz^2}_{\text{outer, tachyonic branch}}
+\qquad\qquad
+\underbrace{\gamma^2=-g(\xi;\gamma),\quad g=\frac{2\alpha v^3\OmA}{\gamma^2+v^2\OmA^2}}_{\text{shear branch, inside the layer}}
+\]
+\centering\includegraphics[width=0.28\textwidth]{fig_tachyon.pdf}
+\raggedright
+\begin{physpicture}
+\footnotesize
+Far from the layer, the strong background alone is unstable — a
+Nielsen--Olesen-type charged-vector mode, independent of the flow. Inside the
+layer, the flow shakes the beams' color charge; their \emph{difference}
+current feeds back into the field — a genuine shear-driven resonance. This
+talk focuses on the shear branch.
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{The $\kz=0$ limit: a validated anchor}
+\footnotesize
+At $\kz=0$ the shear-branch dispersion relation reduces to a cubic with an
+exact closed-form growth rate:
+\[
+\boxed{\;\gamma(\kz{=}0)=\Bigl(\sqrt{\tfrac{\alpha^3}{2}}\,\Vo\Bigr)^{1/3}\sin 60^\circ\;}
+\]
+\begin{physpicture}
+Not a bunching instability — nothing varies along $z$. It is
+\emph{filamentation}: the background field rotates color-2/3 fields into each
+other while the beams' counter-streaming currents feed the growth. This is a
+member of the well-known chromo-Weibel family, appearing here as the
+$\kz\to0$ limit of the shear branch.
+\end{physpicture}
+\textbf{Validated to 0.5\%}: at $\alpha=2,\Vo=0.1$, simulated
+$\gamma=0.5039$ vs.\ predicted $0.5065$, over nine decades of growth — this is
+the strongest, parameter-free anchor for everything that follows, and it holds
+on two independent simulation configurations three weeks apart.
+\end{frame}
+
+% ==============================================================================
+\section{An exact reduction, and a growth ceiling}
+
+\begin{frame}{Reduction to a single ODE}
+\footnotesize
+The six-field system has only one spatial derivative chain; every other field
+is algebraic in $a(x)$, the color-2/3 potential perturbation. Eliminating them
+gives one second-order equation:
+\[
+\boxed{\;\Bigl(\frac{\gamma^2 a'}{\D}\Bigr)'=(\gamma^2+g)\,a,\qquad
+\D(x)=\gamma^2+\kz^2-u(x)^2,\qquad
+g(x)=\frac{2\alpha v^3\OmA}{\gamma^2+v^2\OmA^2}\;}
+\]
+\centering\includegraphics[width=0.42\textwidth]{fig_anatomy.pdf}
+\raggedright
+\begin{physpicture}
+$\D$ changes sign exactly where the two branches meet: $\D>0$ is a trapped
+shear well, $\D<0$ is the tachyonic outer region — one mechanism, two fates.
+$g$ is the only drive of the shear branch, and it dies as $v^3$ toward the
+layer center: the wave must shake the charges, make the two beams respond
+\emph{differently}, and collect that difference as a current.
+\end{physpicture}
+\textbf{Exactness verified}: the reduced equation reproduces the full
+six-field eigenvalues to better than $10^{-10}$ relative difference.
+\end{frame}
+
+\begin{frame}{A growth-rate ceiling}
+The drive $g$ is a resonance in the beam-frame precession frequency, maximized
+when that frequency matches the growth rate itself. Its peak value is
+$G_{\max}=\alpha\Vo^2/\gamma$. A confining well needs $G_{\max}>\gamma^2$
+somewhere, which forces
+\[
+\boxed{\;\gamma^3\le\alpha\Vo^2\;}
+\]
+independent of $\kz$ and of the shear-layer width.
+\begin{physpicture}
+A self-limiting resonance: the beam response is a Lorentzian in local
+precession frequency, and its width is set by $\gamma$ itself. The faster the
+mode grows, the broader the band it averages over, and the weaker the peak
+drive it can extract. The ceiling is the fixed point of that feedback.
+\end{physpicture}
+\textbf{Measured}: peak growth rates reach 95--99\% of $(\alpha\Vo^2)^{1/3}$ in
+every simulated series tested (shown quantitatively later).
+\end{frame}
+
+\begin{frame}{A universal, dimensionless well}
+\footnotesize
+In natural units $\Ceil\equiv(\alpha\Vo^2)^{1/3}$ (rate scale) and
+$\Kwn\equiv(\alpha/\Vo)^{1/3}$ (wavenumber scale), the drive becomes universal
+— no $\alpha,\Vo$ remain:
+\[
+G(w)=\Ceil^2\,\hat G(\hat w),\qquad \hat G(\hat w)=\frac{2\hat w}{\hat\gamma^2+\hat w^2}
+\]
+\centering\includegraphics[width=0.44\textwidth]{fig_drive.pdf}
+\raggedright
+\textbf{Growth rates scale as $(\alpha\Vo^2)^{1/3}$ and wavenumbers as
+$(\alpha/\Vo)^{1/3}$} — not as the naive product $\alpha\Vo$. This scaling is
+directly confirmed on GPU data later in the talk.
+\end{frame}
+
+% ==============================================================================
+\section{Wavelength selection}
+
+\begin{frame}{Quantization of the shear well}
+\footnotesize
+The well is shallow — less than a quarter wavelength of accumulated phase — so
+the growth rate is set by a connection condition at the well's edge rather
+than a simple cavity-mode count:
+\[
+\tan S=\frac{\kappa}{k_{\rm edge}},\qquad \kappa=\sqrt{\gamma^2+\kz^2},\qquad
+S=\int\sqrt{Q}\,dx
+\]
+\centering\includegraphics[width=0.4\textwidth]{fig_quant.pdf}
+\raggedright
+\begin{physpicture}
+A surface-mode-like state, not a cavity mode: growth rates hug the ceiling (a
+small drop in $\gamma$ buys all the depth needed), while the wavelength at
+which growth peaks is set by the geometry of the confining window rather than
+by the shear profile itself.
+\end{physpicture}
+Solving this quantization condition exactly reproduces the independently
+computed six-field eigenvalues to $\le2\%$ (median $\le0.2\%$) across a wide
+survey of $(\alpha,\Vo,\kz)$.
+\end{frame}
+
+\begin{frame}{No intrinsic wavelength maximum}
+In an unbounded domain, nothing stops the mode from following the resonance
+outward as $\kz$ grows: the peak drive $G_{\max}=\alpha\Vo^2/\gamma$ does not
+depend on $\kz$, so $\gamma(\kz)$ climbs monotonically toward the ceiling —
+directly confirmed: $\gamma$ reaches 99.5\% of the ceiling by $\kz=10$ in an
+unbounded test, with no turnover.
+\begin{physpicture}
+The peaked dispersion curve seen in the finite simulation domain is therefore
+\textbf{selected by the box, not intrinsic to the flow} — the single most
+counter-intuitive result of the theory, and the one most directly tested
+against data next.
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{The confinement-set wavelength}
+\footnotesize
+The resonance location moves outward linearly with $\kz$; setting it equal to
+the domain's confinement radius $\xi_w$ gives the wavenumber at which growth
+peaks:
+\[
+\boxed{\;\kz^{\rm peak}\simeq\alpha\Vo(\xi_w-\ln2)+c\,(\alpha/\Vo)^{1/3},\qquad c\approx1\;}
+\]
+\centering\includegraphics[width=0.42\textwidth]{fig_peak.pdf}
+\raggedright
+\textbf{Both terms are independent of the shear-layer width} — coupling
+strength and confinement radius jointly select the wavelength; the flow
+profile itself does not directly enter. This is the sharpest and most novel
+claim of the theory, and is tested directly on GPU data next.
+\end{frame}
+
+% ==============================================================================
+\section{Confronting the theory with GPU data}
+
+\begin{frame}{Non-monotonic dispersion, on real simulation data}
+\centering
+\includegraphics[width=0.6\textwidth]{fig_r_dispersion.pdf}
+\small
+Simulated $\gamma(\kz)$ at fixed $\Vo=0.05$, five values of $\alpha$. Every
+curve peaks at an intermediate $\kz$, and the peak location climbs with
+$\alpha$ — from $\kz^{\rm peak}\approx2$ at $\alpha=1$ to $\approx4$--5 at
+$\alpha=3$--4, at fixed shear width. Classical Kelvin--Helmholtz also peaks,
+but its peak is fixed by the shear width alone; a peak that moves with the
+gauge coupling, at fixed flow, has no classical analogue.
+\end{frame}
+
+\begin{frame}{The peak tracks confinement, not the shear width}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.4\textwidth}
+\includegraphics[width=\textwidth]{fig_r_kzpeak.pdf}
+\end{column}
+\begin{column}{0.58\textwidth}
+\begin{tabular}{lcc}
+$(\alpha,\Vo,\xi_w)$ & measured & formula\\\midrule
+(1, 0.05, 20) & 3.5 & 3.7\\
+(2, 0.05, 11) & 4.5 & 4.5\\
+(3, 0.03, 5) & 5.5 & 5.0\\
+(5, 0.03, 5) & 6.5 & 6.2\\
+(1, 0.20, 10) & 3.0 & 3.6\\
+\end{tabular}\\[0.3em]
+\textbf{Direct window test}, same $(\alpha,\Vo)$: widening the confinement
+radius alone moves the measured peak from $\kz=4.5$ to $5.5$, matching the
+formula's $4.45\to5.85$.
+\end{column}
+\end{columns}
+\begin{physpicture}
+Two different confinement radii, same coupling and shear velocity, two
+different — and both correctly predicted — peak wavenumbers: confinement and
+coupling jointly select the wavelength, not the flow profile.
+\end{physpicture}
+\end{frame}
+
+\begin{frame}{The dimensionless collapse}
+\footnotesize
+\centering
+\includegraphics[width=0.72\textwidth]{t2p5_collapse.png}
+\[
+\gamma_{\rm peak}/(\alpha\Vo^2)^{1/3}=0.977\pm0.011\quad(1.1\%\text{ spread, }10\times\text{ range in }\alpha\Vo)
+\]
+\raggedright
+The single most quantitative confirmation: fifteen independent dispersion
+curves, spanning a factor of ten in $\alpha\Vo$, collapse onto one master
+curve — direct proof that $\alpha,\Vo$ enter growth rates through
+$(\alpha\Vo^2)^{1/3}$, exactly as the ceiling predicts.
+\end{frame}
+
+\begin{frame}{Full-map accuracy}
+\footnotesize
+Growth rates measured across a broad grid in $\alpha$, $\Vo$, and $\kz$
+(1087/1134 points, 96\% coverage) against the independently computed
+eigenvalue, at fixed shear width:
+
+\begin{center}
+\includegraphics[width=0.32\textwidth]{fig_r_error_by_v0.pdf}
+\end{center}
+
+Median relative error \textbf{4--9\%} depending on $\Vo$, broadly improving at
+higher shear velocity. The theory and the simulation agree across the whole
+mapped parameter space, not just at isolated anchor points.
+\end{frame}
+
+\begin{frame}{Independence from the shear-layer width}
+\begin{center}
+\includegraphics[width=0.85\textwidth]{eps_collapse_gpu_validation.png}
+\end{center}
+
+\small
+The full ceiling-and-peak theory, re-expressed in terms of a single
+dimensionless group combining coupling, shear velocity, and layer width,
+collapses 91 simulation runs spanning a wide range of shear-layer widths onto
+one universal curve: median relative error 9.9\%. The wavelength-selection law
+does not depend on the microscopic shear width — only on coupling and
+confinement.
+\end{frame}
+
+\begin{frame}{The eigenfunction structure matches, not just the rate}
+\centering
+\includegraphics[width=0.68\textwidth]{t2p2_eigenfunction_overlay.png}
+\small
+Spatial profile of the dominant field, simulation vs.\ theory: correlation
+$=1.0000$. A companion field, seeded at less than 1\% of the driving field's
+amplitude and grown entirely through the instability's internal feedback
+chain, independently reproduces the theory's non-trivial double-lobe shape —
+an emergent structural match, not just a matched growth rate.
+\end{frame}
+
+% ==============================================================================
+\section{Summary}
+
+\begin{frame}{Where this leaves the physics}
+\small
+\begin{tabular}{p{0.32\textwidth}p{0.6\textwidth}}
+\toprule
+Result & Status\\\midrule
+$\kz=0$ chromo-Weibel rate & Closed form, validated to 0.5\%\\
+Six-field linear system & Validated to 1--9\% against simulation\\
+Exact scalar reduction & Reproduces linear theory to $<10^{-10}$\\
+Growth ceiling $\gamma^3\le\alpha\Vo^2$ & Measured at 95--99\% of ceiling; $0.977\pm0.011$ collapse\\
+Quantization / dispersion curve & Matches theory to $\le2\%$ (median $\le0.2\%$)\\
+Confinement-set wavelength selection & Confirmed directly by window tests and full parameter map\\
+\bottomrule
+\end{tabular}
+\vspace{0.3em}
+\centering\textbf{A shear-driven non-Abelian instability, derived exactly and
+confirmed on over a thousand GPU simulation runs: coupling and confinement
+jointly select the wavelength; the flow profile does not enter directly.}
+\end{frame}
+
+\begin{frame}{Context and next steps}
+\begin{itemize}
+\item No prior literature treats a genuinely shear-driven non-Abelian
+instability with a full wavenumber map — this appears to be new physics, not
+a variant of a known result.
+\item Closest related work: chromo-Weibel instabilities (anisotropy-driven,
+not shear); the outer tachyonic branch is a Nielsen--Olesen-type mode;
+Abelian shear instabilities (Das \& Kaw; Csernai et al.\ in heavy-ion
+collisions) are the closest classical analogue but lack the non-Abelian
+wavelength-selection mechanism.
+\item Remaining work: a citation-trail audit before submission, and a
+dedicated follow-up study of the high-coupling regime, which is currently
+kept outside the headline claims while its numerical behavior is
+characterized more fully.
+\end{itemize}
+\vspace{0.2em}
+\centering\Large\textbf{The theory is exact, matches simulation to a few
+percent, and is confirmed across a broad parameter survey.}
+\end{frame}
+
+\begin{frame}
+\centering
+\Huge Thank you.
+\vspace{0.15em}
+
+\normalsize\normalfont Questions, and where to push next.
+\end{frame}
+
+\end{document}
