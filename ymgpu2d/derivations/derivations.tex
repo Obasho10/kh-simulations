@@ -818,20 +818,64 @@ interaction energy inside the field-strength commutators), and
 \end{step}
 
 \begin{step}[Evaluation on the frozen background]
-Specialize \eqref{eq:battery} to the production background: the color-1
-component of $\vec A_z$ is the frozen $\Az(\xi)$ of \eqref{eq:Az1}, and the
-color-2/3 components of $\vec A_z$ are pure wave perturbation, absent from
-the background (\S\ref{sec:sixfield}). Keeping only the background piece,
-$\vec A_z\approx(\Az,0,0)$ (its own wave part would make this term
-higher-order than the quadratic energy already is, since $B_y,E_x$ are
-themselves perturbations), only the color-1 component of the cross product
-survives the dot product:
+Unlike $\vec A_z$, whose color-2/3 components really are pure wave
+perturbation (absent from the background, \S\ref{sec:sixfield}), $\vec B_y$
+and $\vec E_x$ each already have a nonzero color-1 \emph{background} piece
+in general --- this is not automatic and must be checked separately for
+each, since neither is protected by the same ``wave-only'' argument that
+lets $\vec A_z\approx(\Az,a_2,a_3)$ with only $a_2,a_3$ small.
+\begin{itemize}
+\item $E_x^1$: in steady state, its source in Amp\`ere-$x$
+\eqref{eq:amperex} is $-\partial_zB_y^1-\alpha(\vec A_z\times\vec B_y)^1
+-J_x^1$. The background is $z$-independent (kills the curl term); the
+commutator $(\vec A_z\times\vec B_y)^1=A_z^2B_y^3-A_z^3B_y^2$ needs a
+background $A_z^{2,3}$, which is zero; and $J_x^1=0$ since neither beam
+carries background $v_x$ \eqref{eq:beams}. So $E_x^1$ has no background
+source at all, and (matching the code's initialization) $E_x^1\equiv0$ in
+the background is exact, not an approximation.
+\item $B_y^1$: by contrast, the invariant of \S\ref{ssec:byinvariant},
+$B_y^a=-\partial_xA_z^a$, applies to the $z$-uniform color-1 background
+exactly, so $B_y^1=-\partial_x\Az(\xi)\not\equiv0$ whenever $\Az$ has
+$x$-structure --- which it always does (it is the shear-coupling
+background). This is a genuine, nonzero background field, consistent
+with the code's own gauge-consistent initialization of \texttt{By1}.
+\end{itemize}
+Expand the full dot product $\vec A_z\cdot(\vec B_y\times\vec E_x)
+=\sum_b A_z^b(\vec B_y\times\vec E_x)^b$ term by term in $b$, using
+$\vec A_z=(\Az,a_2,a_3)$, $\vec B_y=(B_y^1,B_y^2,B_y^3)$,
+$\vec E_x=(0,E_x^2,E_x^3)$ (the just-established $E_x^1=0$):
+the $b{=}1$ term gives $\Az(B_y^2E_x^3-B_y^3E_x^2)$ exactly as before; the
+$b{=}2,3$ terms, worked out the same way as \eqref{eq:crosscomponents}--%
+\eqref{eq:crosscomplex} but now with $E_x^1=0$, collapse to
+$B_y^1(a_3E_x^2-a_2E_x^3)=B_y^1\,\Imy(a\,e_x^*)$ (circular pairs
+$a=a_2+\ii a_3$, $e_x=E_x^2+\ii E_x^3$; check by direct expansion:
+$a\,e_x^*=(a_2+\ii a_3)(E_x^2-\ii E_x^3)$ has imaginary part
+$a_3E_x^2-a_2E_x^3$). So, exactly,
 \begin{equation}
-\vec A_z\cdot(\vec B_y\times\vec E_x)\approx\Az\,(\vec B_y\times\vec E_x)^1
-=\Az\,\bigl(B_y^2E_x^3-B_y^3E_x^2\bigr),
+\vec A_z\cdot(\vec B_y\times\vec E_x)
+=\Az\,\bigl(B_y^2E_x^3-B_y^3E_x^2\bigr)+B_y^1\,\Imy(a\,e_x^*).
+\label{eq:battery-full}
 \end{equation}
-using the component formula $(\vec B\times\vec E)^1=B^2E^3-B^3E^2$.
-Substituting into \eqref{eq:battery}:
+The second term is the same order in the wave amplitude as the first: both
+are one factor of background times two factors of wave. It is \emph{not}
+generally negligible on formal grounds. In the production geometry
+(mode 5, \S\ref{sec:sixfield}) it happens to be small, but for a reason
+specific to that background's geometry, not a perturbative smallness.
+$\Az=-\Vo\cos(k_xx)$ is engineered to peak, flat to second order, exactly
+at the shear layer where the KH eigenfunction is supported. Its derivative
+$B_y^1=-\Vo k_x\sin(k_xx)$ vanishes there and grows only linearly with
+distance from the layer, over that same support. So the two factors in the
+second term are small together, in the one region that matters, even
+though $B_y^1$'s
+\emph{global} maximum (far from the layer, where the eigenfunction has
+already decayed) is not small. This is the same omission already flagged,
+and bounded empirically at the few-percent level against the full
+simulation, in the six-field system's scope remark
+(\S\ref{ssec:scope}, item 2); it is not re-derived here, and the rest of
+this step keeps only the leading (first) term, so every result downstream
+of \eqref{eq:batterysign} inherits this few-percent-level caveat.
+
+Substituting the leading term into \eqref{eq:battery}:
 \begin{equation}
 \frac{\dd E}{\dd t}\bigg|_{\mathrm{NA}}
 =-2\alpha\int \Az\,\bigl(B_y^2E_x^3-B_y^3E_x^2\bigr).
@@ -1281,7 +1325,9 @@ of \eqref{eq:khaxn23} is absent) --- a genuine physical truncation,
 \S\ref{ssec:gaugecount}: nothing in the gauge freedom requires $\phi_0$
 to vanish, and this is the one place the given theory's background is
 actually cut down, rather than merely repackaged; and
-\item no background $B_{y1}$ coupling in Amp\`ere-$x$ and no fluid
+\item no background $B_{y1}$ coupling in Amp\`ere-$x$ (the same term
+identified and dropped on geometric grounds in the energy budget,
+eq.~\eqref{eq:battery-full} of \S\ref{ssec:energy}) and no fluid
 density/momentum perturbations in the state vector (their combined effect
 on the shear branch is bounded at the few-percent level by the
 simulation-vs-solver agreement); and the $a_y^\pm$ sector of the given
