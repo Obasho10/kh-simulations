@@ -90,6 +90,29 @@ wavelength-selection rule, and confronts all of it with GPU simulation data.
 % ==============================================================================
 \section{The system}
 
+\begin{frame}{The physical system, before code-unit normalization}
+\footnotesize
+Same fields, in Gaussian (cgs) units with charge, mass, and $c$ restored;
+$g$ is the bare Yang--Mills coupling. Reconstructed from the code's own
+normalization recipe ($c\to1$, background charge $Q_0\to1$, $4\pi n_0\to1$,
+$g\to\alpha$), not pulled from a separately published source --- sanity-check
+before use.
+\vspace{0.05em}
+\begin{align*}
+&\partial_t n+\nabla\!\cdot(n\vec v)=0, \qquad
+\partial_t p_x+\nabla\!\cdot(\vec v p_x)=-n\textstyle\sum_a Q^a\Bigl(E_x^a+\tfrac{v_z}{c}B_y^a\Bigr)\\
+&\partial_t p_z+\nabla\!\cdot(\vec v p_z)=-n\textstyle\sum_a Q^a\Bigl(E_z^a-\tfrac{v_x}{c}B_y^a\Bigr),\qquad
+\partial_t Q^a=g\,\tfrac{v_z}{c}(\vec Q\times\vec A_z)^a\\[0.3em]
+&\partial_t E_x^a=-c\,\partial_zB_y^a-gc(\vec A_z\times\vec B_y)^a-4\pi J_x^a,\qquad
+\partial_t E_z^a=c\,\partial_xB_y^a-4\pi J_z^a\\
+&\partial_t B_y^a=c\,\partial_xE_z^a-c\,\partial_zE_x^a+gc(\vec A_z\times\vec E_x)^a,
+\qquad \partial_t A_z^a=-c\,E_z^a
+\end{align*}
+$\vec v=\vec p/(mn)$; $J_x^a=-\bigl[n_AQ_A^av_{xA}+n_BQ_B^av_{xB}\bigr]$ (likewise
+$J_z^a$). Setting $c=1$, $|Q_A|=|Q_B|=Q_0\to1$, $4\pi n_0\to1$, and writing
+$\alpha\equiv g$ recovers the code-unit system of the next slide exactly.
+\end{frame}
+
 \begin{frame}{The simulated system}
 For each color $a\in\{1,2,3\}$: fields $E_x^a,E_z^a,B_y^a,A_z^a$. For each beam
 $s\in\{A,B\}$: fluid density $n_s$, momenta $p_{xs},p_{zs}$, color charge $Q_s^a$.
