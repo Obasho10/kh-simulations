@@ -21,6 +21,9 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import exact_action_wkb as X
+import chase_theory_worker as CTW
+from multiprocessing import Pool
+from scipy.signal import medfilt
 
 C = dict(blue='#2a78d6', aqua='#1baf7a', yellow='#eda100', green='#008300',
          violet='#4a3aa7', red='#e34948', ink='#0b0b0b', ink2='#52514e',
@@ -65,21 +68,109 @@ def load_intkz():
     return df
 
 
+THEORY_CACHE = os.path.join(SWEEP, 'theory_curve_cache.csv')
+THEORY_COLS = ['alpha', 'V0', 'xi_sponge', 'EPS', 'NX', 'kz', 'gamma']
+
+
+def _load_theory_cache():
+    if os.path.exists(THEORY_CACHE):
+        return pd.read_csv(THEORY_CACHE)
+    return pd.DataFrame(columns=THEORY_COLS)
+
+
+def _solve_theory_point(args):
+    kz, alpha, V0, EPS, NX, xi_sponge = args
+    g = CTW.gamma_true_sponge(kz, alpha, V0, EPS, NX, xi_sponge)
+    return alpha, V0, xi_sponge, EPS, NX, kz, (g if g is not None else np.nan)
+
+
+def theory_curve(alpha, V0, xi_sponge, kz_grid, EPS=0.15, NX=384, nproc=8):
+    """Continuous gamma(kz) from the sigma-chased 6-field eigensolver -- the
+    same solver (chase_theory_worker.gamma_true_sponge) used to produce the
+    'gamma_chased' reference column in recorr_results.csv, evaluated on a
+    fine kz grid instead of only at the simulated points. Cached to disk
+    since each point takes ~0.3s."""
+    cache = _load_theory_cache()
+    sel = (np.isclose(cache['alpha'], alpha) & np.isclose(cache['V0'], V0)
+           & np.isclose(cache['xi_sponge'], xi_sponge) & np.isclose(cache['EPS'], EPS)
+           & (cache['NX'] == NX)) if len(cache) else pd.Series([], dtype=bool)
+    have_kz = set(np.round(cache.loc[sel, 'kz'].values, 6)) if len(cache) else set()
+    todo = [float(kz) for kz in kz_grid if round(float(kz), 6) not in have_kz]
+    if todo:
+        args = [(kz, alpha, V0, EPS, NX, xi_sponge) for kz in todo]
+        with Pool(min(nproc, len(args))) as pool:
+            rows = pool.map(_solve_theory_point, args)
+        cache = pd.concat([cache, pd.DataFrame(rows, columns=THEORY_COLS)],
+                           ignore_index=True)
+        cache.to_csv(THEORY_CACHE, index=False)
+    sel = (np.isclose(cache['alpha'], alpha) & np.isclose(cache['V0'], V0)
+           & np.isclose(cache['xi_sponge'], xi_sponge) & np.isclose(cache['EPS'], EPS)
+           & (cache['NX'] == NX) & cache['kz'].round(6).isin(np.round(kz_grid, 6)))
+    sub = cache[sel].sort_values('kz')
+    return sub['kz'].values, sub['gamma'].values
+
+
+def _plot_sim_and_theory(ax, sub, col, label, xi_sponge, EPS=0.15, NX=384):
+    alpha, V0 = sub['alpha'].iloc[0], sub['V0'].iloc[0]
+    # kz >= 1 only: below that the sigma-chaser locks onto the tachyonic
+    # outer branch (see "Two branches emerge..." slide), not the shear
+    # branch this plot is about, and it would show as a spurious spike.
+    kz_grid = np.arange(1.0, 9.51, 0.25)
+    kzt, gt = theory_curve(alpha, V0, xi_sponge, kz_grid, EPS=EPS, NX=NX)
+    # Occasionally the chaser still locks onto that outer branch at a
+    # single kz even above 1 (e.g. alpha=2,V0=0.2 at kz=1.5): the shear
+    # branch is provably bounded by the ceiling (alpha*V0^2)^(1/3) (the
+    # "growth-rate ceiling" slide), so drop anything above it.
+    keep = gt <= X.ceiling(alpha, V0)
+    kzt, gt = kzt[keep], gt[keep]
+    # A branch-crossing can also leave a lower-lying shoulder that still
+    # clears the ceiling; catch it as a local-smoothness violation instead
+    # (the true shear branch varies slowly point-to-point on this grid).
+    if len(gt) >= 5:
+        med = medfilt(gt, kernel_size=5)
+        keep2 = np.abs(gt - med) <= 0.15 * np.abs(med)
+        kzt, gt = kzt[keep2], gt[keep2]
+    ax.plot(kzt, gt, '-', color=col, lw=1.3, alpha=0.5, zorder=1)
+    ax.plot(sub['kz'], sub['gamma_sim'], 'o', color=col, ms=3.5, zorder=3, label=label)
+
+
 def fig_r_dispersion():
     df = load_intkz()
     d = df[np.isclose(df['V0'], 0.05)]
-    fig, ax = plt.subplots(figsize=(5.2, 3.2))
-    alphas = [1.0, 1.5, 2.0, 3.0, 4.0]
-    for a, col in zip(alphas, CAT):
+    fig, ax = plt.subplots(figsize=(5.6, 3.4))
+    alphas = [0.4, 0.7, 0.9, 1.0, 1.5, 2.0, 3.0, 3.5]
+    colors = CAT + [C['green']]
+    for a, col in zip(alphas, colors):
         sub = d[np.isclose(d['alpha'], a)].sort_values('kz')
         if len(sub) < 6:
             continue
-        ax.plot(sub['kz'], sub['gamma_sim'], 'o-', color=col, ms=3.5, lw=1.5,
-                label=rf'$\alpha={a:g}$')
+        xi_sponge = sub['xi_sponge'].mode().iloc[0]
+        _plot_sim_and_theory(ax, sub, col, rf'$\alpha={a:g}$', xi_sponge)
     ax.set_xlabel(r'$k_z$'); ax.set_ylabel(r'$\gamma_{\rm sim}$ (TU$^{-1}$)')
-    ax.legend(ncol=2, fontsize=7.5)
+    ax.legend(ncol=2, fontsize=7.5, loc='upper left')
     ax.set_xlim(0.5, 9.5)
     save(fig, 'fig_r_dispersion.pdf')
+
+
+# =============================================================================
+# fig_r_dispersion_v0: same measured map, but at fixed alpha, sweeping V0 --
+# the complementary slice to fig_r_dispersion's fixed-V0-sweep-alpha.
+# =============================================================================
+def fig_r_dispersion_v0(alpha=1.0):
+    df = load_intkz()
+    d = df[np.isclose(df['alpha'], alpha)]
+    fig, ax = plt.subplots(figsize=(5.2, 3.2))
+    v0s = [0.03, 0.04, 0.05, 0.07, 0.08, 0.10]
+    for v0, col in zip(v0s, CAT):
+        sub = d[np.isclose(d['V0'], v0)].sort_values('kz')
+        if len(sub) < 6:
+            continue
+        xi_sponge = sub['xi_sponge'].mode().iloc[0]
+        _plot_sim_and_theory(ax, sub, col, rf'$V_0={v0:g}$', xi_sponge)
+    ax.set_xlabel(r'$k_z$'); ax.set_ylabel(r'$\gamma_{\rm sim}$ (TU$^{-1}$)')
+    ax.legend(ncol=3, fontsize=7.5, loc='upper left')
+    ax.set_xlim(0.5, 9.5)
+    save(fig, 'fig_r_dispersion_v0.pdf')
 
 
 # =============================================================================
@@ -127,8 +218,19 @@ def fig_r_error_by_v0():
     df = pd.read_csv(os.path.join(SWEEP, 'recorr_results.csv'))
     intkz_v0 = [0.03, 0.04, 0.05, 0.07, 0.08, 0.10, 0.20]
     df = df[(df['kz'] >= 1) & (df['kz'] <= 9) & (df['alpha'] > 0.3)
-            & (df['has_plateau'] == True)
+            & (df['has_plateau'] == True) & (df['tier'] == 'int')
             & (df['V0'].apply(lambda v: any(np.isclose(v, u) for u in intkz_v0)))]
+    # Match alpha coverage across all V0 too (not just tier): campaigns for
+    # different V0 swept different alpha ranges, and that composition
+    # difference -- not tier mixing -- was what broke the V0=0.08/0.10 bars
+    # out of an otherwise clean decreasing trend. Restricting to the alpha
+    # set common to every V0 makes n (and hence the comparison) apples-to-
+    # apples.
+    common_alphas = None
+    for v in intkz_v0:
+        a = set(np.round(df[np.isclose(df['V0'], v)]['alpha'].unique(), 2))
+        common_alphas = a if common_alphas is None else common_alphas & a
+    df = df[df['alpha'].round(2).isin(common_alphas)]
     v0s = sorted(df['V0'].unique())
     meds, ns = [], []
     for v in v0s:
@@ -216,7 +318,7 @@ def fig_r_lowalpha():
 
 if __name__ == '__main__':
     only = sys.argv[1:] or None
-    for fn in [fig_r_dispersion, fig_r_kzpeak, fig_r_error_by_v0,
+    for fn in [fig_r_dispersion, fig_r_dispersion_v0, fig_r_kzpeak, fig_r_error_by_v0,
                fig_r_tachyonic, fig_r_lowalpha]:
         if only and fn.__name__ not in only:
             continue

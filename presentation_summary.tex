@@ -292,15 +292,27 @@ claim of the theory, and is tested directly on GPU data next.
 \section{Confronting the theory with GPU data}
 
 \begin{frame}{Non-monotonic dispersion, on real simulation data}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
 \centering
-\includegraphics[width=0.6\textwidth]{fig_r_dispersion.pdf}
-\small
-Simulated $\gamma(\kz)$ at fixed $\Vo=0.05$, five values of $\alpha$. Every
-curve peaks at an intermediate $\kz$, and the peak location climbs with
-$\alpha$ — from $\kz^{\rm peak}=4$ at $\alpha=1$ to $5$ at $\alpha=4$, at
-fixed shear width. Classical Kelvin--Helmholtz also peaks,
-but its peak is fixed by the shear width alone; a peak that moves with the
-gauge coupling, at fixed flow, has no classical analogue.
+\includegraphics[width=\textwidth]{fig_r_dispersion.pdf}\\
+fixed $\Vo=0.05$, varying $\alpha$
+\end{column}
+\begin{column}{0.5\textwidth}
+\centering
+\includegraphics[width=\textwidth]{fig_r_dispersion_v0.pdf}\\
+fixed $\alpha=1$, varying $\Vo$
+\end{column}
+\end{columns}
+\vspace{0.3em}
+Points are simulated $\gamma(\kz)$; curves are the $\sigma$-chased
+eigensolver's theoretical prediction, drawn underneath. Every curve peaks at
+an intermediate $\kz$, and the peak location climbs with $\alpha$ — from
+$\kz^{\rm peak}=2$ at $\alpha=0.4$ to $5$ at $\alpha=3.5$, at fixed shear width.
+Classical Kelvin--Helmholtz also peaks, but its peak is fixed by the shear
+width alone; a peak that moves with the gauge coupling, at fixed flow, has no
+classical analogue.
 \end{frame}
 
 \begin{frame}{The peak tracks confinement, not the shear width}
@@ -354,9 +366,12 @@ eigenvalue, at fixed shear width:
 \includegraphics[width=0.32\textwidth]{fig_r_error_by_v0.pdf}
 \end{center}
 
-Median relative error \textbf{4--9\%} depending on $\Vo$, broadly improving at
-higher shear velocity. The theory and the simulation agree across the whole
-mapped parameter space, not just at isolated anchor points.
+Median relative error \textbf{4--8\%} depending on $\Vo$, improving
+monotonically with higher shear velocity (int-tier points, $\alpha\in[0.4,1.0]$
+common to every $\Vo$ so the bars are an apples-to-apples comparison rather
+than an artifact of which $\alpha$'s each campaign happened to sweep). The
+theory and the simulation agree across the whole mapped parameter space, not
+just at isolated anchor points.
 \end{frame}
 
 \begin{frame}{Independence from the shear-layer width}
