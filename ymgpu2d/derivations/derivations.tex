@@ -1678,10 +1678,176 @@ g(x)=\frac{2\alpha\,v^3\,\OmA}{\gamma^2+v^2\OmA^2}\;}
 \end{equation}
 --- one Sturm--Liouville-type equation, nonlinear in the eigenvalue
 $\gamma$ (which appears in $\D$, $g$, and the right side), but scalar.
+(``Sturm--Liouville'' is only the mathematicians' name for the flux-form
+structure $(p\,a')'=W\,a$ that the stationary Schr\"odinger equation
+also has; nothing deeper is implied by the term. The next subsection
+unpacks the analogy at length.)
 \end{step}
+
+\subsection{How to read the reduced equation: a dictionary for the
+non-specialist}
+\label{ssec:dictionary}
+
+Equation \eqref{eq:reduced} is the pivot of the entire document: every
+result that follows --- the ``drive'', the ``resonance'', the
+``Lorentzian'' beam response, the growth ``ceiling''
+(\S\ref{sec:ceiling}), the ``well'' and its ``quantization''
+(\S\ref{sec:quant}) --- is a statement about this one ODE. That
+vocabulary is second nature in plasma physics and quantum mechanics but
+is jargon to everyone else, and until now it has not been earned by the
+text. This subsection therefore builds each term explicitly from three
+pieces of a standard bachelor's curriculum: the finite potential well,
+the driven damped oscillator, and spin precession in a magnetic field.
+Readers already fluent in the vocabulary can skip to
+\S\ref{ssec:anatomy} without loss --- nothing here is used as a
+technical ingredient later, only as language.
+
+\paragraph{The reduced equation is a Schr\"odinger eigenvalue problem in
+disguise.}
+Recall the stationary Schr\"odinger equation for a particle in a
+one-dimensional potential, written with everything on one side:
+\begin{equation}
+\psi''(x)=\frac{2m}{\hbar^2}\bigl[V(x)-E\bigr]\,\psi(x).
+\label{eq:schrodinger}
+\end{equation}
+Its qualitative behavior is controlled entirely by the sign of the
+bracket. Where $E>V$ (the \emph{classically allowed} region) $\psi$
+oscillates in $x$; where $E<V$ (\emph{forbidden} region) $\psi$ grows or
+decays exponentially. A \emph{well} is an allowed region sandwiched
+between forbidden ones; a \emph{bound state} is a solution that decays
+into the forbidden regions on both sides; and requiring the oscillation
+inside the well to join smoothly onto decay outside is possible only at
+discrete values of $E$ --- that matching condition is all that
+\emph{quantization} means, here and in every later section.
+
+Equation \eqref{eq:reduced} has exactly this structure, with two
+differences. First, the second derivative appears in ``flux form'',
+$(\gamma^2a'/\D)'$, with a position-dependent coefficient --- the same
+form the Schr\"odinger equation takes for a position-dependent mass, or
+the steady heat-conduction equation for a position-dependent
+conductivity. This changes bookkeeping (the $\D$ factors tracked in
+\S\ref{ssec:anatomy}) but not the oscillate-versus-decay dichotomy. The
+precise analogue of the bracket $\tfrac{2m}{\hbar^2}[V-E]$ --- the
+single function of $x$ whose sign separates oscillation from decay ---
+is written down in \S\ref{ssec:anatomy}, eq.~\eqref{eq:Qexact}, as
+$-Q(x;\gamma)$. Second, and less trivially, the eigenvalue $\gamma$
+does not enter linearly the way $E$ does: it is buried inside $\D$,
+inside $g$, and on the right-hand side. In practice such a problem is
+solved iteratively (guess $\gamma$, solve the resulting \emph{linear}
+well problem, correct $\gamma$, repeat --- this is what the Newton
+iteration of \S\ref{ssec:discrete} does), and none of the
+well/bound-state/quantization reasoning is affected.
+
+\paragraph{What is being solved for.}
+Every perturbation was assumed to evolve as $e^{\gamma t}$
+(\S\ref{sec:sixfield}), so a solution with $\gamma>0$ is an
+exponentially growing wave --- an instability. The role of the energy
+eigenvalue $E$ is played by the growth rate: instead of asking ``which
+energies admit a bound state?'' one asks ``which growth rates admit a
+trapped, self-consistently growing wave profile?''. The largest such
+$\gamma$ is what the simulation measures, because after a few
+$e$-foldings the fastest exponential dominates regardless of how the
+initial condition distributed amplitude among the modes.
+
+\paragraph{What ``drive'' means.}
+Look at the right-hand side of \eqref{eq:reduced}, $(\gamma^2+g)\,a$.
+If $g$ were zero, the bracket would be positive everywhere, and
+(wherever $\D>0$) the equation would admit only exponential $x$-profiles
+--- forbidden region everywhere, no trapped mode, no instability. A well
+can open only where $g$ is \emph{negative and exceeds $\gamma^2$ in
+magnitude}. So $g$ is the one term that makes growth possible: it
+measures how strongly the beams' collective response feeds energy back
+into the wave, and it is called the \emph{drive} in exactly the sense of
+the driving force of a forced oscillator. Its microscopic origin is the
+color current $\delta J_z=-v\,(q_A-q_B)$ of the beams' perturbed
+charges, which entered Amp\`ere-$z$ in \eqref{eq:lin-ez}; a growing mode
+is a wave that digs its own potential well out of the beam response and
+then lives in it.
+
+\paragraph{Where the response denominator $\R$ comes from: a
+driven-precession toy problem.}
+The building block of $g$ is the beam response \eqref{eq:qsol}, and it
+is worth deriving once in stripped-down notation. Let a single complex
+variable $q(t)$ obey
+\begin{equation}
+\frac{\dd q}{\dd t}=-\ii\,\Omega_{\mathrm{prec}}\,q+S\,e^{\gamma t}.
+\label{eq:toyprec}
+\end{equation}
+With $S=0$ the solution is $q\propto e^{-\ii\Omega_{\mathrm{prec}}t}$:
+free rotation of the complex phase at frequency
+$\Omega_{\mathrm{prec}}$. This is mathematically identical to a magnetic
+moment precessing about a static magnetic field (Larmor precession); in
+our problem the background potential plays the role of the field and the
+beam's color charge plays the role of the moment --- the precession
+equations \eqref{eq:lin-qA}--\eqref{eq:lin-qB} are precisely of this
+form with $\Omega_{\mathrm{prec}}=\pm v\OmA$, the sign differing between
+the beams because they stream in opposite directions. Now switch on the
+forcing $S\,e^{\gamma t}$ (the wave $a$ shaking the charge) and look for
+the driven response $q=C\,e^{\gamma t}$:
+\begin{equation}
+\gamma\,C=-\ii\Omega_{\mathrm{prec}}\,C+S
+\quad\Longrightarrow\quad
+C=\frac{S}{\gamma+\ii\,\Omega_{\mathrm{prec}}},
+\qquad
+|C|^2=\frac{|S|^2}{\gamma^2+\Omega_{\mathrm{prec}}^2}.
+\label{eq:toyresponse}
+\end{equation}
+This two-line calculation \emph{is} \eqref{eq:qsol}, and the
+beam-difference algebra of \eqref{eq:qdiff} then produces the
+denominator $\R=\gamma^2+v^2\OmA^2$ that recurs everywhere afterwards.
+Note the role played by $\gamma$: it sits where a damping rate would sit
+in the classical driven-oscillator formula. Not because anything is
+dissipated --- the model is dissipation-free --- but because a signal
+growing as $e^{\gamma t}$ is not a pure sinusoid: over one $e$-folding
+time $1/\gamma$ it cannot distinguish precession phases within a band of
+width $\sim\gamma$, so the response is smeared over that bandwidth
+exactly as damping smears a classical resonance.
+
+\paragraph{``Lorentzian'' is the name of a curve, not of a group.}
+The bell-shaped function
+\begin{equation}
+L(\Omega)=\frac{1}{\gamma^2+\Omega^2}
+\label{eq:lorentzian}
+\end{equation}
+--- peak height $1/\gamma^2$ at $\Omega=0$, half-width $\gamma$ --- is
+called a \emph{Lorentzian}, after H.~A.~Lorentz's classical model of
+spectral-line broadening. It is the universal response curve of a driven
+system with finite bandwidth: the resonance curve of the damped driven
+oscillator, the shape of atomic and laser spectral lines, the
+Breit--Wigner resonance shape of particle physics, the NMR absorption
+line. Its odd companion $\Omega\,L(\Omega)=\Omega/(\gamma^2+\Omega^2)$,
+with extrema at $\Omega=\pm\gamma$, is the standard \emph{dispersive}
+line shape of resonance physics. When \S\ref{sec:ceiling} says ``the
+beam response is a Lorentzian in the local precession frequency'', it
+means precisely that $1/\R$ is the curve $L$ evaluated at
+$\Omega=v\OmA$; the drive $g$, which carries one extra factor of the
+precession frequency (the beam \emph{difference} of \eqref{eq:qdiff}
+vanishes at $\OmA=0$), is the dispersive companion. The word has nothing
+to do with Lorentz transformations, boosts, or the Lorentz group.
+
+\begin{intuition}
+The whole instability in one paragraph. The wave $a$ shakes each beam's
+color charge (the source $\ii\alpha v\,a$ in \eqref{eq:lin-qA}); each
+charge precesses about the color-1 background like a magnetic moment
+about a static field, at the Doppler-shifted rate $\pm v\OmA$; because
+the beams stream oppositely they precess in opposite senses, so their
+responses differ; the difference is a net color current
+$\delta J_z=-v(q_A-q_B)$; and that current feeds back into the wave
+through Amp\`ere's law. Where the feedback arrives with the right phase
+the loop has gain ($g<0$), the wave digs its own well and grows inside
+it. Everything that follows quantifies this loop:
+\S\ref{ssec:anatomy} reads off which factors control the gain,
+\S\ref{sec:ceiling} finds where the gain is largest (a resonance) and
+how large it can possibly be (the ceiling $\gamma^3\le\alpha\Vo^2$), and
+\S\ref{sec:quant} determines which wave shapes fit inside the well
+(quantization).
+\end{intuition}
 
 \subsection{Anatomy of the reduced equation}
 \label{ssec:anatomy}
+
+With the dictionary of \S\ref{ssec:dictionary} in hand,
+eq.~\eqref{eq:reduced} can be read factor by factor.
 
 \begin{intuition}
 Why three powers of $v$. The wave must, in order: (i) \emph{shake} the
@@ -1805,21 +1971,80 @@ condition on the mode side is what enters the quantization phase in
 units}
 \label{sec:ceiling}
 
+The plan of this section, in plain language.
+\S\ref{sec:reduction} ended with a wave trapped in a well whose depth is
+set by the drive $g$, together with the criterion (below
+\eqref{eq:Qexact}) that a well exists only where $-g>\gamma^2$. Two
+elementary questions therefore control everything. \emph{Where}, as a
+function of position, is the drive strongest? Answered in
+\S\ref{ssec:resonance} by maximizing a function of one variable: on a
+\emph{resonance surface}, where the beam-frame precession frequency
+matches the growth rate. \emph{How strong} can the drive possibly be?
+The maximum turns out to be $\alpha\Vo^2/\gamma$, and inserting it into
+the well-existence criterion bounds the growth rate of \emph{every}
+mode by $\gamma^3\le\alpha\Vo^2$ --- the ceiling, which the measured
+dispersion peaks saturate to within a few percent. No new physics
+enters this section: it is first-year calculus applied to the drive $g$
+of \eqref{eq:reduced}.
+
 \subsection{The saturated drive $G(w)$}
 \label{ssec:G}
 
-In the saturated region $|\xi|\gtrsim2$: $v=\pm\Vo$ and
-$u=\alpha\Vo(|\xi|-\ln2)$ by \eqref{eq:usat}. On the driven side
-($v^3\OmA<0$; concretely $\xi<0$ for the $2+\ii3$ polarization when
-$\OmA>0$) the magnitude of the drive is
+\begin{step}[Specialize $g$ to the saturation plateaus]
+The drive $g(x)=2\alpha v^3\OmA/(\gamma^2+v^2\OmA^2)$ of
+\eqref{eq:reduced} contains two background profiles, $v(\xi)$ and
+$\OmA(\xi)=\kz-u(\xi)$. For $|\xi|\gtrsim2$ both simplify: the shear is
+saturated, $v=\pm\Vo$ (so $v^2=\Vo^2$ exactly), and $u$ grows linearly,
+$u=\alpha\Vo(|\xi|-\ln2)$ by \eqref{eq:usat}. All position dependence of
+$g$ then enters through the single combination
+\begin{equation}
+w\equiv\OmA(\xi)=\kz-u(\xi),
+\label{eq:wdef}
+\end{equation}
+the \emph{local covariant wavenumber}: the wavenumber the wave
+effectively carries at position $\xi$ after the background's
+minimal-coupling shift (\S\ref{sec:sixfield}). At the layer $u\approx0$,
+so $w\approx\kz$; moving outward, $w$ \emph{decreases linearly} with
+$|\xi|$ at slope $\alpha\Vo$, crossing zero at
+$|\xi|=\xi_{\mathrm{crit}}$ \eqref{eq:xicrit}. On each plateau, position
+and $w$ are thus interchangeable coordinates, and any statement about
+the best $w$ translates directly into the position $\xi$ where that $w$
+is attained (\S\ref{ssec:xires}).
+\end{step}
+
+\begin{step}[Sign bookkeeping: which side of the layer drives]
+A well needs $g<0$ (\S\ref{ssec:dictionary}), and the sign of $g$ is the
+sign of $v^3\OmA$. Between the layer and $\xi_{\mathrm{crit}}$, where
+$w=\OmA>0$, this requires $v<0$: for the $2+\ii3$ polarization the
+driven side is $\xi<0$. (The other side is not lost --- by the
+helicity--parity symmetry of \S\ref{ssec:helicity} it carries the mirror
+mode of the conjugate polarization at exactly the same growth rate, so
+studying one side loses no generality.) On the driven side $v=-\Vo$,
+hence $v^3=-\Vo^3$, and the \emph{magnitude} of the drive is
 \begin{equation}
 -g=G(w)\equiv\frac{2\alpha \Vo^3\,w}{\gamma^2+\Vo^2w^2},
-\qquad
-w\equiv\OmA=\kz-u(\xi)
+\qquad w>0 .
 \label{eq:Gdef}
 \end{equation}
---- a function of position only through the local covariant wavenumber
-$w$, which decreases linearly outward from $\kz$ at the layer.
+\end{step}
+
+\begin{step}[Shape of $G$: weak when slow, weak when fast]
+$G$ is the dispersive Lorentzian of \S\ref{ssec:dictionary} in the
+precession frequency $\Vo w$, and its two limits have transparent
+physical readings:
+\begin{itemize}
+\item $\Vo w\ll\gamma$ (slow precession):
+$G\simeq(2\alpha\Vo^3/\gamma^2)\,w\to0$. At $w=0$ the two beams'
+precession frequencies $\pm\Vo w$ both vanish, the beams respond
+identically, and their currents cancel ($q_A-q_B\to0$ in
+\eqref{eq:qdiff}): no beam asymmetry, nothing to feed the wave.
+\item $\Vo w\gg\gamma$ (fast precession): $G\simeq2\alpha\Vo/w\to0$. The
+charges now turn through many radians during one $e$-folding time
+$1/\gamma$ of the wave; their response averages out over the fast
+rotation and little net work is done.
+\end{itemize}
+Between the two limits $G$ must peak --- the resonance, located next.
+\end{step}
 
 \subsection{Resonance and the exact ceiling}
 \label{ssec:resonance}
@@ -1857,11 +2082,13 @@ independent of $\kz$, $\eps$, and window geometry
 \end{step}
 
 \begin{intuition}
-A self-limiting resonance. The beam response is a Lorentzian in the
+A self-limiting resonance. The beam response is a Lorentzian
+(the resonance line shape of \S\ref{ssec:dictionary}) in the
 local precession frequency whose width is set by the growth rate itself
 ($\R=\gamma^2+v^2\OmA^2$): the faster the mode grows, the broader the
-band of precession frequencies it averages over, and the weaker the peak
-drive $G_{\max}=\alpha\Vo^2/\gamma$ it can extract. The ceiling
+band of precession frequencies it averages over --- exactly as a larger
+damping broadens and flattens a classical resonance curve --- and the
+weaker the peak drive $G_{\max}=\alpha\Vo^2/\gamma$ it can extract. The ceiling
 $\gamma^3=\alpha\Vo^2$ is the fixed point of this self-limitation ---
 the mode grows exactly as fast as the drive it leaves itself.
 Equivalently, by \eqref{eq:wstar}: the wave can at best grow as fast as
