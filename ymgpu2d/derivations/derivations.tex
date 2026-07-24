@@ -236,7 +236,16 @@ reduction $\to$ drive/ceiling $\to$ quantization $\to$ dispersion-curve
 consequences $\to$ scalings $\to$ nonlinear/auxiliary theory. Each section
 states which numerical validation anchors it; the ledger is collected in
 Appendix~\ref{app:ledger}. Indented \textcolor{intu}{\textbf{Physical
-picture}} boxes carry the intuition behind each derivation. All figures
+picture}} boxes carry the intuition behind each derivation.
+
+The document aims to be readable by a physics student with no plasma
+background: every term beyond a standard bachelor curriculum, and every
+piece of program-specific shorthand, is either explained at first use or
+carries an explicit back-reference to where it was explained. The
+central vocabulary of the whole theory --- wells, bound states,
+quantization, drive, resonance, Lorentzian --- is built from
+undergraduate material in one place, \S\ref{ssec:dictionary}, once the
+equation it describes has been derived. All figures
 are generated from the formulas derived here by
 \texttt{derivations/make\_figs.py}; the validation figure
 (Fig.~\ref{fig:dispersion}) re-runs the repository's six-field eigensolver
@@ -246,6 +255,20 @@ rather than reusing cached curves.
 \section{From the harmonic-core quantization to the quartic, and the
 $\kz=0$ chromo-Weibel rate}
 \label{sec:quartic}
+
+Orientation. Equation (33) of \texttt{wkb.pdf} --- taken as given,
+\S\ref{ssec:given} --- is a quantization condition of the kind met in a
+first quantum-mechanics course: it fixes the mode frequency $\omega$ by
+demanding that the well near the shear layer, approximated there as a
+perfect parabola (the ``harmonic core'', i.e.\ the quantum harmonic
+oscillator setting; cf.\ \S\ref{ssec:hermite}), hold the $n$-th
+oscillator state. This section does two things with it: clears its
+square roots to obtain a plain fourth-degree polynomial in $\omega$ ---
+the ``WKB quartic'' quoted as $\gamma_{\mathrm{WKB}}$ in every program
+table --- and evaluates the $\kz=0$ limit in closed form, which became
+the single best-validated anchor of the survey era. (Where the quartic
+is and is not trustworthy at finite $\kz$ is diagnosed later, in
+\S\ref{sec:gap}, once the exact theory exists to compare against.)
 
 \subsection{Clearing eq.~(33) to a quartic polynomial}
 \label{ssec:clearing}
@@ -263,8 +286,10 @@ Substitute the definitions \eqref{eq:wkbQ}--\eqref{eq:wkbQ0} into
 \begin{step}
 The square root on the right is resolved as
 $\sqrt{\alpha^3/2}\,\Vo/\omega$. For real positive $\omega$ this is
-elementary; for the complex (growing) roots we are about to find, this
-choice of branch defines the analytic continuation used everywhere in the
+elementary; for the complex (growing) roots we are about to find, one
+must say once and for all \emph{which} of a complex number's two square
+roots is meant --- that is all ``choice of branch'' means --- and this
+choice defines the analytic continuation used everywhere in the
 program (the continuation is fixed by requiring the $\kz=0$ limit below to
 reproduce the direct cubic factorization, which it does). Define the
 constant
@@ -353,7 +378,11 @@ Insert $C$ from \eqref{eq:Cdef} for the fundamental $n=0$:
 
 \begin{remark}[Physical content and validation]
 At $\kz=0$ the unstable channel is a color-mixing filamentation
-(``chromo-Weibel'') mode: the background $\Az$ mixes the color-2 and
+(``chromo-Weibel'') mode. The name: the Weibel instability of ordinary
+plasmas is the break-up of counter-streaming currents into magnetic
+filaments that reinforce the very field bunching them;
+``chromo-'' marks that here the growing field is a color field. In
+detail: the background $\Az$ mixes the color-2 and
 color-3 electromagnetic fields through the non-Abelian Amp\`ere term
 $-\alpha(A_z\times B_y)^a$ and Faraday term $+\alpha(A_z\times E_x)^a$
 (\S\ref{sec:model}), producing $z$-uniform exponentially growing color-2/3
@@ -419,7 +448,9 @@ the one legitimate gauge condition spent here, while the absence of
 $A_y^a$ and $A_x^a$ are two separate statements of a different kind, not a
 second gauge-fixing.
 
-\paragraph{Fluid sector} (each beam; FCT advection):
+\paragraph{Fluid sector} (each beam; advected with FCT ---
+flux-corrected transport, a standard scheme for carrying quantities
+along with a flow without spurious numerical ripples):
 \begin{align}
 &\partial_t n+\nabla\!\cdot\!(n\vec v)=0,
 \label{eq:continuity}\\
@@ -440,7 +471,10 @@ advective form $\dd Q^a/\dd t=\alpha v_z(\vec Q\times\vec A_z)^a$ along
 fluid trajectories, which is what Wong's equation supplies,
 \S\ref{ssec:wong}.)
 
-\paragraph{Field sector} (leapfrog on a Yee stagger):
+\paragraph{Field sector} (integrated ``leapfrog'' on a Yee stagger:
+the standard electromagnetic arrangement in which $E$ and $B$ components
+live at mutually offset grid points and are advanced in alternating
+half-steps; the offsets matter once more in \S\ref{ssec:discrete}):
 \begin{align}
 &\partial_t E_x^a=-\partial_z B_y^a-\alpha\,(\vec A_z\times\vec B_y)^a
 -J_x^a ,
@@ -576,6 +610,13 @@ content the given theory does not have.
 
 \subsection{Derivation of the precession source from Wong's equations}
 \label{ssec:wong}
+
+Wong's equations (S.~K.~Wong, 1970) are the classical equations of
+motion of a point particle that carries a non-Abelian color charge:
+the color generalization of the Lorentz-force law, together with a rule
+stating that the charge vector itself rotates (``precesses'') in the
+background potential --- just as a magnetic moment precesses in a
+magnetic field. Only the rotation rule is needed here.
 
 \begin{step}
 Wong's equation for the color charge of a classical particle moving on a
@@ -970,7 +1011,8 @@ a=A_z^2+\ii A_z^3,\quad
 q_{A,B}=Q^2_{A,B}+\ii Q^3_{A,B},
 \label{eq:circpairs}
 \end{equation}
-each with the ansatz $f(x,z,t)=\hat f(x)\,e^{\ii\kz z+\gamma t}$, i.e.
+each with the ansatz (an \emph{ansatz} is simply an assumed trial form
+for the solution) $f(x,z,t)=\hat f(x)\,e^{\ii\kz z+\gamma t}$, i.e.
 \begin{equation}
 \partial_t\to\gamma,\qquad \partial_z\to\ii\kz .
 \end{equation}
@@ -1286,6 +1328,9 @@ system $\gamma\Psi=L\Psi$, $\Psi=(b,e_x,e_z,a,q_A,q_B)$:
 \subsection{Helicity conjugation and parity}
 \label{ssec:helicity}
 
+(``Helicity'' here means nothing more than which of the two circular
+combinations $f^2\pm\ii f^3$ a mode lives in --- the two senses of
+rotation in the color-$(2,3)$ plane.)
 The conjugate pairs $\bar f=f^{2}-\ii f^{3}$ satisfy \eqref{eq:sixfield}
 with $\Az\to-\Az$ (equivalently $u\to-u$, $\OmA\leftrightarrow\OmF$),
 because \eqref{eq:crosscomplex} acquires the opposite sign of $\ii\Az$
@@ -1384,7 +1429,13 @@ background color-1 rotation; the covariant $z$-derivative
 $D_z=\partial_z\mp\ii\alpha\Az$ gives them effective wavenumbers
 $\kz\pm\alpha A$. The product $\OmA\OmF=(\kz-u)(\kz+u)=\kz^2-u^2$ is
 negative wherever the background shift exceeds the wavenumber, and there
-one polarization becomes \emph{tachyonic}: $\gamma^2>0$. This is the
+one polarization becomes \emph{tachyonic}: $\gamma^2>0$. (About the
+word: ``tachyonic'' is borrowed from relativity, where a tachyon is a
+hypothetical particle with imaginary mass. Operationally it means only
+this: the number playing the role of $\omega^2$ in the local
+oscillation law is negative, so $\omega$ is imaginary and the amplitude
+grows exponentially in time instead of oscillating. Nothing here moves
+faster than light.) This is the
 charged-vector-on-strong-color-background instability of the
 Nielsen--Olesen class (Nielsen \& Olesen 1978), realized here in 2D with
 $A$ playing the role of the strong background field.
@@ -1545,14 +1596,23 @@ resonance structure this implies is made exact in \S\ref{sec:ceiling}.
 \subsection{Airy estimate for wall-bounded outer modes}
 \label{ssec:airy}
 
-Global tachyonic modes live in the annulus between $\xi_{\mathrm{crit}}$
-and the window radius $\xi_w$ (hard cut: Dirichlet wall). Their rates
-follow from a one-dimensional bound-state problem in the local potential
-$U(x)\equiv\gamma_{\mathrm{loc}}^2(x)$, increasing outward:
+The envelope \eqref{eq:gloc} is a pointwise bound; an actual mode must
+have a smooth global profile, and building one costs growth. Global
+tachyonic modes live in the annulus between $\xi_{\mathrm{crit}}$ and
+the window radius $\xi_w$; a hard cut forces all fields to zero at the
+wall (a \emph{Dirichlet} condition --- the fixed end of a string, as
+opposed to the free \emph{Neumann} end met in \S\ref{ssec:discrete}).
+Their rates follow from a problem formally identical to finding the
+ground state of a quantum well (the well/bound-state vocabulary is
+unpacked at leisure in \S\ref{ssec:dictionary}; here only the mechanics
+are needed): in the local potential
+$U(x)\equiv\gamma_{\mathrm{loc}}^2(x)$, increasing outward,
 \begin{equation}
 a''+\bigl(U(x)-\gamma^2\bigr)a=0 ,
 \end{equation}
-with $a=0$ at the wall $x_w$ and decay toward the layer.
+with $a=0$ at the wall $x_w$ and decay toward the layer --- the profile
+oscillates where the local envelope exceeds the sought global rate
+($U>\gamma^2$) and decays where it falls short.
 
 \begin{step}[Linearize at the wall]
 Near $x_w$ write $U(x)=U_w-U'\,(x_w-x)$ with $U_w=U(x_w)$,
@@ -1569,7 +1629,9 @@ $\tau_0=(\gamma^2-U_w)/(U')^{2/3}$:
 \frac{\dd^2a}{\dd\tau^2}=\tau\,a ,
 \end{equation}
 whose solution decaying for $\tau\to+\infty$ (deep inside, where
-$U<\gamma^2$) is $\mathrm{Ai}(\tau)$.
+$U<\gamma^2$) is $\mathrm{Ai}(\tau)$ --- the \emph{Airy function}, the
+standard tabulated solution of the Schr\"odinger problem on a linear
+ramp, which oscillates for $\tau<0$ and dies off for $\tau>0$.
 \end{step}
 
 \begin{step}[Wall condition]
@@ -1618,8 +1680,10 @@ The six-field system \eqref{eq:sixfield} contains only one $x$-derivative
 chain ($e_z'\to b\to b'$); everything else is algebraic. It therefore
 reduces \emph{exactly} to one second-order ODE for the potential amplitude
 $a(x)$. This reduction, verified to machine precision against the ARPACK
-eigenvalues of the discrete six-field operator, is the backbone of the
-exact-action theory.
+eigenvalues of the discrete six-field operator (ARPACK: the standard
+numerical library for computing a few eigenvalues of a large matrix; how
+it is used --- and one way it was once misused --- is spelled out in
+\S\ref{ssec:ladder}), is the backbone of the exact-action theory.
 
 \subsection{Continuum elimination}
 \label{ssec:elimination}
@@ -2559,6 +2623,20 @@ i.e.\ until the returned mode is demonstrably the top rung $n=0$.
 \section{The dispersion curve: confinement-set peak and windowed roll-off}
 \label{sec:peak}
 
+Orientation. The \emph{dispersion curve} is the growth rate as a
+function of wavenumber, $\gamma(\kz)$, at fixed physics
+$(\alpha,\Vo,\eps)$ and fixed window --- the curve every simulation
+campaign measures (Fig.~\ref{fig:dispersion} shows one). Measured
+curves rise with $\kz$, peak, and roll off, and the natural instinct
+is to read the peak as an intrinsic preferred wavelength of the layer,
+the way textbook Kelvin--Helmholtz theory would suggest. The point of
+this section is that the instinct is wrong here: nothing derived so far
+selects a peak (the ceiling of \S\ref{sec:ceiling} is
+$\kz$-independent), and the peak the data show is set by the
+\emph{window} --- the containment radius $\xi_w$ deliberately imposed
+on every run (\S\ref{ssec:units}) --- through a simple geometric
+crossover derived below.
+
 \subsection{No intrinsic $\kz$ maximum}
 \label{ssec:nopeak}
 
@@ -2567,7 +2645,8 @@ resonance surface \eqref{eq:xires} outward as $\kz$ grows: the drive at
 resonance is always $G_{\max}=\alpha\Vo^2/\gamma$, independent of $\kz$,
 so $\gamma(\kz)$ rises monotonically and saturates at the ceiling
 \eqref{eq:ceiling} while the mode migrates outward. Directly demonstrated
-(eigensolver, $\alpha=2$, $\Vo=0.05$, cut $40$): $\gamma$ climbs to
+(eigensolver, $\alpha=2$, $\Vo=0.05$, hard cut at $\xi_w=40$): $\gamma$
+climbs to
 $0.9955\,\Ceil$ by $\kz=10$ with no turnover, mode peak at $\xi=-36$. The
 non-monotonic measured dispersion is therefore \emph{windowed physics},
 not an intrinsic wavelength selection.
@@ -2694,10 +2773,18 @@ to ${\sim}0.95\,\Ceil$ at $\xi_w=5$.
 \section{Shear-width scaling: the quantization budget}
 \label{sec:budget}
 
-How does $\eps$ enter, given that neither the ceiling \eqref{eq:ceiling}
-nor the peak formula \eqref{eq:kzpeak} contains it? Answer: only through
-the \emph{action}, i.e.\ the quantization budget. We nondimensionalize the
-exact action integral step by step. (This underlies the EPS-scan~v2
+How does the shear width $\eps$ enter, given that neither the ceiling
+\eqref{eq:ceiling} nor the peak formula \eqref{eq:kzpeak} contains it?
+Answer: only through the \emph{action} --- the total phase
+$S=\int\sqrt{Q}\,\dd x$ held by the well, defined in the vocabulary
+list of \S\ref{sec:quant}. We call this the quantization \emph{budget}
+because \S\ref{sec:quant} showed the mode must pay a fixed phase toll
+(the connection conditions) to exist at all; $\eps$ controls how much
+phase the well can afford to accumulate. To see this cleanly we
+\emph{nondimensionalize} the exact action integral --- rewrite it in
+the hatted, parameter-free variables of \S\ref{ssec:natural}, so that
+every dependence on $(\alpha,\Vo,\eps)$ collects into one visible
+prefactor --- step by step. (This underlies the EPS-scan~v2
 campaign design and its Phase-0 theory,
 \texttt{analysis/eps\_collapse\_theory.py}.)
 
@@ -2804,6 +2891,14 @@ multiplier on the action.}
 \section{Diagnosis of the WKB quartic's domain of validity}
 \label{sec:gap}
 
+Orientation. The quartic \eqref{eq:quartic} is \S\ref{sec:quartic}'s
+polynomial form of the given harmonic-core theory --- the program's
+original analytic reference, quoted as $\gamma_{\mathrm{WKB}}$ in every
+survey table and used for years as the comparison curve. With the exact
+theory of \S\ref{sec:reduction}--\S\ref{sec:quant} now in hand, we can
+state precisely where the quartic is trustworthy and where it is not,
+by comparing the drive it implicitly assumes with the true drive.
+
 The quartic \eqref{eq:quartic} models the drive as the constant
 $-\alpha^2\Vo\kz/\omega^2$ term of \eqref{eq:wkbQ0} --- one power of $v$
 (from the current), one resonance-free factor $\alpha^2\Vo\kz$. The true
@@ -2834,11 +2929,24 @@ theory of the finite-$\kz$ shear branch; models A/B replace it there.
 \section{Cold two-stream rates in code units}
 \label{sec:twostream}
 
-The counter-streaming beams support, away from the shear layer
-($v_z\to\pm\Vo$), an electrostatic color-1 two-stream instability. Its
-exact cold rates in code units calibrate the bandpass-filter design
-(Appendix~\ref{app:filters}) and were used to test (and reject) the
-outer two-stream as the late-catastrophe driver.
+Orientation. The \emph{two-stream instability} is the oldest
+instability in plasma physics: send two streams of charge through each
+other, and a small charge bunch in one stream pulls on the particles of
+the other, whose regrouping reinforces the original bunch --- a
+feedback loop that grows exponentially (the intuition box at the end of
+this section walks through the loop). Away from the shear layer our two
+beams are exactly such counter-streaming charge streams
+($v_z\to\pm\Vo$), so the model unavoidably contains this instability in
+the color-1 sector, on top of the shear physics being measured. Three
+standard adjectives, spelled out: \emph{electrostatic} --- only the
+electric field responds, no magnetic perturbation; \emph{longitudinal}
+--- the perturbation varies along the same direction ($z$) as the field
+and the streaming; \emph{cold} --- the beams have zero temperature, no
+thermal spread of velocities (temperature is added in
+\S\ref{sec:warm}). The exact cold rates in code units, derived below,
+calibrate the bandpass-filter design (Appendix~\ref{app:filters}) and
+were used to test (and reject) the outer two-stream as the
+late-catastrophe driver.
 
 \subsection{Dispersion relation}
 
@@ -2954,12 +3062,23 @@ at $kV=\sqrt3/2$, band edge at $kV=\sqrt2$
 \section{Nonlinear theory: cavitation threshold and the back-reaction law}
 \label{sec:nonlinear}
 
+Orientation. Everything so far was \emph{linear} theory: perturbations
+small enough that their squares are negligible. This section derives
+the program's two nonlinear results. First, the amplitude at which the
+fluid description itself gives out --- \emph{cavitation}, the wave
+digging the plasma density down to zero, the same word used for the
+vapor cavities behind a ship propeller. Second, what the background
+$\Az$ actually does when it is allowed to evolve (the
+\emph{back-reaction}), which closes the frozen-background ``battery''
+caveat of \S\ref{ssec:energy}.
+
 \subsection{Density cavitation of the finite-amplitude KH mode}
 \label{ssec:cavitation}
 
 The linear eigensolver state vector contains no fluid density/momentum
-blocks; the late-time ``hard wall'' at $\Vo\gtrsim0.08$ is a nonlinear
-fluid effect. Its threshold is derived as follows.
+blocks; the late-time ``hard wall'' at $\Vo\gtrsim0.08$ (program
+shorthand for the reproducible terminal blow-up of high-$\Vo$ runs) is
+a nonlinear fluid effect. Its threshold is derived as follows.
 
 \begin{step}[First-order compressive response]
 Linearize \eqref{eq:continuity} about $n=1$ for a mode
@@ -2973,10 +3092,18 @@ where $k_x^{\mathrm{eff}}$ is the mode's inverse $x$-scale.
 \end{step}
 
 \begin{step}[Second-order (ponderomotive) part]
-Quadratic beats of the mode grow at $2\gamma$ and accumulate a $z$-mean
-density modification; the observed density-perturbation growth at the
-retained $\kz$ at twice the saturating field rate is this quadratic part
-taking over as the fields saturate.
+Two vocabulary items. A \emph{beat} is the product of two oscillating
+factors, which contains their sum and difference wavenumbers; the beat
+of a mode with itself therefore contains a component with zero
+wavenumber --- a $z$-independent (``DC'') part --- and, since each
+factor grows as $e^{\gamma t}$, the product grows at $2\gamma$.
+\emph{Ponderomotive} is the standard name for exactly this kind of
+time-averaged, amplitude-squared push that a wave exerts on the medium
+carrying it (the same effect that lets a focused laser trap particles).
+Here: the quadratic beats of the mode grow at $2\gamma$ and accumulate
+a $z$-mean density modification; the observed density-perturbation
+growth at the retained $\kz$ at twice the saturating field rate is this
+quadratic part taking over as the fields saturate.
 \end{step}
 
 \begin{step}[Cavitation threshold]
@@ -3031,7 +3158,8 @@ localized, growing at $2\gamma$) is derived as follows; the coefficient
 and sign are taken from measurement.
 
 \begin{step}[All color-1 second-order sources are helicity beats]
-For real fields with circular structure
+(``Beat'' in the sense defined in \S\ref{ssec:cavitation}: the product
+of two first-order waves.) For real fields with circular structure
 $X^2=\Rey(\hat Xe^{\ii\kz z})$, $X^3=\Imy(\hat Xe^{\ii\kz z})$, any
 color-1 cross-product source is a beat of two color-2/3 waves, e.g.\ for
 the precession of $Q^1$:
@@ -3106,6 +3234,17 @@ $1.43$--$1.46$ at the reference blow-up).
 \section{Warm isothermal fluid closure}
 \label{sec:warm}
 
+Orientation. A fluid model is obtained from the underlying
+particle-distribution picture by taking velocity \emph{moments}:
+multiply the kinetic equation by $1$, $\vec v$, $v^2,\dots$ and
+integrate over velocities, obtaining equations for density, momentum,
+pressure, and so on. Each moment equation drags in the next one
+(density needs momentum, momentum needs pressure, \dots), so the chain
+must be cut by hand; a \emph{closure} is the assumed rule that cuts it.
+Here we use the simplest: \emph{isothermal}, pressure $P=nT$ with $T$ a
+prescribed constant temperature --- the minimal way to give the beams a
+thermal spread and ask what it changes.
+
 \subsection{Derivation of the pressure source}
 
 Take the first velocity moment of the kinetic equation for beam $s$ with
@@ -3124,18 +3263,22 @@ so the only new term relative to the cold model
 the cold system identically. Linearly, the closure adds the sound term
 $c_s^2=T$ to the fluid response: the two-stream channel of
 \S\ref{sec:twostream} acquires the standard thermal stabilization when
-$v_{\mathrm{th}}=\sqrt T\gtrsim\Vo$ (Landau-fluid analogue of
-$kV<\sqrt2\,\omega_p$ shrinking), which was the intended validation
-target.
+$v_{\mathrm{th}}=\sqrt T\gtrsim\Vo$ --- thermal jitter blurs the charge
+bunching once the random speeds rival the streaming speed, shrinking
+the unstable band \eqref{eq:tsband} --- which was the intended
+validation target.
 
 \subsection{Why it cannot stabilize the $\kz=0$ chromo-Weibel}
 
 The $\kz=0$ mode of \S\ref{ssec:weibel} is a filamentation
 (Weibel-class) instability driven by the momentum-space
-\emph{anisotropy} of the counter-streaming beams. An isotropic scalar
+\emph{anisotropy} of the counter-streaming beams --- their combined
+velocity distribution is two cold spikes at $\pm\Vo$ along $z$, wildly
+elongated in one direction, whereas a temperature $T$ is the same in
+all directions. An isotropic scalar
 pressure $P=nT$ adds a restoring force only along density gradients of
-the compressive response; it does not relax the anisotropy that powers
-filament growth. The scan confirmed this: across
+the compressive response; it does not relax the directional imbalance
+that powers filament growth. The scan confirmed this: across
 $v_{\mathrm{th}}/\Vo=0$--$3$ the final $\kz=0$ amplitude changed by only
 ${\sim}11\%$. (The clean warm-vs-cold validation was subsequently obtained
 on the KH target point itself: with the corrected control, warm-closure
@@ -3144,6 +3287,15 @@ rates match the cold theory at the $1\%$ level, closing T1.4.)
 % ==============================================================================
 \section{Eigenmode seeding theory}
 \label{sec:seeding}
+
+Orientation. A simulation grows whatever its initial condition
+contains, so to measure the growth rate of one particular mode, the run
+must be started as close to that mode's exact profile as possible ---
+this is \emph{seeding}. This section derives what the correct seed
+profile is (\S\ref{ssec:hermite}) and dissects, with measured examples,
+two distinct ways that seeding the wrong profile silently corrupts the
+measurement. The closing intuition box states the single principle
+behind all of it.
 
 \subsection{Hermite ground state of the harmonic core}
 \label{ssec:hermite}
@@ -3156,8 +3308,11 @@ eigenfunctions and eigenvalues are
 a_n(x)=H_n\!\Bigl(\frac{x}{\sigma}\Bigr)\,
 e^{-x^2/2\sigma^2},
 \qquad
-Q_0=(2n+1)\sqrt{|C_1|},
+Q_0=(2n+1)\sqrt{|C_1|}
 \end{equation}
+($H_n$ are the Hermite polynomials of the standard oscillator solution;
+all that matters below is $n=0$, where $H_0=1$ and the eigenfunction is
+a pure Gaussian),
 i.e.\ eq.~\eqref{eq:eq33} \emph{is} the oscillator spectrum, and the
 $n=0$ eigenfunction is the Gaussian
 \begin{equation}
@@ -3212,7 +3367,11 @@ grid (shaded), but with different power laws outside it.}
 
 An $A_z$-only (or $B_y$-only) seed fixes one field's profile and lets the
 activation chain build the others; the projection of that initial
-condition onto the eigenmode basis decides what grows first. Concretely
+condition onto the eigenmode basis decides what grows first. (In plain
+terms: write the initial condition as a weighted sum of the system's
+eigenmodes; each component then grows at its own rate, so the winner is
+decided by initial weight times growth rate, not by the experimenter's
+intent.) Concretely
 (C23): for the target mode at $(\alpha,\Vo,\kz)=(1,0.05,2)$ the $B_y$ and
 $A_z$ profiles peak at different $\xi$ ($1.64$ vs $7.85$); an $A_z$-only
 Gaussian placed correct-for-$A_z$ deposits the charge response at the
@@ -3257,6 +3416,13 @@ first, then seed the intended member of it.
 \section{Helicity projections and the conjugate-extraction identity}
 \label{app:helicity}
 
+This appendix records the projection identities behind the extraction
+pipeline --- the analysis step that pulls a single mode's complex
+amplitude out of simulation output using a discrete Fourier transform
+(DFT: the decomposition of grid data into its sinusoidal
+$z$-components) --- and the sign bug those identities diagnosed.
+Helicity is the circular-pair bookkeeping of \S\ref{ssec:helicity}.
+
 For a circular mode the two real fields are
 \begin{equation}
 A_z^2(x,z)=\Rey\bigl[\hat a(x)e^{\ii\kz z}\bigr],\qquad
@@ -3293,17 +3459,23 @@ single-sign projection loses nothing.
 applies, each step, the projection
 $f\mapsto f-\sum_{k\in\mathcal B}\Pi_kf$, where $\Pi_k$ is the exact DFT
 projector onto $z$-mode $k$ and $\mathcal B=\{1,\dots,k_{\mathrm{lo}}\}
-\cup\{k_{\mathrm{mode}}+1,\dots,k_{\mathrm{hi}}\}$: an idempotent linear
+\cup\{k_{\mathrm{mode}}+1,\dots,k_{\mathrm{hi}}\}$: an idempotent
+(applying it twice does the same as once --- the defining property of a
+projection) linear
 operator that removes the two-stream band \eqref{eq:tsband} while leaving
 the measured mode untouched. The same projector acts on the fluid
 $p_z$'s. (Empirical constraint, recorded not derived: keep
 $k_{\mathrm{hi}}\le N_Z/4.5$ so the projector's stencil does not interact
-with the FCT limiter's near-Nyquist deposits.)
+with the FCT limiter's deposits near the Nyquist scale --- the
+shortest wavelength a grid can represent, two cells.)
 
 \paragraph{Sponge.} \texttt{kernel\_ym\_sponge} adds
 $\partial_tf=-\sigma_s(\xi)f$ with
-$\sigma_s=\sigma\,(|\xi|-\xi_{\mathrm{sponge}})_+$: a non-Hermitian
-absorbing potential. In the eigenproblem it appears as
+$\sigma_s=\sigma\,(|\xi|-\xi_{\mathrm{sponge}})_+$: an absorbing
+potential --- a pure damping term that soaks up waves in the outer
+region instead of letting them reflect, the standard ``absorbing
+boundary'' trick (``non-Hermitian'' flags that it removes energy, which
+no conservative term can). In the eigenproblem it appears as
 $-\sigma_s(\xi)$ on the diagonal of all blocks; it removes the outer
 branch of \S\ref{ssec:tachyon} when $\xi_{\mathrm{sponge}}
 <\xi_{\mathrm{crit}}$ (legitimate, by the battery argument) at the cost
