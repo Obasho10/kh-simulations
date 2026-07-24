@@ -2192,24 +2192,83 @@ geometric fact behind the confinement-set dispersion peak of
 \section{Quantization of the shear branch: models A and B}
 \label{sec:quant}
 
-The well is shallow: the branch holds \emph{less than a quarter
-wavelength} of action at production parameters (measured
-$S=0.31\pi$--$0.46\pi$), so naive Bohr--Sommerfeld $(n+\tfrac12)\pi$
-quantization fails and the connection conditions at the two edges do all
-the work.
+First, orientation: which well, and why ``quantize'' it. The well is
+the object constructed in \S\ref{sec:reduction} --- the region where
+the exact local wavenumber $Q(x;\gamma)$ of \eqref{eq:Qexact} is
+positive, so that the wave profile $a(x)$ oscillates in $x$. It is
+bounded on the outside by the window wall and on the inside by the
+drive shutting off where the shear dies; Fig.~\ref{fig:anatomy} (right
+panel) shows one at a production point. In the dictionary of
+\S\ref{ssec:dictionary}: allowed region = well; a profile that
+oscillates inside it and decays outside it = bound state = the trapped
+growing mode we are after. This family of trapped modes is the
+\emph{shear branch} (in contrast to the tachyonic \emph{outer} branch
+of \S\ref{ssec:tachyon}, which lives beyond $\xi_{\mathrm{crit}}$ and is
+excluded by the window). Section~\ref{sec:ceiling} bounded how fast such
+a mode \emph{could} grow; it did not determine which $\gamma$ is
+actually realized at a given $(\alpha,\Vo,\kz,\text{window})$. That is
+fixed by the matching requirement of the dictionary: the oscillation
+inside the well must join smoothly onto the decay outside, which is
+possible only at special values of $\gamma$. Finding those values is
+all that ``quantization'' means here --- the exact analogue of finding
+the energy levels of a finite square well in a first quantum-mechanics
+course.
+
+Three standard terms, spelled out before use:
+\begin{itemize}
+\item \textbf{Action.} The total phase the wave accumulates in crossing
+the well, $S=\int_{\mathrm{well}}\sqrt{Q}\,\dd x$. It measures how much
+wave fits inside: a full wavelength contributes $2\pi$, so $S=\pi/2$
+means the well holds a quarter wavelength, $S=\pi$ half a wavelength,
+and so on.
+\item \textbf{Bohr--Sommerfeld rule.} The textbook WKB result that a
+deep well with two smooth (``soft'') edges holds its $n$-th bound state
+when $S=(n+\tfrac12)\pi$; the $\tfrac12$ is the sum of two $\pi/4$
+phase corrections, one contributed by each soft edge. It presupposes a
+well roomy enough to hold at least that much phase.
+\item \textbf{Connection conditions.} The bookkeeping at each edge of
+the well: the solution's value and slope must be continuous there, and
+the \emph{type} of edge --- hard wall, sharp step, or soft turning
+point (a point where $Q$ crosses zero with finite slope) --- dictates
+the phase with which the interior oscillation must arrive at it.
+\end{itemize}
+
+With the vocabulary in place, the one-sentence summary of the section:
+\emph{the well is shallow.} At production parameters the measured
+action is only $S=0.31\pi$--$0.46\pi$ --- \emph{less than a quarter
+wavelength} --- so the Bohr--Sommerfeld rule cannot even be applied
+(there is no room for $(n+\tfrac12)\pi$), and the connection conditions
+at the two edges do all the work instead. The two models developed
+below are two levels of care in applying them: model A
+(\S\ref{ssec:modelA}) idealizes the well as a rectangle and closes
+everything in one analytic formula; model B (\S\ref{ssec:modelB}) keeps
+the exact well shape and solves the matching condition numerically.
+Throughout, $n$ labels the rungs of the resulting ladder of solutions:
+$n=0$ is the fastest-growing (\emph{dominant}) mode, whose profile has
+no zero-crossings inside the well (``nodeless''), and each higher $n$
+--- an \emph{overtone} --- fits one extra half-wave into the well and
+grows more slowly (\S\ref{ssec:ladder}).
 
 \subsection{Geometry of the well}
 \label{ssec:wellgeom}
 
-Fix the driven side ($\xi<0$ for the $2+\ii3$ pair). Moving inward from
-the wall:
+Fix the driven side of the layer ($\xi<0$ for the $2+\ii3$
+polarization, by the sign bookkeeping of \S\ref{ssec:G}). Moving inward
+from the wall, the well has the following parts:
 \begin{itemize}
-\item \textbf{Outer edge}: the window radius $\xi_w$ (hard cut $\to$
-zero-flux/Neumann face for $a$, \S\ref{ssec:discrete}); or, if the window
-is loose, the free turning point where $G$ falls back to $\gamma^2$
-(at $w=\hat w_-$ side, eq.~\eqref{eq:welledges}).
+\item \textbf{Outer edge}: the window radius $\xi_w$. A hard cut acts
+on the mode side as a \emph{zero-flux (Neumann) face}
+(\S\ref{ssec:discrete}): the slope of the profile vanishes there,
+$a'=0$, so the mode meets the wall with an antinode --- a maximum of
+$|a|$, like the open end of an organ pipe. If instead the window is
+loose --- so wide that the drive gives out before the wall is reached
+--- the outer edge is a \emph{free turning point}: the position where
+$Q$ falls through zero because $G$ has dropped back to $\gamma^2$ (the
+$w=\hat w_-$ edge of \eqref{eq:welledges}).
 \item \textbf{Inner edge}: the ``knee'' $\xi_0$ where the $v^3$ factor
-switches the drive off over $\lesssim1$ $\xi$-unit. Since
+of the drive (the three powers of $v$ dissected in
+\S\ref{ssec:anatomy}) switches off over $\lesssim1$ $\xi$-unit as the
+shear $v=\Vo\tanh\xi$ dies toward the layer center. Since
 $g=-G\,|\tanh\xi|^3$ near the layer-side edge of the saturated region, the
 well ends where
 \begin{equation}
@@ -2220,13 +2279,19 @@ G\,|\tanh\xi_0|^3=\gamma^2
 \end{equation}
 giving $\xi_0\approx1.4$--$2$ at production parameters (the code's model~A
 uses the fixed representative $\xi_0=1.5$).
-\item \textbf{Interior}: $Q>0$ from \eqref{eq:Qexact}. In the
-window-limited regime relevant near the dispersion peak, $u\ll\kz$ across
-the well, so $\D\approx\gamma^2+\kz^2$ and $G\approx G(\kz)$ vary by
-$<5\%$ across the well --- the numerically confirmed \emph{square-well
-regime}.
-\item \textbf{Beyond the inner edge} ($|\xi|<\xi_0$): $g\to0$, so
-$Q\to-\D\approx-(\gamma^2+\kz^2)$: evanescent with decay constant
+\item \textbf{Interior}: the allowed region, $Q>0$ from
+\eqref{eq:Qexact}. In the window-limited regime relevant near the
+dispersion peak the well sits close to the layer, where the covariant
+shift is still small ($u\ll\kz$); then $\D\approx\gamma^2+\kz^2$ and
+$G\approx G(\kz)$ vary by $<5\%$ across the well. The coefficients of
+the ODE are effectively constant --- the situation of the textbook
+finite \emph{square} well, hence the name \emph{square-well regime}
+(numerically confirmed at the production points).
+\item \textbf{Beyond the inner edge} ($|\xi|<\xi_0$): the drive is
+gone, $g\to0$, so $Q\to-\D\approx-(\gamma^2+\kz^2)<0$ --- a forbidden
+region, where the profile cannot oscillate but only die off
+exponentially (\emph{evanescent}), $a\propto e^{-\kappa s}$ with $s$
+the distance into the region and decay constant
 \begin{equation}
 \kappa=\sqrt{\gamma^2+\kz^2}\;\approx\kz .
 \label{eq:kappa}
@@ -2238,16 +2303,21 @@ $Q\to-\D\approx-(\gamma^2+\kz^2)$: evanescent with decay constant
 
 \begin{step}[Interior solution]
 Let $k_x=\sqrt{Q}$ (constant in the square-well regime) and measure
-distance $s$ inward from the outer wall. The Neumann face ($a'=0$ at
-$s=0$) selects
+distance $s$ inward from the outer wall. Inside the well the general
+solution is a combination of $\cos(k_xs)$ and $\sin(k_xs)$; of the two,
+only the cosine has zero slope at $s=0$, so the Neumann face ($a'=0$ at
+$s=0$, \S\ref{ssec:wellgeom}) selects
 \begin{equation}
 a(s)=\cos(k_xs).
 \end{equation}
 \end{step}
 
 \begin{step}[Log-derivative at the inner edge]
-At the inner edge $s=\Delta$ (well width), with total action
-$S=k_x\Delta$:
+Matching value and slope across an edge, when each side carries an
+arbitrary overall normalization, is done most economically by matching
+the single ratio $a'/a$ (the \emph{logarithmic derivative}), from which
+the normalizations cancel. At the inner edge $s=\Delta$ (well width),
+with total action $S=k_x\Delta$:
 \begin{equation}
 \frac{a'}{a}\bigg|_{s=\Delta^-}=-k_x\tan S .
 \end{equation}
@@ -2255,9 +2325,14 @@ $S=k_x\Delta$:
 
 \begin{step}[Evanescent side]
 For $s>\Delta$ the solution decaying toward the layer is
-$a\propto e^{-\kappa(s-\Delta)}$, with $a'/a=-\kappa$. The drive switches
-off over a distance short compared with $2\pi/k_x$ (the ``sharp step''),
-so $a$ and $a'$ are continuous across it:
+$a\propto e^{-\kappa(s-\Delta)}$ \eqref{eq:kappa}, with $a'/a=-\kappa$.
+Both $a$ and $a'$ are continuous at the edge --- a second-order ODE
+with finite coefficients cannot support a jump in either --- and
+because the drive switches off over a distance short compared with the
+interior wavelength $2\pi/k_x$, the coefficient change may be idealized
+as a discontinuity (the ``sharp step''), contributing no phase of its
+own (unlike the soft turning points met in \S\ref{ssec:modelB}).
+Equating the two log-derivatives:
 \begin{equation}
 -k_x\tan S=-\kappa
 \qquad\Longrightarrow\qquad
@@ -2277,7 +2352,8 @@ Fig.~\ref{fig:quant}.
 \begin{intuition}
 A quarter-wave well. The condition is not ``fit $n+\tfrac12$ waves in
 the well'' but ``match one shallow cosine arc to its evanescent tail'':
-a surface-mode-like state. This marginality explains two robust
+a surface-mode-like state (a wave clinging to an interface rather than
+filling a cavity). This marginality explains two robust
 observations at once. First, why measured rates hug the ceiling:
 lowering $\gamma$ deepens the well quickly (both $G$ and $Q$ rise), so
 only a small drop below the ceiling buys all the action the connection
@@ -2298,9 +2374,13 @@ analytically.
 (i) $u\ll\kz$ over the well, so $w\approx\kz$ and the drive is the
 \emph{Doppler-detuned} value
 \begin{equation}
-G=G(\kz)=\frac{2\alpha\Vo^3\kz}{\gamma^2+\Vo^2\kz^2};
+G=G(\kz)=\frac{2\alpha\Vo^3\kz}{\gamma^2+\Vo^2\kz^2}
 \label{eq:GofK}
 \end{equation}
+--- ``detuned'' in the resonance sense of \S\ref{ssec:resonance}: the
+well sits where the beams precess at $\Vo\kz$, which is generally
+\emph{not} the resonant value $\Vo w^*=\gamma$, so the mode runs on the
+off-peak value of the Lorentzian drive rather than on $G_{\max}$;
 (ii) $\D\approx\gamma^2+\kz^2$ constant;
 (iii) well width $\Delta x=\eps\,(\xi_w-\xi_0)$ with $\xi_0=1.5$.
 \end{step}
@@ -2394,17 +2474,28 @@ the \emph{inner} edge; $\kappa=\sqrt{\gamma^2+\kz^2}$;
 \label{eq:phases}
 \end{equation}
 with an additional $+\pi/4$ if the outer edge is a free turning point
-rather than the wall, plus $n\pi$ for overtones. The $\pi/4$ terms are the standard Airy
-connection phases at first-order turning points (the linear-turning-point
-matched asymptotics that replace the sharp-step matching of
-\S\ref{ssec:connection}); the Neumann wall contributes phase $0$ (cosine
-antinode at the wall, exactly as in \eqref{eq:tanS}).
+rather than the wall, plus $n\pi$ for overtones. Where the $\pi/4$
+comes from: at a \emph{soft} edge --- $Q$ crossing zero with finite
+slope rather than jumping --- the wave leaks a finite distance into the
+forbidden region before dying away, and the standard matched-asymptotics
+result (obtained with the same Airy functions used at the wall in
+\S\ref{ssec:airy}; any quantum-mechanics text derives it under ``WKB
+connection formulas'') is that the interior oscillation must arrive at
+such an edge carrying an extra $\pi/4$ of phase. This is precisely the
+origin of the $\tfrac12$ in the Bohr--Sommerfeld rule quoted at the top
+of this section: a deep well with two soft edges collects
+$2\times\pi/4$. Our well replaces one or both soft edges by sharp ones
+--- the Neumann wall contributes phase $0$ (cosine antinode at the
+wall, exactly as in \eqref{eq:tanS}), and the sharp inner step
+contributes the $\arctan$ of \eqref{eq:tanS} instead of $\pi/4$ ---
+which is why the standard rule does not apply here.
 \item solve $S(\gamma)=\Phi(\gamma)$, scanning $\gamma$ downward from just
 below the ceiling so the first bracket found is $n=0$.
 \end{enumerate}
 Validation: across 12 series spanning $\alpha=1$--$5$, $\Vo=0.03$--$0.2$,
 windows $\xi_w=5$--$40$, $\kz=0.5$--$10$, model B matches the
-$\sigma$-chased dominant ($n=0$) six-field eigenvalues to $\le2\%$ (median
+$\sigma$-chased (the eigenvalue-selection safeguard explained in
+\S\ref{ssec:ladder}) dominant ($n=0$) six-field eigenvalues to $\le2\%$ (median
 $\le0.2\%$) at every $\kz\ge1.5$; the worst deviations ($6$--$9\%$) occur
 at $\kz\lesssim1$ where the well is widest and least square.
 Figure~\ref{fig:dispersion} shows this comparison, regenerated from
@@ -2432,26 +2523,38 @@ peak location matches eq.~\eqref{eq:kzpeak}: $0.1\times(11-\ln2)+3.42
 \subsection{Overtone ladder and eigenvalue-selection hygiene}
 \label{ssec:ladder}
 
-With $S(\gamma)$ decreasing in $\gamma$, the roots of
-$S(\gamma)=\Phi+n\pi$ form a ladder $\gamma_0>\gamma_1>\dots$ with spacing
+The action $S(\gamma)$ decreases as $\gamma$ increases (a faster-growing
+mode has a shallower well: both $G-\gamma^2$ and $Q$ shrink,
+\S\ref{ssec:resonance}), so the equation $S(\gamma)=\Phi+n\pi$ has one
+root per $n$, forming a ladder $\gamma_0>\gamma_1>\dots$ --- the $n$-th
+rung fitting $n$ extra half-waves into the well, as anticipated at the
+top of the section --- with spacing
 \begin{equation}
 \Delta\gamma\simeq\frac{\pi}{|\partial S/\partial\gamma|},
 \label{eq:ladderspacing}
 \end{equation}
-a few $\times10^{-2}\,$TU$^{-1}$ at loose windows. A shift-invert
-eigensolver returns the eigenvalue nearest its target $\sigma$; the
-legacy default $\sigma=0.55\,\gamma_{\mathrm{WKB}}(\text{quartic})$ lands
-mid-ladder wherever the quartic underestimates (low $\alpha$, or $\kz$
-above the quartic's peak), silently selecting an overtone. Consequence
-(referee-critical, discovered via this theory): at
-$(\alpha,\Vo,\kz)=(1,0.05,4)$, window 20, the dominant mode has
-$\gamma=0.134$ but default-$\sigma$ returned $0.106$ and the cached survey
-curve carried $0.082$ --- an $n\approx3$ overtone; the eigenmode-seeded
-simulation then faithfully grew the overtone it was seeded with
-(plateau-audited $0.081$). \emph{Simulation-vs-solver agreement certifies
+a few $\times10^{-2}\,$TU$^{-1}$ at loose windows: the rungs sit close
+together. That spacing matters because of how large eigenvalue problems
+are solved in practice. A library such as ARPACK does not return all
+$6N$ eigenvalues of the discretized six-field system; it is handed a
+target value $\sigma$ --- a guess at the answer --- and returns the
+eigenvalue \emph{nearest that guess} (``shift-invert'' mode). If the
+guess happens to land closer to rung $n=3$ than to rung $n=0$, the
+solver hands back the overtone: correctly converged, numerically
+impeccable, and silently the wrong mode. Exactly this happened. The
+legacy default guess $\sigma=0.55\,\gamma_{\mathrm{WKB}}(\text{quartic})$
+lands mid-ladder wherever the quartic underestimates (low $\alpha$, or
+$\kz$ above the quartic's peak). Consequence (referee-critical,
+discovered via this theory): at $(\alpha,\Vo,\kz)=(1,0.05,4)$, window
+20, the dominant mode has $\gamma=0.134$ but default-$\sigma$ returned
+$0.106$, and the cached survey curve carried $0.082$ --- an $n\approx3$
+overtone; the eigenmode-seeded simulation then faithfully grew the
+overtone it was seeded with ($0.081$, confirmed on a stable
+fit-window plateau). \emph{Simulation-vs-solver agreement certifies
 numerics, not dominant-mode selection.} All reference data now use
-$\sigma$-chasing (re-shifting $\sigma$ upward until the found window is
-clear).
+$\sigma$-chasing: re-solving with the target $\sigma$ shifted upward,
+repeatedly, until no faster eigenvalue appears above the one found ---
+i.e.\ until the returned mode is demonstrably the top rung $n=0$.
 % ==============================================================================
 \section{The dispersion curve: confinement-set peak and windowed roll-off}
 \label{sec:peak}
